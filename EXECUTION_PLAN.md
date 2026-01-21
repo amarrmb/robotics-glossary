@@ -21,7 +21,7 @@ Each file needs:
 #### Priority 1: NVIDIA Stack (Our Differentiator)
 | File | Status | Key Validation Points |
 |------|--------|----------------------|
-| `hardware/compute/jetson-orin.mdx` | 🔴 | JetPack 6.x LTS status, verify Thor migration guide exists |
+| `hardware/compute/jetson-orin.mdx` | ✅ | JetPack 6.x LTS status, verify Thor migration guide exists |
 | `hardware/compute/jetson-thor.mdx` | 🔴 | Verify specs (Thor was announced but check GA status) |
 | `hardware/compute/dgx-spark.mdx` | 🔴 | Announced GTC 2025, verify availability/specs |
 | `software/isaac/isaac-ros.mdx` | 🔴 | Isaac ROS 3.2 → check if 4.0 is out, NITROS changes |
