@@ -1,0 +1,186 @@
+---
+title: Coordinate Frames
+description: Reference frames and how robots understand position in space
+last_validated: 2026-01-21
+sidebar:
+  badge:
+    text: Practical
+    variant: success
+---
+
+import { Aside, Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+<span class="level-badge practical">Practical</span>
+
+**Coordinate frames** (or reference frames) are the foundation for how robots understand position in space. A frame consists of an origin point and three orthogonal axes (x, y, z) that define directions of measurement. Every position, velocity, or orientation in robotics is defined *relative to some frame*.
+
+<Aside type="tip">
+Always ask: "What frame is this measurement in?" — a position only makes sense when you know the reference frame.
+</Aside>
+
+## What Is a Coordinate Frame?
+
+A coordinate frame defines:
+- An **origin** — the (0, 0, 0) point where measurements start
+- Three **orthogonal axes** — x, y, z directions
+- A **handedness** — typically right-handed in robotics
+
+```
+         z (up)
+         │
+         │
+         │
+         ●───────► y (left)
+        /origin
+       /
+      ↙
+     x (forward)
+
+  Right-Hand Rule (ROS Convention)
+```
+
+Frames can be **fixed** (attached to the world) or **moving** (attached to a robot or sensor).
+
+## Why Frames Matter
+
+- **Sensors report locally**: A camera sees objects in *its* frame — you must transform to the robot frame to act
+- **Multiple perspectives**: "1 meter to the left" depends on *whose* left
+- **Kinematic chains**: Robot arms have frames for each link: base → link1 → link2 → gripper
+- **Sensor fusion**: Without consistent frames, you can't combine data from multiple sensors
+
+## Standard Frames in Robotics
+
+```
+map                    ← World-fixed (SLAM corrected)
+ └── odom              ← Robot starting point (drifts over time)
+      └── base_link    ← Robot body center
+           ├── camera_link
+           │    └── camera_optical_frame
+           ├── lidar_link
+           └── arm_base
+                └── ... → gripper_link
+```
+
+| Frame | Description | ROS Name |
+|-------|-------------|----------|
+| World/Map | Fixed global reference, does not move | `map` |
+| Odometry | Tracks motion from start, continuous but drifts | `odom` |
+| Robot Base | Attached to robot body, moves with robot | `base_link` |
+| Sensor | Local to each sensor (camera, LiDAR, IMU) | `*_link` |
+| End-Effector | At gripper or tool tip | `gripper_link` |
+
+<Aside type="caution">
+Camera optical frames use z-forward, y-down — different from robot conventions. Always check sensor frame orientations.
+</Aside>
+
+## Frame Conventions
+
+Different systems use different axis conventions:
+
+```
+Convention    X-axis     Y-axis     Z-axis     Used By
+───────────────────────────────────────────────────────
+FLU (ROS)     Forward    Left       Up         ROS, ground robots
+FRD           Forward    Right      Down       PX4, aircraft
+NED           North      East       Down       Aviation, GPS
+ENU           East       North      Up         Geographic systems
+Camera        Right      Down       Forward    Computer vision
+USD/Graphics  Right      Up         -Forward   NVIDIA Isaac, Blender
+```
+
+<Aside>
+ROS follows **REP-103** (units/conventions) and **REP-105** (mobile robot frames). When integrating with Isaac Sim or other systems, you may need coordinate conversions.
+</Aside>
+
+## TF2: The Frame Tree
+
+ROS 2 uses TF2 to manage frames as a **directed tree**:
+- Each frame has exactly one parent (except the root)
+- No cycles — unambiguous path between any two frames
+- Time-buffered — query where a frame *was* at a past time
+
+### Static vs Dynamic
+
+- **Static transforms** (`/tf_static`): Fixed relationships like sensor mounts
+- **Dynamic transforms** (`/tf`): Changing relationships like odometry or joint positions
+
+## Working with Frames
+
+### Visualize the Frame Tree
+
+```bash
+# Generate PDF of current transform tree
+ros2 run tf2_tools view_frames
+
+# Print transform between two frames
+ros2 run tf2_ros tf2_echo map base_link
+```
+
+### Publish a Static Frame
+
+```bash
+ros2 run tf2_ros static_transform_publisher \
+    --x 0.1 --y 0.0 --z 0.2 \
+    --roll 0.0 --pitch 0.0 --yaw 0.0 \
+    --frame-id base_link \
+    --child-frame-id camera_link
+```
+
+### Query Frames in Python
+
+```python
+import rclpy
+from rclpy.time import Time
+from tf2_ros import Buffer, TransformListener
+
+rclpy.init()
+node = rclpy.create_node('frame_query')
+tf_buffer = Buffer()
+tf_listener = TransformListener(tf_buffer, node)
+
+# Spin briefly to receive transforms
+rclpy.spin_once(node, timeout_sec=1.0)
+
+# Check if transform exists
+can_transform = tf_buffer.can_transform('map', 'base_link', Time())
+print(f"Can transform map→base_link: {can_transform}")
+
+# List all known frames
+print(tf_buffer.all_frames_as_yaml())
+```
+
+## Common Mistakes
+
+1. **Wrong frame assumption**: Data is in a different frame than expected
+2. **Forgetting camera conventions**: Optical frames are oriented differently
+3. **Ignoring time**: Transforms change — use the correct timestamp
+4. **Mixing conventions**: ROS uses meters/radians, other systems may differ
+
+## Related Terms
+
+<CardGrid>
+  <LinkCard
+    title="Transforms"
+    description="Mathematical operations to convert between frames"
+    href="/robotics-glossary/concepts/fundamentals/transforms/"
+  />
+  <LinkCard
+    title="Kinematics"
+    description="Computing positions through kinematic chains"
+    href="/robotics-glossary/concepts/fundamentals/kinematics/"
+  />
+</CardGrid>
+
+## Learn More
+
+- [TF2 Introduction Tutorial](https://docs.ros.org/en/rolling/Tutorials/Intermediate/Tf2/Introduction-To-Tf2.html) — Official ROS 2 TF2 tutorial
+- [Nav2 Transform Setup](https://docs.nav2.org/setup_guides/transformation/setup_transforms.html) — Practical frame setup for navigation
+- [Articulated Robotics TF Tutorial](https://articulatedrobotics.xyz/tutorials/ready-for-ros/tf/) — Beginner-friendly walkthrough
+
+## Sources
+
+- [REP-103: Standard Units of Measure and Coordinate Conventions](https://www.ros.org/reps/rep-0103.html)
+- [REP-105: Coordinate Frames for Mobile Platforms](https://www.ros.org/reps/rep-0105.html)
+- [TF2 Concepts (ROS 2 Humble)](https://docs.ros.org/en/humble/Concepts/Intermediate/About-Tf2.html)
+- [Isaac Sim Conventions](https://docs.isaacsim.omniverse.nvidia.com/latest/reference_material/reference_conventions.html)
+- [Engineering LibreTexts: Coordinate Systems and Frames](https://eng.libretexts.org/Bookshelves/Mechanical_Engineering/Introduction_to_Autonomous_Robots_(Correll)/03:_Forward_and_Inverse_Kinematics/3.01:_Coordinate_Systems_and_Frames_of_Reference)
