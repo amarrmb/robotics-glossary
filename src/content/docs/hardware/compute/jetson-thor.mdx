@@ -1,7 +1,7 @@
 ---
 title: Jetson Thor
 description: NVIDIA's flagship edge AI supercomputer for humanoid robots and advanced autonomous systems (2025+)
-last_validated: 2026-01-20
+last_validated: 2026-01-21
 sidebar:
   badge:
     text: Practical
@@ -15,7 +15,7 @@ import { Aside, Card, CardGrid, LinkCard, Tabs, TabItem } from '@astrojs/starlig
 **Jetson Thor** is NVIDIA's most powerful edge AI computing platform, purpose-built for humanoid robots, autonomous vehicles, and advanced robotics requiring datacenter-class AI at the edge. Announced at GTC 2024, Thor delivers up to 2,070 FP4 TFLOPS with native Transformer Engine support.
 
 <Aside type="tip" title="Current Status">
-Jetson Thor developer kits ($3,499) and T5000 modules ($2,999) are generally available since August 2025. JetPack 7.1 is the latest SDK. T4000 modules ($1,999) available Q2 2026.
+Jetson Thor developer kits ($3,499) and T5000 modules ($2,999) are generally available since August 2025. JetPack 7.1 is the latest SDK. T4000 modules ($1,999) available January 2026.
 </Aside>
 
 ## Why Thor?
@@ -38,7 +38,7 @@ Thor represents a generational leap designed specifically for the **foundation m
 | CPU | 14-core Arm Neoverse V3AE @ 2.6 GHz | 12-core Arm Neoverse V3AE |
 | Memory | 128GB LPDDR5X unified | 64GB LPDDR5X unified |
 | Memory Bandwidth | 273 GB/s | 273 GB/s |
-| Power | 40W - 130W (configurable) | 40W - 75W |
+| Power | 40W - 130W (configurable) | 40W - 70W |
 | Process | 4nm | 4nm |
 
 ## Architecture
@@ -190,7 +190,7 @@ The Transformer Engine automatically manages FP8/FP16 precision, achieving 2x th
 
 1. **Simulate in Isaac Sim**: Train and validate with Omniverse digital twin
 2. **Develop on DGX Spark**: Use desktop supercomputer for model development
-3. **Deploy to Thor**: Seamless transition with JetPack 7.0 compatibility
+3. **Deploy to Thor**: Seamless transition with JetPack 7.1 compatibility
 4. **Scale with OSMO**: Orchestrate fleets across edge and cloud
 
 ## Getting Started
