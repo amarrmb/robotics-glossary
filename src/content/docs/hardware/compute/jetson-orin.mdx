@@ -1,7 +1,7 @@
 ---
 title: Jetson Orin
 description: NVIDIA's edge AI platform for robotics, in active production with LTS through 2032
-last_validated: 2026-01-20
+last_validated: 2026-01-21
 sidebar:
   badge:
     text: Practical
@@ -24,14 +24,14 @@ All Orin modules are in active production with LTS extended through January 2032
   <TabItem label="AGX Orin">
     **Jetson AGX Orin** — The flagship module
 
-    | Spec | Value |
-    |------|-------|
-    | AI Performance | 275 TOPS (INT8) |
-    | GPU | Ampere, 2048 CUDA cores, 64 Tensor cores |
-    | CPU | 12-core Arm Cortex-A78AE |
-    | Memory | 32GB or 64GB LPDDR5 |
-    | Power | 15W - 60W (configurable) |
-    | Status | Long-term support |
+    | Spec | 64GB | 32GB |
+    |------|------|------|
+    | AI Performance | 275 TOPS (INT8) | 200 TOPS (INT8) |
+    | GPU | 2048 CUDA cores, 64 Tensor cores | 1792 CUDA cores, 56 Tensor cores |
+    | CPU | 12-core Arm Cortex-A78AE | 8-core Arm Cortex-A78AE |
+    | Memory | 64GB LPDDR5 | 32GB LPDDR5 |
+    | Power | 15W - 60W | 15W - 40W |
+    | Status | Long-term support | Long-term support |
 
     **Best for**: Production deployments, multi-sensor fusion, existing Orin-based designs
   </TabItem>
@@ -124,9 +124,9 @@ All Orin modules are in active production with LTS extended through January 2032
     ```bash
     # JetPack 7.x - Latest features (Primary target: Thor)
     # Ubuntu 24.04, CUDA 13.0, Linux Kernel 6.8
-    # Orin support planned for 2026
+    # Orin support expected in JetPack 7.2 (Q1 2026)
     ```
-    Primary target is Jetson Thor; Orin support coming later.
+    Primary target is Jetson Thor; Orin support expected in JetPack 7.2.
   </TabItem>
 </Tabs>
 
@@ -229,6 +229,7 @@ sudo jetson_clocks
 ## Sources
 
 - [NVIDIA Jetson Orin](https://www.nvidia.com/en-us/autonomous-machines/embedded-systems/jetson-orin/) — Official specifications
+- [NVIDIA AGX Orin Technical Brief](https://www.nvidia.com/content/dam/en-zz/Solutions/gtcf21/jetson-orin/nvidia-jetson-agx-orin-technical-brief.pdf) — AGX Orin 64GB/32GB variant specifications
 - [NVIDIA JetPack SDK](https://developer.nvidia.com/embedded/jetpack) — Current JetPack 6.2.1 versions
 - [JetPack 6.2 Super Mode Blog](https://developer.nvidia.com/blog/nvidia-jetpack-6-2-brings-super-mode-to-nvidia-jetson-orin-nano-and-jetson-orin-nx-modules/) — Super Mode feature details
 - [Jetson Product Lifecycle](https://developer.nvidia.com/embedded/lifecycle) — LTS extended through January 2032
