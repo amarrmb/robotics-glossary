@@ -153,6 +153,7 @@ degrees-of-freedom → coordinate-frames → transforms → tf2 → urdf → nav
 | Entry | Status | Created | Notes |
 |-------|--------|---------|-------|
 | `concepts/fundamentals/transforms.mdx` | ✅ Complete | 2026-01-21 | P0 foundation for robotics math |
+| `concepts/fundamentals/coordinate-frames.mdx` | ✅ Complete | 2026-01-21 | P0 prerequisite for TF2 |
 
 ### Week 3-4: New Critical Content
 - [x] Write `transforms.mdx` and `coordinate-frames.mdx`
