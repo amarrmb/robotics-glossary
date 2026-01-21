@@ -5,6 +5,7 @@ sidebar:
   badge:
     text: Deep Dive
     variant: tip
+last_validated: 2026-01-20
 ---
 
 <span class="level-badge deepdive">Deep Dive</span>
@@ -93,29 +94,22 @@ Formulate path as optimization problem.
 
 ## NVIDIA cuMotion
 
-NVIDIA's Isaac platform includes **cuMotion** for GPU-accelerated motion planning:
+NVIDIA's Isaac platform includes **cuMotion** for GPU-accelerated motion planning. It integrates as a MoveIt 2 plugin, using the cuRobo backend for parallel trajectory optimization:
 
-```python
-from isaac_ros_cumotion import CumotionPlanner
-
-# Initialize planner with robot URDF
-planner = CumotionPlanner(
-    robot_urdf="franka.urdf",
-    world_model=collision_world,
-)
-
-# Plan path
-trajectory = planner.plan(
-    start_joints=current_joints,
-    goal_pose=target_pose,
-    num_seeds=32,  # Parallel planning seeds
-)
+```yaml
+# MoveIt 2 configuration for cuMotion plugin
+planning_plugin: cumotion/CumotionPlanner
+request_adapters:
+  - default_planner_request_adapters/AddTimeOptimalParameterization
+  - default_planner_request_adapters/FixWorkspaceBounds
+planning_scene_monitor_options:
+  publish_planning_scene: true
 ```
 
 **Key advantages:**
 - Plans 1000s of trajectories in parallel on GPU
 - Real-time replanning for dynamic environments
-- Integrates with Isaac ROS and MoveIt
+- Integrates with Isaac ROS 3.2 and MoveIt 2
 
 ## Practical Considerations
 
@@ -172,3 +166,11 @@ When obstacles move:
 - [SLAM](/robotics-glossary/concepts/perception/slam/) — Building maps for planning
 - [PID Control](/robotics-glossary/concepts/control/pid/) — Executing planned trajectories
 - [ROS 2](/robotics-glossary/software/frameworks/ros2/) — MoveIt 2 integration
+
+## Sources
+
+- [MoveIt 2 Documentation](https://moveit.ai/) — Motion planning framework and installation
+- [OMPL Library](https://ompl.kavrakilab.org/) — Sampling-based planning algorithms
+- [NVIDIA Isaac Sim cuMotion](https://docs.isaacsim.omniverse.nvidia.com/5.1.0/manipulators/manipulators_curobo.html) — GPU-accelerated motion planning
+- [Drake](https://drake.mit.edu/) — Optimization-based planning from Toyota Research Institute
+- [Tesseract](https://github.com/tesseract-robotics/tesseract) — Industrial motion planning framework
