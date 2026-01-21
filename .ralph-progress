@@ -13,3 +13,4 @@ validate:concepts/fundamentals/degrees-of-freedom.mdx
 validate:concepts/control/motion-planning.mdx
 validate:concepts/control/pid.mdx
 validate:concepts/ai/neural-networks.mdx
+validate:concepts/ai/reinforcement-learning.mdx
