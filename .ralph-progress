@@ -20,3 +20,4 @@ create:software/ros2/tf2.mdx
 create:software/ros2/nav2.mdx
 create:software/ros2/moveit2.mdx
 create:software/ros2/urdf-xacro.mdx
+create:software/nvidia/cumotion.mdx
