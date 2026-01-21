@@ -1,6 +1,7 @@
 ---
 title: ROS 2
 description: Robot Operating System 2 — the open-source middleware framework for robotics software
+last_validated: 2026-01-20
 sidebar:
   badge:
     text: Practical
@@ -14,8 +15,9 @@ import { Aside, Card, CardGrid, LinkCard, Tabs, TabItem, Steps } from '@astrojs/
 **ROS 2 (Robot Operating System 2)** is an open-source robotics middleware that provides tools, libraries, and conventions for building robot applications. Despite its name, it's not an operating system but a framework that runs on top of Linux (primarily), Windows, and macOS.
 
 <Aside type="note" title="Current Versions">
-- **Humble Hawksbill** (LTS until 2027) — Recommended for production
-- **Jazzy Jalisco** (2024) — Latest features
+- **Jazzy Jalisco** (LTS until 2029) — Recommended for production
+- **Kilted Kaiju** (stable until Nov 2026) — Latest features
+- **Humble Hawksbill** (LTS until 2027) — Legacy support
 - **Rolling** — Development branch
 </Aside>
 
@@ -87,8 +89,8 @@ Client ──► /navigate_to_pose ──► Action Server
 │                         RMW (ROS Middleware Interface)          │
 ├─────────────────────────────────────────────────────────────────┤
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐ │
-│  │  CycloneDDS │  │  FastDDS    │  │     Other DDS Impls     │ │
-│  │  (Default)  │  │  (Common)   │  │                         │ │
+│  │   FastDDS   │  │ CycloneDDS  │  │   Zenoh, Other Impls    │ │
+│  │  (Default)  │  │             │  │                         │ │
 │  └─────────────┘  └─────────────┘  └─────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -294,8 +296,14 @@ ros2 bag play my_recording
 
 ## Learn More
 
-- [ROS 2 Documentation](https://docs.ros.org/en/humble/)
-- [ROS 2 Tutorials](https://docs.ros.org/en/humble/Tutorials.html)
+- [ROS 2 Documentation](https://docs.ros.org/en/jazzy/)
+- [ROS 2 Tutorials](https://docs.ros.org/en/jazzy/Tutorials.html)
 - [Nav2 Documentation](https://navigation.ros.org/)
 - [ROS Discourse](https://discourse.ros.org/) — Community forum
 - [Isaac ROS](https://nvidia-isaac-ros.github.io/) — GPU acceleration
+
+## Sources
+
+- [ROS 2 Distributions](https://docs.ros.org/en/rolling/Releases.html) — Version and EOL information
+- [REP 2000](https://www.ros.org/reps/rep-2000.html) — Official ROS 2 release schedule
+- [ROS 2 Middleware](https://docs.ros.org/en/kilted/Concepts/Intermediate/About-Different-Middleware-Vendors.html) — DDS vendor comparison
