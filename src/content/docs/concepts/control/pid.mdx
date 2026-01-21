@@ -5,6 +5,7 @@ sidebar:
   badge:
     text: Conceptual
     variant: note
+last_validated: 2026-01-20
 ---
 
 <span class="level-badge conceptual">Conceptual</span>
@@ -82,6 +83,8 @@ Error = ──────────►├◄────── Measured Value
 | PI | 0.45·Ku | 1.2·Kp/Tu | 0 |
 | PID | 0.6·Ku | 2·Kp/Tu | Kp·Tu/8 |
 
+Note: Ziegler-Nichols tuning yields aggressive response with ~25% overshoot. Often requires refinement for production use.
+
 ### Manual Tuning
 1. Start with Kp only, increase until fast response with some overshoot
 2. Add Kd to reduce overshoot
@@ -131,7 +134,10 @@ for _ in range(1000):
 ## Common Issues
 
 ### Integral Windup
-When the actuator saturates, the integral term keeps growing. Solution: clamp the integral or use anti-windup techniques.
+When the actuator saturates, the integral term keeps growing. Common anti-windup strategies:
+- **Clamping**: Limit integral term to bounds (simple, shown in code example)
+- **Back-calculation**: Adjust integral based on saturation feedback (better for frequent saturation)
+- **Conditional integration**: Freeze integration when saturated
 
 ### Derivative Noise
 High-frequency noise gets amplified by the D term. Solution: low-pass filter on derivative or measured value.
@@ -162,3 +168,9 @@ PID works well for **linear, single-input/single-output (SISO) systems**. For co
 
 - [Motion Planning](/robotics-glossary/concepts/control/motion-planning/) — High-level trajectory generation
 - [Kinematics](/robotics-glossary/concepts/fundamentals/kinematics/) — Robot motion geometry
+
+## Sources
+
+- [Ziegler-Nichols Method - Wikipedia](https://en.wikipedia.org/wiki/Ziegler–Nichols_method) — Tuning table and methodology
+- [PID Controller - ros2_control](https://control.ros.org/rolling/doc/ros2_controllers/pid_controller/doc/userdoc.html) — ROS 2 implementation with anti-windup strategies
+- [Anti-Windup Control - MathWorks](https://www.mathworks.com/help/simulink/slref/anti-windup-control-using-a-pid-controller.html) — Anti-windup technique comparison
