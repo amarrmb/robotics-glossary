@@ -74,6 +74,46 @@ mkdir -p "$PROJECT_DIR/src/content/docs/software/nvidia"
 
 touch "$PROGRESS_FILE"
 
+# ============================================
+# RATE LIMIT HANDLING
+# ============================================
+MAX_RETRIES=3
+RETRY_DELAY=60  # seconds
+BETWEEN_TASKS_DELAY=5  # seconds between tasks
+BETWEEN_PHASES_DELAY=2  # seconds between phases
+
+run_claude() {
+    local prompt="$1"
+    local attempt=1
+
+    while [ $attempt -le $MAX_RETRIES ]; do
+        echo "  [Attempt $attempt/$MAX_RETRIES]"
+
+        # Run claude and capture exit code
+        if claude --dangerously-skip-permissions -p "$prompt"; then
+            return 0
+        fi
+
+        local exit_code=$?
+
+        # Check if it's a rate limit (exit codes vary, but we retry on any failure)
+        if [ $attempt -lt $MAX_RETRIES ]; then
+            echo "  ⚠️  Claude call failed (exit code: $exit_code)"
+            echo "  ⏳ Waiting ${RETRY_DELAY}s before retry..."
+            sleep $RETRY_DELAY
+            # Exponential backoff
+            RETRY_DELAY=$((RETRY_DELAY * 2))
+        fi
+
+        attempt=$((attempt + 1))
+    done
+
+    echo "  ❌ Failed after $MAX_RETRIES attempts"
+    echo "  Pausing script. Resume with: ./scripts/run-all.sh"
+    echo "  Or skip this task: echo '$CURRENT_TASK_KEY' >> .ralph-progress"
+    exit 1
+}
+
 # Initialize git if needed
 if [ ! -d ".git" ]; then
     git init -b main
@@ -119,9 +159,10 @@ for task in "${VALIDATE_TASKS[@]}"; do
     RESEARCH_FILE="research/${task%.mdx}.research.md"
 
     git tag "validate-$TASK_NUM-start" 2>/dev/null
+    CURRENT_TASK_KEY="$TASK_KEY"
 
     echo ">>> Phase 1: RESEARCH"
-    claude --dangerously-skip-permissions -p "You are working on the $PROJECT project in $PROJECT_DIR.
+    run_claude "You are working on the $PROJECT project in $PROJECT_DIR.
 
 Your task: Research and validate the glossary entry at src/content/docs/$task
 
@@ -144,7 +185,7 @@ After research:
 git add -A && git commit -m '[$PROJECT] $TASK_NAME - Research complete'"
 
     echo ">>> Phase 2: IMPLEMENT"
-    claude --dangerously-skip-permissions -p "You are working on the $PROJECT project in $PROJECT_DIR.
+    run_claude "You are working on the $PROJECT project in $PROJECT_DIR.
 
 Your task: Update the glossary entry based on research findings.
 
@@ -164,7 +205,7 @@ After implementation:
 git add -A && git commit -m '[$PROJECT] $TASK_NAME - Content updated and validated'"
 
     echo ">>> Phase 3: REVIEW"
-    claude --dangerously-skip-permissions -p "You are working on the $PROJECT project in $PROJECT_DIR.
+    run_claude "You are working on the $PROJECT project in $PROJECT_DIR.
 
 Your task: Final review and update tracking.
 
@@ -224,7 +265,7 @@ for task_spec in "${CREATE_TASKS[@]}"; do
     git tag "create-$TASK_NUM-start" 2>/dev/null
 
     echo ">>> Phase 1: RESEARCH"
-    claude --dangerously-skip-permissions -p "You are working on the $PROJECT project in $PROJECT_DIR.
+    run_claude "You are working on the $PROJECT project in $PROJECT_DIR.
 
 Your task: Research for NEW glossary entry: $title
 File to create: src/content/docs/$task
@@ -250,7 +291,7 @@ After research:
 git add -A && git commit -m '[$PROJECT] $TASK_NAME - Research complete'"
 
     echo ">>> Phase 2: IMPLEMENT"
-    claude --dangerously-skip-permissions -p "You are working on the $PROJECT project in $PROJECT_DIR.
+    run_claude "You are working on the $PROJECT project in $PROJECT_DIR.
 
 Your task: Create NEW glossary entry for: $title
 File: src/content/docs/$task
@@ -288,7 +329,7 @@ After implementation:
 git add -A && git commit -m '[$PROJECT] $TASK_NAME - New entry created'"
 
     echo ">>> Phase 3: REVIEW"
-    claude --dangerously-skip-permissions -p "You are working on the $PROJECT project in $PROJECT_DIR.
+    run_claude "You are working on the $PROJECT project in $PROJECT_DIR.
 
 Your task: Review new glossary entry: $title
 File: src/content/docs/$task
@@ -320,7 +361,7 @@ echo "########################################################"
 echo "### FINAL AUDIT"
 echo "########################################################"
 
-claude --dangerously-skip-permissions -p "You are working on the $PROJECT project in $PROJECT_DIR.
+run_claude "You are working on the $PROJECT project in $PROJECT_DIR.
 
 Perform a complete audit:
 
