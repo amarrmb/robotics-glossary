@@ -1,0 +1,355 @@
+---
+title: TF2
+description: ROS 2 transform library — managing coordinate frames over time
+last_validated: 2026-01-21
+sidebar:
+  badge:
+    text: Practical
+    variant: success
+---
+
+import { Aside, Card, CardGrid, LinkCard, Tabs, TabItem } from '@astrojs/starlight/components';
+
+<span class="level-badge practical">Practical</span>
+
+**TF2 (Transform Library 2)** is ROS 2's system for tracking coordinate frame relationships over time. It maintains a time-buffered tree of transforms, enabling robots to answer spatial questions like "Where was the gripper relative to the base 2 seconds ago?" or "What is the camera's current pose in world coordinates?"
+
+<Aside type="note">
+TF2 is the **only** transform library in ROS 2. All nodes on the network share access to the same transform tree.
+</Aside>
+
+## Prerequisites
+
+<CardGrid>
+  <LinkCard
+    title="Coordinate Frames"
+    description="Understanding reference frames and conventions"
+    href="/robotics-glossary/concepts/fundamentals/coordinate-frames/"
+  />
+  <LinkCard
+    title="Transforms"
+    description="Mathematical foundations of coordinate transformations"
+    href="/robotics-glossary/concepts/fundamentals/transforms/"
+  />
+</CardGrid>
+
+## Why TF2 Matters
+
+- **Sensor fusion**: Combine data from sensors in different locations
+- **Motion planning**: Know where the gripper is relative to the target
+- **Time travel**: Query where things *were*, not just where they are
+- **Distributed**: All ROS 2 nodes can access transforms from anywhere in the system
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     Your ROS 2 Nodes                        │
+├─────────────────────────────────────────────────────────────┤
+│  TransformBroadcaster          TransformListener            │
+│  (publishes transforms)         (receives transforms)       │
+│           │                            │                    │
+│           ▼                            ▼                    │
+│      /tf, /tf_static              ┌─────────┐               │
+│       (topics)                    │ Buffer  │               │
+│                                   │(10s log)│               │
+│                                   └─────────┘               │
+├─────────────────────────────────────────────────────────────┤
+│                    tf2_ros Package                          │
+├─────────────────────────────────────────────────────────────┤
+│                    tf2 Core Library                         │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## The Transform Tree
+
+Frames form a directed tree — each frame has exactly one parent:
+
+```
+map                         ← World-fixed (from SLAM)
+ └── odom                   ← Continuous but drifts
+      └── base_link         ← Robot body
+           ├── camera_link
+           │    └── camera_optical_frame
+           ├── lidar_link
+           └── arm_base_link
+                └── arm_link_1
+                     └── ... → gripper_link
+```
+
+<Aside type="caution">
+TF2 enforces a tree structure — no cycles allowed. Each frame can have only one parent.
+</Aside>
+
+## Static vs Dynamic Transforms
+
+| Type | Topic | Purpose | Example |
+|------|-------|---------|---------|
+| Static | `/tf_static` | Fixed relationships, published once | Sensor mounts |
+| Dynamic | `/tf` | Continuously updated, time-stamped | Joint positions, odometry |
+
+Use static transforms for sensors bolted to the robot — they're more efficient than repeatedly publishing the same transform.
+
+## Broadcasting Transforms
+
+<Tabs>
+  <TabItem label="Dynamic (Python)">
+    ```python
+    import rclpy
+    from rclpy.node import Node
+    from tf2_ros import TransformBroadcaster
+    from geometry_msgs.msg import TransformStamped
+    import tf_transformations
+
+    class FrameBroadcaster(Node):
+        def __init__(self):
+            super().__init__('frame_broadcaster')
+            self.tf_broadcaster = TransformBroadcaster(self)
+            self.timer = self.create_timer(0.1, self.broadcast_callback)
+
+        def broadcast_callback(self):
+            t = TransformStamped()
+            t.header.stamp = self.get_clock().now().to_msg()
+            t.header.frame_id = 'odom'
+            t.child_frame_id = 'base_link'
+
+            # Translation
+            t.transform.translation.x = 1.0
+            t.transform.translation.y = 2.0
+            t.transform.translation.z = 0.0
+
+            # Rotation (quaternion from yaw)
+            q = tf_transformations.quaternion_from_euler(0, 0, 0.5)
+            t.transform.rotation.x = q[0]
+            t.transform.rotation.y = q[1]
+            t.transform.rotation.z = q[2]
+            t.transform.rotation.w = q[3]
+
+            self.tf_broadcaster.sendTransform(t)
+
+    def main():
+        rclpy.init()
+        rclpy.spin(FrameBroadcaster())
+        rclpy.shutdown()
+    ```
+  </TabItem>
+
+  <TabItem label="Static (Python)">
+    ```python
+    from rclpy.node import Node
+    from tf2_ros.static_transform_broadcaster import StaticTransformBroadcaster
+    from geometry_msgs.msg import TransformStamped
+
+    class StaticFramePublisher(Node):
+        def __init__(self):
+            super().__init__('static_frame_publisher')
+            self.broadcaster = StaticTransformBroadcaster(self)
+
+            t = TransformStamped()
+            t.header.stamp = self.get_clock().now().to_msg()
+            t.header.frame_id = 'base_link'
+            t.child_frame_id = 'camera_link'
+
+            # Camera is 10cm forward, 20cm up
+            t.transform.translation.x = 0.1
+            t.transform.translation.z = 0.2
+            t.transform.rotation.w = 1.0  # No rotation
+
+            self.broadcaster.sendTransform(t)
+    ```
+  </TabItem>
+</Tabs>
+
+## Listening for Transforms
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    import rclpy
+    from rclpy.node import Node
+    from rclpy.duration import Duration
+    from tf2_ros import Buffer, TransformListener
+    from tf2_ros import LookupException, ConnectivityException, ExtrapolationException
+
+    class FrameListener(Node):
+        def __init__(self):
+            super().__init__('frame_listener')
+            self.tf_buffer = Buffer()
+            self.tf_listener = TransformListener(self.tf_buffer, self)
+            self.timer = self.create_timer(1.0, self.on_timer)
+
+        def on_timer(self):
+            try:
+                transform = self.tf_buffer.lookup_transform(
+                    'base_link',        # Target frame
+                    'camera_link',      # Source frame
+                    rclpy.time.Time(),  # Latest available
+                    timeout=Duration(seconds=1.0)
+                )
+                pos = transform.transform.translation
+                self.get_logger().info(f'Camera at: ({pos.x:.2f}, {pos.y:.2f}, {pos.z:.2f})')
+
+            except LookupException:
+                self.get_logger().warn('Frame not found')
+            except ConnectivityException:
+                self.get_logger().warn('Frames not connected')
+            except ExtrapolationException:
+                self.get_logger().warn('Transform not available at requested time')
+    ```
+  </TabItem>
+
+  <TabItem label="C++">
+    ```cpp
+    #include <tf2_ros/buffer.h>
+    #include <tf2_ros/transform_listener.h>
+
+    class FrameListener : public rclcpp::Node {
+    public:
+        FrameListener() : Node("frame_listener") {
+            tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
+            tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+            timer_ = create_wall_timer(
+                std::chrono::seconds(1),
+                std::bind(&FrameListener::on_timer, this));
+        }
+
+    private:
+        void on_timer() {
+            try {
+                auto t = tf_buffer_->lookupTransform(
+                    "base_link", "camera_link",
+                    tf2::TimePointZero,
+                    tf2::durationFromSec(1.0));
+                RCLCPP_INFO(get_logger(), "Transform received");
+            } catch (const tf2::TransformException &ex) {
+                RCLCPP_WARN(get_logger(), "%s", ex.what());
+            }
+        }
+
+        std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
+        std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+        rclcpp::TimerBase::SharedPtr timer_;
+    };
+    ```
+  </TabItem>
+</Tabs>
+
+## Time and Lookups
+
+### Time = 0 Means "Latest"
+
+```python
+# Get the most recent transform available
+transform = tf_buffer.lookup_transform('base_link', 'camera_link', rclpy.time.Time())
+```
+
+### Time Travel
+
+Query where a frame *was* at a past time:
+
+```python
+from rclpy.time import Time
+from rclpy.duration import Duration
+
+now = self.get_clock().now()
+past = now - Duration(seconds=5.0)
+
+# Where was camera_link 5 seconds ago?
+transform = tf_buffer.lookup_transform(
+    'base_link',
+    'camera_link',
+    past.to_msg(),
+    timeout=Duration(seconds=1.0)
+)
+```
+
+<Aside type="tip">
+The buffer stores 10 seconds of history by default. Requests outside this window raise `ExtrapolationException`.
+</Aside>
+
+## CLI Tools
+
+```bash
+# Visualize the frame tree (generates frames.pdf)
+ros2 run tf2_tools view_frames
+
+# Print live transform between frames
+ros2 run tf2_ros tf2_echo base_link camera_link
+
+# Publish a static transform
+ros2 run tf2_ros static_transform_publisher \
+    --x 0.1 --y 0.0 --z 0.2 \
+    --roll 0.0 --pitch 0.0 --yaw 0.0 \
+    --frame-id base_link \
+    --child-frame-id camera_link
+
+# Monitor transform tree health
+ros2 run tf2_ros tf2_monitor
+```
+
+## Common Exceptions
+
+| Exception | Cause | Solution |
+|-----------|-------|----------|
+| `LookupException` | Frame not in tree | Check if broadcaster is running |
+| `ConnectivityException` | No path between frames | Verify tree structure |
+| `ExtrapolationException` | Time outside buffer | Use `Time()` for latest, or check timestamp |
+| `TimeoutException` | Transform not available in time | Increase timeout or check publishers |
+
+## TF2 Packages
+
+| Package | Purpose |
+|---------|---------|
+| `tf2` | Core library (ROS-agnostic) |
+| `tf2_ros` | ROS 2 bindings (Buffer, Listener, Broadcaster) |
+| `tf2_geometry_msgs` | Transform geometry_msgs types |
+| `tf2_sensor_msgs` | Transform PointCloud2 data |
+| `tf2_tools` | CLI utilities (view_frames, tf2_echo) |
+
+## NVIDIA Isaac Integration
+
+Isaac Sim publishes transforms via the ROS 2 bridge. Best practice:
+
+- Use `robot_state_publisher` to publish static transforms from URDF
+- Let Isaac Sim publish joint states
+- Isaac ROS packages (cuVSLAM, etc.) publish standard TF2 transforms
+
+## Related Terms
+
+<CardGrid>
+  <LinkCard
+    title="ROS 2"
+    description="The robotics middleware framework"
+    href="/robotics-glossary/software/frameworks/ros2/"
+  />
+  <LinkCard
+    title="Coordinate Frames"
+    description="Understanding reference frames"
+    href="/robotics-glossary/concepts/fundamentals/coordinate-frames/"
+  />
+  <LinkCard
+    title="Transforms"
+    description="Mathematical coordinate transformations"
+    href="/robotics-glossary/concepts/fundamentals/transforms/"
+  />
+  <LinkCard
+    title="Isaac ROS"
+    description="GPU-accelerated ROS 2 packages"
+    href="/robotics-glossary/software/isaac/isaac-ros/"
+  />
+</CardGrid>
+
+## Learn More
+
+- [TF2 Introduction Tutorial](https://docs.ros.org/en/jazzy/Tutorials/Intermediate/Tf2/Introduction-To-Tf2.html) — Official getting started
+- [Writing a Broadcaster](https://docs.ros.org/en/jazzy/Tutorials/Intermediate/Tf2/Writing-A-Tf2-Broadcaster-Py.html) — Python broadcaster tutorial
+- [Writing a Listener](https://docs.ros.org/en/rolling/Tutorials/Intermediate/Tf2/Writing-A-Tf2-Listener-Py.html) — Python listener tutorial
+- [Time Travel with TF2](https://docs.ros.org/en/rolling/Tutorials/Intermediate/Tf2/Time-Travel-With-Tf2-Py.html) — Advanced time queries
+
+## Sources
+
+- [TF2 Concepts (ROS 2 Jazzy)](https://docs.ros.org/en/jazzy/Concepts/Intermediate/About-Tf2.html)
+- [geometry2 Repository](https://github.com/ros2/geometry2) — TF2 source code
+- [REP-105: Coordinate Frames for Mobile Platforms](https://www.ros.org/reps/rep-0105.html)
+- [tf2_ros API Documentation](https://docs.ros.org/en/rolling/p/tf2_ros/doc/index.html)
+- [Isaac Sim TF Tutorial](https://docs.isaacsim.omniverse.nvidia.com/5.1.0/ros2_tutorials/tutorial_ros2_tf.html)
