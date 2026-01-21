@@ -9,8 +9,12 @@ cd "$PROJECT_DIR" || {
     exit 1
 }
 
-# Task list
-TASKS=(
+PROGRESS_FILE="$PROJECT_DIR/.ralph-progress"
+
+# ============================================
+# PHASE 0: VALIDATE EXISTING CONTENT
+# ============================================
+VALIDATE_TASKS=(
     "hardware/compute/jetson-orin.mdx"
     "hardware/compute/jetson-thor.mdx"
     "hardware/compute/dgx-spark.mdx"
@@ -29,7 +33,25 @@ TASKS=(
     "concepts/ai/reinforcement-learning.mdx"
 )
 
-PROGRESS_FILE="$PROJECT_DIR/.ralph-progress"
+# ============================================
+# PHASE 1: CREATE NEW CONTENT (Zero to Hero Path)
+# ============================================
+# Format: "path/file.mdx|Title|Description"
+CREATE_TASKS=(
+    "concepts/fundamentals/transforms.mdx|Transforms|Coordinate transformations - the foundation of robotics math"
+    "concepts/fundamentals/coordinate-frames.mdx|Coordinate Frames|Reference frames and how robots understand position in space"
+    "software/ros2/tf2.mdx|TF2|ROS 2 transform library - managing coordinate frames"
+    "software/ros2/nav2.mdx|Nav2|ROS 2 Navigation Stack - autonomous mobile robot navigation"
+    "software/ros2/moveit2.mdx|MoveIt 2|Motion planning framework for robot arms"
+    "software/ros2/urdf-xacro.mdx|URDF & Xacro|Robot description formats for ROS"
+    "software/nvidia/cumotion.mdx|cuMotion|NVIDIA GPU-accelerated motion planning"
+    "software/nvidia/nvblox.mdx|nvblox|NVIDIA real-time 3D reconstruction"
+    "software/nvidia/tensorrt.mdx|TensorRT|NVIDIA deep learning inference optimizer"
+    "software/nvidia/isaac-lab.mdx|Isaac Lab|NVIDIA simulation for robot learning"
+    "concepts/perception/visual-odometry.mdx|Visual Odometry|Estimating motion from camera images"
+    "concepts/perception/sensor-fusion.mdx|Sensor Fusion|Combining multiple sensor inputs"
+    "hardware/sensors/depth-cameras.mdx|Depth Cameras|Stereo, ToF, and structured light cameras"
+)
 
 echo "=== Starting Ralph Wiggum Loop for $PROJECT ==="
 echo "=== Working in: $PROJECT_DIR ==="
@@ -39,12 +61,16 @@ echo "=== Date: $TODAY ==="
 mkdir -p "$PROJECT_DIR/research/hardware/compute"
 mkdir -p "$PROJECT_DIR/research/hardware/sensors"
 mkdir -p "$PROJECT_DIR/research/software/isaac"
+mkdir -p "$PROJECT_DIR/research/software/nvidia"
 mkdir -p "$PROJECT_DIR/research/software/simulation"
 mkdir -p "$PROJECT_DIR/research/software/frameworks"
+mkdir -p "$PROJECT_DIR/research/software/ros2"
 mkdir -p "$PROJECT_DIR/research/concepts/perception"
 mkdir -p "$PROJECT_DIR/research/concepts/fundamentals"
 mkdir -p "$PROJECT_DIR/research/concepts/control"
 mkdir -p "$PROJECT_DIR/research/concepts/ai"
+mkdir -p "$PROJECT_DIR/src/content/docs/software/ros2"
+mkdir -p "$PROJECT_DIR/src/content/docs/software/nvidia"
 
 touch "$PROGRESS_FILE"
 
@@ -55,7 +81,7 @@ if [ ! -d ".git" ]; then
 fi
 
 # Create starting tag
-git add -A && git commit -m "Pre-validation state" --allow-empty 2>/dev/null
+git add -A && git commit -m "Pre-ralph state" --allow-empty 2>/dev/null
 git tag "ralph-start-$(date +%Y%m%d-%H%M%S)" 2>/dev/null
 
 is_done() {
@@ -66,28 +92,33 @@ mark_done() {
     echo "$1" >> "$PROGRESS_FILE"
 }
 
+# ============================================
+# PHASE 0: VALIDATE EXISTING CONTENT
+# ============================================
+echo ""
+echo "########################################################"
+echo "### PHASE 0: VALIDATE EXISTING CONTENT (${#VALIDATE_TASKS[@]} files)"
+echo "########################################################"
+
 TASK_NUM=0
-TOTAL=${#TASKS[@]}
-
-for task in "${TASKS[@]}"; do
+for task in "${VALIDATE_TASKS[@]}"; do
     TASK_NUM=$((TASK_NUM + 1))
+    TASK_KEY="validate:$task"
 
-    if is_done "$task"; then
+    if is_done "$TASK_KEY"; then
         echo "✅ SKIP (done): $task"
         continue
     fi
 
     echo ""
     echo "============================================"
-    echo "=== $PROJECT - Task $TASK_NUM of $TOTAL ==="
-    echo "=== File: $task ==="
+    echo "=== VALIDATE $TASK_NUM/${#VALIDATE_TASKS[@]}: $task ==="
     echo "============================================"
 
     TASK_NAME=$(basename "$task" .mdx)
     RESEARCH_FILE="research/${task%.mdx}.research.md"
 
-    # Tag before each task for rollback
-    git tag "task-$TASK_NUM-start" 2>/dev/null
+    git tag "validate-$TASK_NUM-start" 2>/dev/null
 
     echo ">>> Phase 1: RESEARCH"
     claude --dangerously-skip-permissions -p "You are working on the $PROJECT project in $PROJECT_DIR.
@@ -103,7 +134,7 @@ Instructions:
    - Any deprecations or major changes
 3. Create research notes at: $RESEARCH_FILE
    - Document current version numbers found
-   - Note any corrections needed to our content
+   - Note any corrections needed
    - Include source URLs for every fact
    - Keep it concise - bullet points preferred
 
@@ -143,62 +174,187 @@ Instructions:
    - last_validated: $TODAY is in frontmatter
    - Version numbers match research findings
    - Sources section exists with working URLs
-   - Internal links are not broken
    - Content is accurate and helpful
 3. Fix any issues found
-4. Update EXECUTION_PLAN.md: find the row for \`$task\` and change 🔴 to ✅
+4. Update EXECUTION_PLAN.md: find the row for this file and change 🔴 to ✅
 
 After review:
 git add -A && git commit -m '[$PROJECT] $TASK_NAME - Reviewed and verified'"
 
-    # Tag after task completes
-    git tag "task-$TASK_NUM-complete" 2>/dev/null
-
-    # Mark as done in progress file
-    mark_done "$task"
-
-    echo "=== Task $TASK_NUM ($task) complete ==="
+    git tag "validate-$TASK_NUM-complete" 2>/dev/null
+    mark_done "$TASK_KEY"
+    echo "=== Validation of $task complete ==="
     sleep 2
 done
 
+# ============================================
+# PHASE 1: CREATE NEW CONTENT
+# ============================================
 echo ""
-echo "============================================"
-echo "=== $PROJECT - FINAL AUDIT ==="
-echo "============================================"
+echo "########################################################"
+echo "### PHASE 1: CREATE NEW CONTENT (${#CREATE_TASKS[@]} files)"
+echo "########################################################"
+
+TASK_NUM=0
+for task_spec in "${CREATE_TASKS[@]}"; do
+    TASK_NUM=$((TASK_NUM + 1))
+
+    # Parse task spec: "path|title|description"
+    IFS='|' read -r task title description <<< "$task_spec"
+    TASK_KEY="create:$task"
+
+    if is_done "$TASK_KEY"; then
+        echo "✅ SKIP (done): $task"
+        continue
+    fi
+
+    echo ""
+    echo "============================================"
+    echo "=== CREATE $TASK_NUM/${#CREATE_TASKS[@]}: $title ==="
+    echo "=== File: $task ==="
+    echo "============================================"
+
+    TASK_NAME=$(basename "$task" .mdx)
+    RESEARCH_FILE="research/${task%.mdx}.research.md"
+
+    # Ensure directory exists
+    mkdir -p "$(dirname "$PROJECT_DIR/src/content/docs/$task")"
+    mkdir -p "$(dirname "$PROJECT_DIR/$RESEARCH_FILE")"
+
+    git tag "create-$TASK_NUM-start" 2>/dev/null
+
+    echo ">>> Phase 1: RESEARCH"
+    claude --dangerously-skip-permissions -p "You are working on the $PROJECT project in $PROJECT_DIR.
+
+Your task: Research for NEW glossary entry: $title
+File to create: src/content/docs/$task
+Description: $description
+
+Instructions:
+1. Use WebSearch to research this topic thoroughly:
+   - Official documentation (NVIDIA, ROS, academic sources)
+   - Current best practices as of January 2026
+   - How it relates to NVIDIA + ROS2 ecosystem
+   - Prerequisites and related concepts
+2. Create research notes at: $RESEARCH_FILE
+   - Key concepts to cover
+   - Current version numbers
+   - Code examples to include
+   - Diagrams needed
+   - Source URLs for citations
+3. Review existing entries in src/content/docs/ to match the style
+
+Research only - do NOT create the content file yet.
+
+After research:
+git add -A && git commit -m '[$PROJECT] $TASK_NAME - Research complete'"
+
+    echo ">>> Phase 2: IMPLEMENT"
+    claude --dangerously-skip-permissions -p "You are working on the $PROJECT project in $PROJECT_DIR.
+
+Your task: Create NEW glossary entry for: $title
+File: src/content/docs/$task
+
+Instructions:
+1. Read your research notes: $RESEARCH_FILE
+2. Read similar existing entries to match the style (e.g., src/content/docs/concepts/fundamentals/kinematics.mdx)
+3. Create src/content/docs/$task with:
+
+Frontmatter:
+---
+title: $title
+description: $description
+last_validated: $TODAY
+sidebar:
+  badge:
+    text: Practical  # or Conceptual or Deep Dive
+    variant: success # or note or tip
+---
+
+Content structure:
+- Import Starlight components
+- Level badge
+- Clear one-paragraph definition
+- Why it matters for robotics
+- Key concepts with diagrams (ASCII art)
+- Code examples (working, tested)
+- Prerequisites (LinkCard)
+- Related Terms (CardGrid)
+- Sources section with citations
+
+Keep it concise and practical. Quality over quantity.
+
+After implementation:
+git add -A && git commit -m '[$PROJECT] $TASK_NAME - New entry created'"
+
+    echo ">>> Phase 3: REVIEW"
+    claude --dangerously-skip-permissions -p "You are working on the $PROJECT project in $PROJECT_DIR.
+
+Your task: Review new glossary entry: $title
+File: src/content/docs/$task
+
+Instructions:
+1. Read the new file and verify:
+   - Frontmatter is complete with last_validated
+   - Content follows the established style
+   - Code examples are correct
+   - Prerequisites and Related Terms link to existing entries
+   - Sources section has proper citations
+2. Fix any issues
+3. Add entry to EXECUTION_PLAN.md under 'New Entries Created' or update status
+
+After review:
+git add -A && git commit -m '[$PROJECT] $TASK_NAME - Reviewed and finalized'"
+
+    git tag "create-$TASK_NUM-complete" 2>/dev/null
+    mark_done "$TASK_KEY"
+    echo "=== Creation of $title complete ==="
+    sleep 2
+done
+
+# ============================================
+# FINAL AUDIT
+# ============================================
+echo ""
+echo "########################################################"
+echo "### FINAL AUDIT"
+echo "########################################################"
 
 claude --dangerously-skip-permissions -p "You are working on the $PROJECT project in $PROJECT_DIR.
 
-Perform a complete audit of the validation work:
+Perform a complete audit:
 
-1. Check EXECUTION_PLAN.md - are all files marked ✅?
-2. Review .ralph-progress - does it list all 16 files?
-3. Spot-check 2-3 random files to verify:
-   - last_validated date is present
+1. Count files in src/content/docs/ (excluding index, how-to-use, contributing)
+2. Verify .ralph-progress has all tasks marked
+3. Spot-check 3 random files for:
+   - last_validated present
    - Sources section exists
-4. Generate a summary and save to VALIDATION_AUDIT.md:
-   - Files validated
-   - Any files that need attention
-   - Overall status
+4. Run: npm run build (to verify no errors)
+5. Create VALIDATION_AUDIT.md with:
+   - Total entries validated
+   - New entries created
+   - Any issues found
+   - Build status
+   - Recommendations for next iteration
 
-Final commit: git add -A && git commit -m '[$PROJECT] Validation audit complete - $TODAY'"
+Final commit: git add -A && git commit -m '[$PROJECT] Audit complete - $TODAY'"
 
 git tag "ralph-complete-$(date +%Y%m%d-%H%M%S)" 2>/dev/null
 
 echo ""
-echo "============================================"
-echo "=== $PROJECT Ralph Wiggum Loop Complete ==="
-echo "============================================"
+echo "########################################################"
+echo "### $PROJECT Ralph Wiggum Loop Complete"
+echo "########################################################"
+echo ""
+echo "Summary:"
+echo "  Validated: ${#VALIDATE_TASKS[@]} existing files"
+echo "  Created: ${#CREATE_TASKS[@]} new files"
 echo ""
 echo "Git history:"
-git log --oneline -20
-echo ""
-echo "Tags created:"
-git tag -l "task-*" | tail -10
-echo ""
-echo "Progress file:"
-cat "$PROGRESS_FILE"
+git log --oneline -25
 echo ""
 echo "Rollback commands:"
-echo "  git reset --hard task-N-start     # Rollback to before task N"
-echo "  git reset --hard ralph-start-*    # Rollback to beginning"
-echo "  rm .ralph-progress                # Reset progress tracking"
+echo "  git reset --hard validate-N-start  # Before validation N"
+echo "  git reset --hard create-N-start    # Before creation N"
+echo "  git reset --hard ralph-start-*     # Complete rollback"
+echo "  rm .ralph-progress                 # Reset progress"
