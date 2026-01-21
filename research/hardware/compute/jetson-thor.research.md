@@ -1,86 +1,137 @@
 # Jetson Thor Research Notes
 
-**Research Date:** January 20, 2026
+**Research Date:** 2026-01-21
+**Current File:** src/content/docs/hardware/compute/jetson-thor.mdx
 
-## Current Status
+---
 
-- **General Availability:** August 25, 2025 (developer kits and production modules)
-- **Developer Kit Price:** $3,499
-- **T5000 Module Price:** $2,999 (1,000 units)
-- **T4000 Module Price:** $1,999 (1,000 units) - available Q2 2026
-- **JetPack 7.1** is now the latest release (as of January 2026)
+## Product Status - VERIFIED
 
-## Corrections Needed
+- **General Availability:** August 25, 2025 (developer kits and T5000 modules)
+- **Developer Kit Price:** $3,499 - VERIFIED
+- **T5000 Module Price:** $2,999 (1,000 units) - VERIFIED
+- **T4000 Module Price:** $1,999 (1,000 units) - VERIFIED
 
-### AI Performance Specs (MAJOR CORRECTION)
-- **Current file states:** 800 TOPS (INT8), 400 TFLOPS (FP8)
-- **Actual specs:** 2,070 FP4 TFLOPS (sparse), up to 7.5x higher AI compute than Orin
-- Initial GTC 2024 announcement mentioned 800 TFLOPS FP8, but production specs are significantly higher
+**Sources:**
+- [NVIDIA Newsroom: Jetson Thor Now Available](https://nvidianews.nvidia.com/news/nvidia-blackwell-powered-jetson-thor-now-available-accelerating-the-age-of-general-robotics)
+- [CNX Software: Developer Kit](https://www.cnx-software.com/2025/08/19/3499-nvidia-jetson-agx-thor-developer-kit-2070-tops-jetson-t5000-som-for-robotics-and-edge-ai/)
 
-### CPU Configuration (CORRECTION)
-- **Current file states:** 16-core Arm Neoverse V2
-- **Actual specs:** 14-core Arm Neoverse V3AE @ 2.6 GHz (T5000), 12-core (T4000)
-- CPU performance is 3.1x higher than Orin
+---
 
-### GPU Specifications (CORRECTION)
-- **Current file states:** 4096+ CUDA cores, 512 Tensor Cores
-- **Actual specs:** 2,560 CUDA cores, 96 fifth-generation Tensor Cores (T5000)
-- T4000 variant: 1,536 CUDA cores, 64 Tensor Cores
+## T4000 Availability - CORRECTION NEEDED
 
-### Memory Bandwidth (CORRECTION)
-- **Current file states:** 512 GB/s
-- **Actual specs:** 273 GB/s (256-bit bus @ 4266 MHz LPDDR5X)
+| Item | File States | Actual |
+|------|-------------|--------|
+| T4000 Availability | Q2 2026 | **Now available** (CES 2026) |
 
-### Power Configuration (CORRECTION)
-- **Current file states:** 50W - 150W
-- **Actual specs:** 40W - 130W (configurable)
+- T4000 announced at CES 2026 (January 2026)
+- JetPack 7.1 adds T4000 support
+- T4000 available through authorized NVIDIA distributors
 
-### JetPack Version (UPDATE)
-- **Current file states:** JetPack 7.0 primary SDK
-- **Update:** JetPack 7.1 now available (Jetson Linux 38.4)
-- JetPack 7.0 uses Jetson Linux 38.2
+**Sources:**
+- [JetPack 7.1 Blog](https://developer.nvidia.com/blog/accelerate-ai-inference-for-edge-and-robotics-with-nvidia-jetson-t4000-and-nvidia-jetpack-7-1)
+- [JetsonHacks: JetPack 7.1 and T4000](https://jetsonhacks.com/2026/01/12/jetpack-7-1-and-jetson-t4000-now-available/)
+- [CNX Software: Jetson T4000](https://www.cnx-software.com/2026/01/06/nvidia-jetson-t4000-edge-ai-embedded-system-offers-5gbe-networking-four-poe-camera-ports-dio-can-bus-and-more/)
 
-### Software Stack Versions (CORRECTION)
-- **Current file states:** CUDA 12.8, TensorRT 10.2
-- **Actual specs:** CUDA 13.0, TensorRT 10.13, cuDNN 9.12
-- Linux Kernel 6.8 LTS, Ubuntu 24.04 LTS
+---
 
-### Isaac ROS Version
-- **Current file states:** Isaac ROS 4.0
-- **Status:** Isaac ROS 4.0 is correct, now generally available for Thor
-- Note: Isaac Perceptor and Nova packages not yet optimized for AGX Thor
+## T5000 Specifications - VERIFIED
 
-## Module Variants
+| Spec | File Value | Verified |
+|------|------------|----------|
+| AI Performance | 2,070 FP4 TFLOPS (sparse) | VERIFIED |
+| GPU Architecture | Blackwell | VERIFIED |
+| CUDA Cores | 2,560 | VERIFIED |
+| Tensor Cores | 96 (5th gen) | VERIFIED |
+| Transformer Engine | Yes (FP4/FP8) | VERIFIED |
+| CPU | 14-core Arm Neoverse V3AE @ 2.6 GHz | VERIFIED |
+| Memory | 128GB LPDDR5X unified | VERIFIED |
+| Memory Bandwidth | 273 GB/s | VERIFIED |
+| Power | 40W - 130W | VERIFIED |
+| Process | 4nm | VERIFIED |
 
-### Jetson T5000 (in Developer Kit)
-- 2,070 FP4 TFLOPS
-- 14-core Arm Neoverse-V3AE CPU
-- 2,560 CUDA cores, 96 Tensor Cores (5th gen)
-- 128 GB LPDDR5X memory
-- 40-130W power range
+**Source:** [NVIDIA Developer Blog: Introducing Jetson Thor](https://developer.nvidia.com/blog/introducing-nvidia-jetson-thor-the-ultimate-platform-for-physical-ai/)
 
-### Jetson T4000 (Lower-cost variant)
-- 1,200 FP4 TFLOPS
-- 12-core Arm Neoverse-V3AE CPU
-- 1,536 CUDA cores, 64 Tensor Cores
-- 64 GB LPDDR5X memory
-- 40-75W power range
-- Available Q2 2026
+---
 
-## Developer Kit Contents
-- Jetson T5000 module (128GB)
-- Reference carrier board
-- 1TB NVMe SSD
-- WiFi 6E support
-- 5 GbE networking
-- QSFP28 socket
-- HDMI 2.1 + DisplayPort connections
+## T4000 Specifications - CORRECTIONS NEEDED
 
-## Industry Adoption
-Early adopters include:
+| Spec | File Value | Actual Value |
+|------|------------|--------------|
+| AI Performance | 1,200 FP4 TFLOPS | **1,242 TFLOPS** (some sources say 1,200) |
+| Power | 40W - 75W | **40W - 70W** |
+
+**Note:** Multiple sources vary between 1,200 and 1,242 TFLOPS. 1,200 is acceptable approximation.
+
+**Sources:**
+- [JetPack 7.1 Blog](https://developer.nvidia.com/blog/accelerate-ai-inference-for-edge-and-robotics-with-nvidia-jetson-t4000-and-nvidia-jetpack-7-1)
+- [Forecr T4000 Benchmarks](https://www.forecr.io/blogs/hardware/nvidia-jetson-t4000-and-t5000-benchmarks)
+
+---
+
+## Power Specifications - MINOR CORRECTION
+
+| Module | File States | Official Spec |
+|--------|-------------|---------------|
+| T5000 | 40W - 130W | **75W - 120W configurable, 130W max** |
+| T4000 | 40W - 75W | **40W - 70W** |
+
+**Source:** [NVIDIA Jetson Thor Official Page](https://www.nvidia.com/en-us/autonomous-machines/embedded-systems/jetson-thor/)
+
+---
+
+## JetPack Software - VERIFIED
+
+| Component | File Value | Verified |
+|-----------|------------|----------|
+| JetPack Version | 7.1 | VERIFIED |
+| Jetson Linux | 38.4 | VERIFIED |
+| Linux Kernel | 6.8 LTS | VERIFIED |
+| Ubuntu | 24.04 LTS | VERIFIED |
+| CUDA | 13.0 | VERIFIED |
+| TensorRT | 10.13 | VERIFIED |
+| cuDNN | 9.12 | VERIFIED |
+
+**Sources:**
+- [JetPack SDK Downloads](https://developer.nvidia.com/embedded/jetpack/downloads)
+- [JetPack 7.0 Forum](https://forums.developer.nvidia.com/t/jetpack-7-0-jetson-linux-38-2-for-nvidia-jetson-thor-is-now-live/343128)
+
+---
+
+## Isaac ROS - VERIFIED
+
+| Component | File Value | Verified |
+|-----------|------------|----------|
+| Isaac ROS Version | 4.0 | VERIFIED |
+| ROS 2 Distribution | Jazzy | VERIFIED |
+| JetPack Support | 7.0+ | VERIFIED |
+
+**Known Limitations:**
+- Isaac Perceptor and Nova packages not yet optimized for AGX Thor
+- ZED SDK compatibility noted as updated
+
+**Sources:**
+- [Isaac ROS 4.0 Forum Announcement](https://forums.developer.nvidia.com/t/nvidia-isaac-ros-4-0-for-thor-has-arrived/352109)
+- [Isaac ROS Release Notes](https://nvidia-isaac-ros.github.io/releases/index.html)
+
+---
+
+## Development Workflow - MINOR UPDATE
+
+| Item | File States | Note |
+|------|-------------|------|
+| JetPack compatibility | 7.0 | Should say **7.0+** or **7.1** |
+
+File says "JetPack 7.0 compatibility" in Development Workflow section - could update to "JetPack 7.x" or "JetPack 7.1".
+
+---
+
+## Early Adopters - VERIFIED
+
+Industry leaders using Jetson Thor:
 - Agility Robotics
 - Amazon Robotics
-- Boston Dynamics (integrating into Atlas)
+- Boston Dynamics
 - Caterpillar
 - Figure
 - Hexagon
@@ -93,25 +144,49 @@ Evaluating:
 - OpenAI
 - Physical Intelligence
 
-## Key Features Verified
-- Blackwell GPU architecture with 5th-gen Tensor Cores
-- Transformer Engine with FP4/FP8 dynamic switching
-- Multi-Instance GPU (MIG) support
-- Safety Island with lockstep cores (ASIL-D capable)
-- Holoscan Sensor Bridge integration
-- Up to 20 camera connections
-- 8K display output support
+**Source:** [NVIDIA Newsroom](https://nvidianews.nvidia.com/news/nvidia-blackwell-powered-jetson-thor-now-available-accelerating-the-age-of-general-robotics)
 
-## Sources
+---
 
-- [NVIDIA Jetson Thor Official Page](https://www.nvidia.com/en-us/autonomous-machines/embedded-systems/jetson-thor/)
-- [NVIDIA Newsroom: Jetson Thor Now Available](https://nvidianews.nvidia.com/news/nvidia-blackwell-powered-jetson-thor-now-available-accelerating-the-age-of-general-robotics)
-- [NVIDIA Developer Blog: Introducing Jetson Thor](https://developer.nvidia.com/blog/introducing-nvidia-jetson-thor-the-ultimate-platform-for-physical-ai/)
-- [JetPack SDK Downloads](https://developer.nvidia.com/embedded/jetpack/downloads)
-- [JetPack 7.0 Forum Announcement](https://forums.developer.nvidia.com/t/jetpack-7-0-jetson-linux-38-2-for-nvidia-jetson-thor-is-now-live/343128)
-- [RidgeRun: JetPack 7.0 Components](https://developer.ridgerun.com/wiki/index.php/NVIDIA_Jetson_AGX_Thor/JetPack_7.0/Getting_Started/Components)
-- [Isaac ROS 4.0 Announcement](https://forums.developer.nvidia.com/t/nvidia-isaac-ros-4-0-for-thor-has-arrived/352109)
-- [JetsonHacks: JetPack 7.1 and T4000](https://jetsonhacks.com/2026/01/12/jetpack-7-1-and-jetson-t4000-now-available/)
-- [CNX Software: Jetson AGX Thor Developer Kit](https://www.cnx-software.com/2025/08/19/3499-nvidia-jetson-agx-thor-developer-kit-2070-tops-jetson-t5000-som-for-robotics-and-edge-ai/)
-- [CNX Software: Jetson T4000](https://www.cnx-software.com/2026/01/06/nvidia-jetson-t4000-edge-ai-embedded-system-offers-5gbe-networking-four-poe-camera-ports-dio-can-bus-and-more/)
-- [Seeed Studio: Jetson AGX Thor Developer Kit](https://www.seeedstudio.com/NVIDIA-Jetson-AGX-Thor-Developer-Kit-p-9965.html)
+## Summary of Corrections Needed
+
+### Must Fix
+1. **T4000 Availability:** Change "Q2 2026" to "Now available" or "January 2026" (CES 2026 announcement)
+2. **T4000 Power:** Minor: 40W-75W should be 40W-70W
+
+### Minor / Optional
+1. **T5000 Power:** Could clarify "75W-120W configurable, 130W max" vs current "40W-130W"
+2. **Development Workflow:** Update "JetPack 7.0" to "JetPack 7.1" or "JetPack 7.x"
+3. **T4000 TFLOPS:** 1,200 vs 1,242 - current value acceptable
+
+---
+
+## Verified Correct (No Changes Needed)
+
+- T5000 all specifications
+- JetPack 7.1 software versions (CUDA 13.0, TensorRT 10.13, cuDNN 9.12)
+- Architecture diagram (Blackwell, Neoverse V3AE, Tensor Cores)
+- Transformer Engine feature description
+- Safety Island (ASIL-D capable)
+- Isaac ROS 4.0 integration
+- Pricing ($3,499 dev kit, $2,999 T5000, $1,999 T4000)
+- Memory specs (128GB T5000, 64GB T4000, 273 GB/s bandwidth)
+- Target applications
+- Orin comparison table
+
+---
+
+## All Sources
+
+1. [NVIDIA Jetson Thor Official Page](https://www.nvidia.com/en-us/autonomous-machines/embedded-systems/jetson-thor/)
+2. [NVIDIA Newsroom: Jetson Thor Now Available](https://nvidianews.nvidia.com/news/nvidia-blackwell-powered-jetson-thor-now-available-accelerating-the-age-of-general-robotics)
+3. [NVIDIA Developer Blog: Introducing Jetson Thor](https://developer.nvidia.com/blog/introducing-nvidia-jetson-thor-the-ultimate-platform-for-physical-ai/)
+4. [JetPack SDK Downloads](https://developer.nvidia.com/embedded/jetpack/downloads)
+5. [JetPack 7.0 Forum Announcement](https://forums.developer.nvidia.com/t/jetpack-7-0-jetson-linux-38-2-for-nvidia-jetson-thor-is-now-live/343128)
+6. [JetPack 7.1 Blog](https://developer.nvidia.com/blog/accelerate-ai-inference-for-edge-and-robotics-with-nvidia-jetson-t4000-and-nvidia-jetpack-7-1)
+7. [JetsonHacks: JetPack 7.1 and T4000](https://jetsonhacks.com/2026/01/12/jetpack-7-1-and-jetson-t4000-now-available/)
+8. [Isaac ROS 4.0 Forum Announcement](https://forums.developer.nvidia.com/t/nvidia-isaac-ros-4-0-for-thor-has-arrived/352109)
+9. [Isaac ROS Release Notes](https://nvidia-isaac-ros.github.io/releases/index.html)
+10. [CNX Software: Jetson AGX Thor Developer Kit](https://www.cnx-software.com/2025/08/19/3499-nvidia-jetson-agx-thor-developer-kit-2070-tops-jetson-t5000-som-for-robotics-and-edge-ai/)
+11. [CNX Software: Jetson T4000](https://www.cnx-software.com/2026/01/06/nvidia-jetson-t4000-edge-ai-embedded-system-offers-5gbe-networking-four-poe-camera-ports-dio-can-bus-and-more/)
+12. [Forecr T4000/T5000 Benchmarks](https://www.forecr.io/blogs/hardware/nvidia-jetson-t4000-and-t5000-benchmarks)
