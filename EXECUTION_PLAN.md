@@ -44,7 +44,7 @@ Each file needs:
 | `concepts/control/motion-planning.mdx` | ✅ | cuMotion integration |
 | `concepts/control/pid.mdx` | ✅ | Timeless, light review |
 | `concepts/ai/neural-networks.mdx` | ✅ | General, light review |
-| `concepts/ai/reinforcement-learning.mdx` | 🔴 | Robotics RL landscape |
+| `concepts/ai/reinforcement-learning.mdx` | ✅ | Robotics RL landscape |
 
 ---
 
