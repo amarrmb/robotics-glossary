@@ -8,3 +8,4 @@ validate:concepts/perception/slam.mdx
 validate:hardware/sensors/lidar.mdx
 validate:hardware/sensors/cameras.mdx
 validate:hardware/sensors/imu.mdx
+validate:concepts/fundamentals/kinematics.mdx
