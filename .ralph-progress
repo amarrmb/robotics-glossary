@@ -15,3 +15,4 @@ validate:concepts/control/pid.mdx
 validate:concepts/ai/neural-networks.mdx
 validate:concepts/ai/reinforcement-learning.mdx
 create:concepts/fundamentals/transforms.mdx
+create:concepts/fundamentals/coordinate-frames.mdx
