@@ -1,6 +1,7 @@
 ---
 title: Degrees of Freedom (DOF)
 description: The number of independent parameters that define a system's configuration
+last_validated: 2026-01-20
 sidebar:
   badge:
     text: Conceptual
@@ -70,6 +71,8 @@ Where:
 - j₁ = number of 1-DOF joints
 - j₂ = number of 2-DOF joints
 
+For spatial (3D) mechanisms, replace the coefficient 3 with 6.
+
 ## Workspace vs Configuration Space
 
 - **Workspace**: The set of positions/orientations the end-effector can reach (in Cartesian space)
@@ -81,3 +84,9 @@ A 6-DOF robot arm has a 6-dimensional configuration space, even though it operat
 
 - [Kinematics](/robotics-glossary/concepts/fundamentals/kinematics/) — How joints create motion
 - [SLAM](/robotics-glossary/concepts/perception/slam/) — Mapping and localization
+
+## Sources
+
+- [Modern Robotics - Northwestern University](https://modernrobotics.northwestern.edu/nu-gm-book-resource/2-2-degrees-of-freedom-of-a-robot/) — Grübler's formula and DOF calculation
+- [ROS 2 Joint Kinematics](https://docs.ros.org/en/rolling/p/hardware_interface/doc/joints_userdoc.html) — Joint types and DOF contributions
+- [Mecharithm - Configuration Space](https://mecharithm.com/learning/lesson/configuration-space-topology-representation-robot-5) — C-space relationship to DOF
