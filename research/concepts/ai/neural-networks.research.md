@@ -1,6 +1,6 @@
 # Neural Networks for Robotics - Research Notes
 
-**Research Date:** January 2026
+**Research Date:** 2026-01-21
 **File:** src/content/docs/concepts/ai/neural-networks.mdx
 
 ---
@@ -8,109 +8,127 @@
 ## Current Version Numbers
 
 ### NVIDIA Software Stack
-- **TensorRT:** 10.14.1 (latest)
-  - Source: [NVIDIA TensorRT Docs](https://docs.nvidia.com/deeplearning/tensorrt/latest/getting-started/release-notes.html)
-- **JetPack 6:** 6.2 (latest for Orin) - includes CUDA 12.6, TensorRT 10.3, cuDNN 9.3
-  - Source: [JetPack Downloads](https://developer.nvidia.com/embedded/jetpack/downloads)
-- **JetPack 7:** Available for Jetson Thor - Linux Kernel 6.8, Ubuntu 24.04 LTS
-  - Source: [JetPack SDK](https://developer.nvidia.com/embedded/jetpack)
-- **Isaac ROS DNN Inference:** v4.0-0 (November 2025)
-  - Source: [Isaac ROS GitHub](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_dnn_inference/releases)
+- **TensorRT:** 10.x (TensorRT 10.0 GA released, TensorRT 10.13 in JetPack 7.1)
+  - **TensorRT-LLM:** v1.0 with 8x inference performance improvement
+  - **TensorRT Edge-LLM:** New open-source C++ SDK for LLM/VLM inference on Jetson (CES 2026)
+  - Source: [TensorRT SDK](https://developer.nvidia.com/tensorrt), [TensorRT Edge-LLM Blog](https://developer.nvidia.com/blog/accelerating-llm-and-vlm-inference-for-automotive-and-robotics-with-nvidia-tensorrt-edge-llm)
+- **JetPack 7.1:** Latest for Jetson Thor (Jetson Linux 38.4)
+  - Includes: CUDA 13, cuDNN 9.12, TensorRT 10.13
+  - OS: Linux Kernel 6.8, Ubuntu 24.04 LTS
+  - JetPack 7.2 coming with Jetson Orin support
+  - Source: [JetPack Downloads](https://developer.nvidia.com/embedded/jetpack/downloads), [JetPack 7.1 Blog](https://developer.nvidia.com/blog/accelerate-ai-inference-for-edge-and-robotics-with-nvidia-jetson-t4000-and-nvidia-jetpack-7-1)
+- **Isaac ROS DNN Inference:** TensorRT and Triton nodes, NITROS-accelerated
+  - Source: [Isaac ROS DNN Inference](https://nvidia-isaac-ros.github.io/repositories_and_packages/isaac_ros_dnn_inference/index.html)
 
 ### NVIDIA Hardware
-- **Jetson Thor:** Now available (Blackwell GPU, 2560 cores, 96 Tensor Cores)
-  - 2070 FP4 TFLOPS / 1035 FP8 TFLOPS
-  - 128GB LPDDR5X memory, 273 GB/s bandwidth
-  - 14-core Arm Neoverse-V3AE CPU
-  - 7.5x more AI compute vs Jetson Orin
-  - Power: 75W-120W (configurable)
-  - Source: [NVIDIA Blog](https://developer.nvidia.com/blog/introducing-nvidia-jetson-thor-the-ultimate-platform-for-physical-ai/)
+- **Jetson Thor/T5000:** Up to 2070 FP4 TFLOPS, 128GB memory, 40-130W, Blackwell GPU
+  - 14-core Arm Neoverse-V3AE CPU, MIG support
+  - 7.5x more AI compute vs Orin, 3.5x better efficiency
+  - Source: [Jetson Thor Blog](https://developer.nvidia.com/blog/introducing-nvidia-jetson-thor-the-ultimate-platform-for-physical-ai/)
+- **Jetson T4000:** Up to 1200 FP4 TFLOPS, 64GB memory, 40-70W (available CES 2026)
+  - 4x AI compute vs AGX Orin
+  - Source: [JetPack 7.1 Blog](https://developer.nvidia.com/blog/accelerate-ai-inference-for-edge-and-robotics-with-nvidia-jetson-t4000-and-nvidia-jetpack-7-1)
 - **Jetson AGX Orin 64GB:** Up to 275 TOPS, 15-60W
-- **Jetson Orin NX:** Up to 100 TOPS
-- **Jetson Orin Nano Super:** Up to 67 TOPS (with JetPack 6.2 Super Mode: 70% higher gen AI performance)
-  - Source: [NVIDIA Jetson Benchmarks](https://developer.nvidia.com/embedded/jetson-benchmarks)
+- **Jetson Orin Nano Super:** Up to 67 TOPS, 7-25W, $249
+  - Source: [Jetson Modules](https://developer.nvidia.com/embedded/jetson-modules)
 
 ---
 
-## Corrections Needed
+## Foundation Models - Verification
 
-### Inference Speed Table
-- **Current entry:** "Jetson Thor | 5-15ms" - needs verification
-- **Note:** Jetson Thor is now available; performance specs confirmed but specific ms latency benchmarks may vary by model
+### GR00T
+- **Current in file:** GR00T N1.6 ✓ (correct)
+- **Details:** World's first open foundation model for generalized humanoid robot reasoning
+- **Architecture:** Dual-system VLA - Vision-Language Model + Diffusion Transformer
+- GR00T N1.6 integrates NVIDIA Cosmos Reason for loco-manipulation and reasoning
+- GR00T N1.5 trained using GR00T-Dreams synthetic data (36 hours vs 3 months manual)
+- 40% performance boost with synthetic + real data
+- Source: [GR00T N1 Blog](https://developer.nvidia.com/blog/accelerate-generalist-humanoid-robot-development-with-nvidia-isaac-gr00t-n1/), [GR00T N1.6 Blog](https://developer.nvidia.com/blog/building-generalist-humanoid-capabilities-with-nvidia-isaac-gr00t-n1-6-using-a-sim-to-real-workflow)
 
-### Foundation Models Table - Updates Required
+### OpenVLA
+- **Parameters:** 7B (Llama 2 7B backbone)
+- **Architecture:** SigLIP + DinoV2 visual encoder → projector → Llama 2 7B
+- **Training:** 970k real-world robot demos from Open X-Embodiment
+- Outperforms 55B RT-2-X by 16.5% on 29 evaluation tasks
+- Apache 2.0 licensed (open-source)
+- Source: [OpenVLA Paper](https://arxiv.org/abs/2406.09246), [OpenVLA Website](https://openvla.github.io/)
 
-| Model | Current Entry | Update Needed |
-|-------|---------------|---------------|
-| GR00T | "Humanoid - Full-body control" | Update to "GR00T N1.6" - latest version with full body control, uses Cosmos Reason |
-| RT-2 | "VLA - Manipulation from language" | Accurate, but note Google also released Gemini Robotics On-Device (2025) |
-| PaLM-E | "VLM - Embodied reasoning" | Accurate - 562B params, combines PaLM + ViT-22B |
-| Octo | "Policy - Generalizable manipulation" | Add note: Octo-Small (27M) / Octo-Base (93M params), also mention OpenVLA (Jan 2025) |
+### RT-2
+- Google DeepMind's VLA model (July 2023)
+- Built on PaLI-X and PaLM-E foundations
+- Co-fine-tuned with RT-1 robot data
+- 62% success on novel scenarios vs RT-1's 32%
+- Source: [RT-2 Blog](https://deepmind.google/blog/rt-2-new-model-translates-vision-and-language-into-action/)
 
-### Object Detection Models
-- **YOLO:** Document now mentions "YOLO" generically
-  - Latest: YOLO26 (January 2026) - native end-to-end, no NMS, 43% faster CPU inference
-  - Previous: YOLOv12 (February 2025), YOLO11 (September 2024)
-  - Source: [Ultralytics YOLO26 Docs](https://docs.ultralytics.com/models/yolo26/)
+### PaLM-E
+- **Largest version:** 562B parameters
+- Combines PaLM + ViT-22B
+- Published March 2023
+- Source: [PaLM-E Blog](https://research.google/blog/palm-e-an-embodied-multimodal-language-model/)
 
-### Depth Estimation
-- **DepthAnything:** Document mentions "DepthAnything"
-  - Latest: Depth Anything 3 (DA3) - November 2025 - 44.3% better pose accuracy vs VGGT
-  - Also: Video Depth Anything (CVPR 2025 Highlight)
-  - Source: [Depth Anything 3 GitHub](https://github.com/ByteDance-Seed/Depth-Anything-3)
-
-### Vision Transformers
-- **DINO:** Document mentions "DINO"
-  - Latest: DINOv3 (August 2025) - 7B params, 1.7B training images
-  - +6 mIoU on ADE20K vs DINOv2
-  - Source: [Meta AI DINOv2 Blog](https://ai.meta.com/blog/dino-v2-computer-vision-self-supervised-learning/)
-
----
-
-## GR00T N1 Details (for Foundation Models section)
-
-- **Full name:** NVIDIA Isaac GR00T N1
-- **Latest version:** GR00T N1.6
-- **Architecture:** Vision-Language-Action (VLA) with dual-system
-  - System 2: Vision-language module for environment interpretation
-  - System 1: Diffusion transformer for real-time motor actions
-- **Brain:** Uses Cosmos Reason 2 for reasoning
-- **Training:** 780,000 synthetic trajectories (6,500 hours equivalent) in 11 hours
-- **Performance:** 40% improvement with synthetic + real data
-- **Partners:** Agility Robotics, Boston Dynamics, 1X, NEURA Robotics
-- Source: [NVIDIA GR00T N1 Blog](https://developer.nvidia.com/blog/accelerate-generalist-humanoid-robot-development-with-nvidia-isaac-gr00t-n1/)
+### Octo
+- **Parameters:** Octo-Small (27M), Octo-Base (93M)
+- Uses diffusion policy for continuous trajectories
+- Trained on 800k robot episodes from Open X-Embodiment (25 datasets)
+- Published RSS 2024 (May 2024)
+- Source: [Octo Website](https://octo-models.github.io/), [Octo Paper](https://arxiv.org/abs/2405.12213)
 
 ---
 
-## Additional Notes
+## Corrections/Updates Needed
 
-### Gemini Robotics On-Device (Google, 2025)
-- VLA foundation model for on-device inference
-- Fine-tunable with as few as 50 demonstrations
-- 60%+ success rate on new tasks with ~100 demos
-- Source: [InfoQ - Google Gemini Robotics](https://www.infoq.com/news/2025/07/google-gemini-robotics/)
+### Foundation Models Table (Line 143-149)
+| Model | Current Entry | Status |
+|-------|---------------|--------|
+| RT-2 | "VLA - Manipulation from language" | ✓ Accurate |
+| GR00T N1.6 | "VLA - Humanoid full-body control" | ✓ Accurate |
+| OpenVLA | "VLA - Generalizable manipulation (open-weight)" | ✓ Accurate |
+| PaLM-E | "VLM - Embodied reasoning" | ✓ Accurate |
+| Octo | "Policy - Generalizable manipulation" | ✓ Accurate |
 
-### OpenVLA (UC Berkeley, January 2025)
-- First commercially-usable open-weight VLA model
-- Apache 2.0 licensed
-- Trained on RT-X dataset (527K trajectories)
-- Matches Google RT-2 performance
-- Source: [RoboCloud Guide](https://robocloud-dashboard.vercel.app/learn/blog/open-weight-robot-models)
+### Hardware Table (Lines 112-118)
+- **Jetson Thor timing:** File says "5-15ms" - reasonable estimate
+- **Note:** Thor now has T4000/T5000 module variants; could clarify
 
-### Transformer Engine on Jetson Thor
-- Document mentions "Transformer Engine" for foundation models
-- Confirmed: Jetson Thor supports VLA models like GR00T N1.5 and popular LLMs/VLMs
-- Source: [NVIDIA Newsroom](https://nvidianews.nvidia.com/news/nvidia-blackwell-powered-jetson-thor-now-available-accelerating-the-age-of-general-robotics)
+### Line 150
+- "These run efficiently on Jetson Thor with Transformer Engine"
+- **Status:** Thor uses Blackwell GPU with native Transformer Engine support ✓
+
+### TensorRT Command (Line 129)
+- `trtexec --onnx=model.onnx --saveEngine=model.trt --fp16`
+- **Status:** Still valid syntax ✓
 
 ---
 
-## Summary of Required Changes
+## Emerging/Optional Updates
 
-1. **Foundation Models table:** Update GR00T to "GR00T N1.6", consider adding OpenVLA
-2. **Object detection:** Could specify YOLO26 as latest or keep generic "YOLO"
-3. **Depth estimation:** Could update to "DepthAnything V3" or keep generic
-4. **Vision:** Could update DINO to DINOv3 or keep generic
-5. **Hardware specs:** Jetson Thor specs confirmed accurate
-6. **TensorRT command:** Still valid syntax
+### SmolVLA (Hugging Face)
+- 450M parameters - compact VLA alternative
+- Trained on LeRobot dataset
+- Comparable performance to larger VLAs
+- Could be added as emerging open-source option
 
-**Overall Assessment:** Content is accurate and well-structured. Updates are optional - either specify latest versions (which will age quickly) or keep generic references (more maintainable).
+### TensorRT Edge-LLM
+- New SDK for on-device LLM/VLM inference (CES 2026)
+- Partners: Bosch, ThunderSoft, MediaTek
+- Relevant for robotics LLM deployment
+
+---
+
+## Summary
+
+**Overall Assessment:** The current file is accurate and well-maintained.
+
+**Verified as correct:**
+- GR00T N1.6 version and description
+- Foundation models table entries
+- TensorRT optimization workflow
+- Training paradigms section
+- CNN/Transformer/RNN descriptions
+
+**Minor potential updates:**
+- Could distinguish Jetson Thor T4000/T5000 variants
+- TensorRT Edge-LLM is new and relevant (CES 2026)
+- SmolVLA as emerging compact alternative
+
+**No critical corrections required.**
