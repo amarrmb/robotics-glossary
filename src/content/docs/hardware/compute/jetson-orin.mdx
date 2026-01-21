@@ -1,6 +1,7 @@
 ---
 title: Jetson Orin
-description: NVIDIA's edge AI platform for robotics (2022-2025), now in long-term support
+description: NVIDIA's edge AI platform for robotics, in active production with LTS through 2032
+last_validated: 2026-01-20
 sidebar:
   badge:
     text: Practical
@@ -11,10 +12,10 @@ import { Aside, Card, CardGrid, LinkCard, Tabs, TabItem } from '@astrojs/starlig
 
 <span class="level-badge practical">Practical</span>
 
-**Jetson Orin** was NVIDIA's flagship edge AI computing platform from 2022-2025, designed for robotics, autonomous machines, and AI applications requiring real-time performance at the edge. While superseded by [Jetson Thor](/robotics-glossary/hardware/compute/jetson-thor/) for new high-performance designs, Orin remains widely deployed and fully supported.
+**Jetson Orin** is NVIDIA's edge AI computing platform launched in 2022, designed for robotics, autonomous machines, and AI applications requiring real-time performance at the edge. All Orin modules remain in active production with support extended through January 2032.
 
-<Aside type="note" title="Status: Long-Term Support">
-Orin entered LTS in late 2025. JetPack 6.x will receive security updates through 2030. For new projects requiring >300 TOPS, consider [Jetson Thor](/robotics-glossary/hardware/compute/jetson-thor/).
+<Aside type="note" title="Status: Active Production">
+All Orin modules are in active production with LTS extended through January 2032. JetPack 6.2 introduced "Super Mode" enabling higher performance on NX and Nano modules.
 </Aside>
 
 ## The Orin Family
@@ -40,11 +41,11 @@ Orin entered LTS in late 2025. JetPack 6.x will receive security updates through
 
     | Spec | 16GB | 8GB |
     |------|------|-----|
-    | AI Performance | 100 TOPS | 70 TOPS |
+    | AI Performance | 100 TOPS (157 w/ Super Mode) | 70 TOPS (117 w/ Super Mode) |
     | GPU | 1024 CUDA cores | 1024 CUDA cores |
     | CPU | 8-core Arm Cortex-A78AE | 6-core |
     | Memory | 16GB LPDDR5 | 8GB LPDDR5 |
-    | Power | 10W - 25W | 10W - 20W |
+    | Power | 10W - 25W (40W Super Mode) | 10W - 20W |
     | Status | Active production |
 
     **Best for**: Delivery robots, drones, industrial AMRs, cost-sensitive applications
@@ -55,11 +56,11 @@ Orin entered LTS in late 2025. JetPack 6.x will receive security updates through
 
     | Spec | 8GB | 4GB |
     |------|-----|-----|
-    | AI Performance | 40 TOPS | 20 TOPS |
+    | AI Performance | 40 TOPS (67 w/ Super Mode) | 20 TOPS (32 w/ Super Mode) |
     | GPU | 1024 CUDA cores | 512 CUDA cores |
     | CPU | 6-core Arm Cortex-A78AE | 6-core |
     | Memory | 8GB LPDDR5 | 4GB LPDDR5 |
-    | Power | 7W - 15W | 5W - 10W |
+    | Power | 7W - 15W (25W Super Mode) | 5W - 10W |
     | Status | Active production |
 
     **Best for**: Entry-level robots, education, prototyping, high-volume deployments
@@ -70,11 +71,11 @@ Orin entered LTS in late 2025. JetPack 6.x will receive security updates through
 
 | Consideration | Choose Orin | Choose Thor |
 |--------------|-------------|-------------|
-| AI Performance needed | &lt;300 TOPS | 800+ TOPS |
-| Budget | Cost-sensitive | Performance-critical |
+| AI Performance needed | &lt;300 TOPS | 2,070 TFLOPS (FP4) |
+| Budget | Cost-sensitive | Performance-critical ($3,499 dev kit) |
 | Existing design | Migrating from Xavier | New humanoid/advanced robot |
 | Transformer workloads | Limited | Native Transformer Engine |
-| Timeline | Production now | 2026+ deployment |
+| Memory | Up to 64GB | 128GB LPDDR5X |
 
 ## Architecture Overview
 
@@ -112,21 +113,20 @@ Orin entered LTS in late 2025. JetPack 6.x will receive security updates through
 <Tabs>
   <TabItem label="JetPack 6.x (LTS)">
     ```bash
-    # JetPack 6.2 - Long Term Support (Recommended for Orin)
-    # Ubuntu 22.04, CUDA 12.2, TensorRT 8.6
+    # JetPack 6.2.1 - Long Term Support (Recommended for Orin)
+    # Ubuntu 22.04, CUDA 12.6, TensorRT 10.3, cuDNN 9.3
     sudo apt update
     sudo apt install nvidia-jetpack
     ```
     Recommended for production Orin deployments requiring stability.
   </TabItem>
-  <TabItem label="JetPack 7.0">
+  <TabItem label="JetPack 7.x">
     ```bash
-    # JetPack 7.0 - Latest features (Primary target: Thor)
-    # Ubuntu 24.04, CUDA 12.8, TensorRT 10.2
-    # Orin NX/Nano: Full support
-    # AGX Orin: Limited support, verify compatibility
+    # JetPack 7.x - Latest features (Primary target: Thor)
+    # Ubuntu 24.04, CUDA 13.0, Linux Kernel 6.8
+    # Orin support planned for 2026
     ```
-    Use only if you need latest Isaac ROS 4.0 features on Orin NX/Nano.
+    Primary target is Jetson Thor; Orin support coming later.
   </TabItem>
 </Tabs>
 
@@ -204,7 +204,7 @@ sudo jetson_clocks
 <CardGrid>
   <LinkCard
     title="Jetson Thor"
-    description="Next-gen platform for humanoid robots (800+ TOPS)"
+    description="Next-gen platform for humanoid robots (2,070 TFLOPS)"
     href="/robotics-glossary/hardware/compute/jetson-thor/"
   />
   <LinkCard
@@ -225,3 +225,11 @@ sudo jetson_clocks
 - [JetPack 6.x LTS Documentation](https://developer.nvidia.com/embedded/jetpack-6)
 - [Orin → Thor Migration Guide](https://developer.nvidia.com/embedded/jetson-thor-migration)
 - [Jetson Developer Forums](https://forums.developer.nvidia.com/c/agx-autonomous-machines/jetson-embedded-systems/)
+
+## Sources
+
+- [NVIDIA Jetson Orin](https://www.nvidia.com/en-us/autonomous-machines/embedded-systems/jetson-orin/) — Official specifications
+- [NVIDIA JetPack SDK](https://developer.nvidia.com/embedded/jetpack) — Current JetPack 6.2.1 versions
+- [JetPack 6.2 Super Mode Blog](https://developer.nvidia.com/blog/nvidia-jetpack-6-2-brings-super-mode-to-nvidia-jetson-orin-nano-and-jetson-orin-nx-modules/) — Super Mode feature details
+- [Jetson Product Lifecycle](https://developer.nvidia.com/embedded/lifecycle) — LTS extended through January 2032
+- [NVIDIA Newsroom - Jetson Thor](https://nvidianews.nvidia.com/news/nvidia-blackwell-powered-jetson-thor-now-available-accelerating-the-age-of-general-robotics) — Thor availability and specs
