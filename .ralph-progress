@@ -2,3 +2,4 @@ validate:hardware/compute/jetson-orin.mdx
 validate:hardware/compute/jetson-thor.mdx
 validate:hardware/compute/dgx-spark.mdx
 validate:software/isaac/isaac-ros.mdx
+validate:software/simulation/isaac-sim.mdx
