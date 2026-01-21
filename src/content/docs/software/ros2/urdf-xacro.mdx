@@ -1,0 +1,457 @@
+---
+title: URDF & Xacro
+description: Robot description formats for ROS
+last_validated: 2026-01-21
+sidebar:
+  badge:
+    text: Practical
+    variant: success
+---
+
+import { Aside, Card, CardGrid, LinkCard, Tabs, TabItem } from '@astrojs/starlight/components';
+
+<span class="level-badge practical">Practical</span>
+
+**URDF (Unified Robot Description Format)** is an XML specification for representing robot models as a kinematic tree of links and joints. **Xacro (XML Macros)** is a preprocessor that simplifies URDF creation through variables, math expressions, and reusable macros.
+
+<Aside type="tip">
+Always write robot descriptions in Xacro, not raw URDF. Xacro eliminates repetition and makes maintenance far easier.
+</Aside>
+
+## Prerequisites
+
+<CardGrid>
+  <LinkCard
+    title="Coordinate Frames"
+    description="Reference frames and spatial relationships"
+    href="/robotics-glossary/concepts/fundamentals/coordinate-frames/"
+  />
+  <LinkCard
+    title="Kinematics"
+    description="How robots move through space"
+    href="/robotics-glossary/concepts/fundamentals/kinematics/"
+  />
+</CardGrid>
+
+## Why URDF/Xacro Matters
+
+URDF is the de facto standard for robot model interchange, used by:
+- **RViz** for visualization
+- **Gazebo** for physics simulation
+- **MoveIt 2** for motion planning
+- **ros2_control** for hardware abstraction
+- **Isaac Sim, PyBullet, MuJoCo** for simulation
+
+Without a URDF, most ROS 2 tools cannot understand your robot's structure.
+
+## URDF Structure
+
+A URDF describes robots as a tree of **links** (rigid bodies) connected by **joints**:
+
+```
+             base_link
+                 │
+            ─ joint_1 ─ (revolute)
+                 │
+              link_1
+                 │
+            ─ joint_2 ─ (revolute)
+                 │
+              link_2
+                 │
+            ─ joint_3 ─ (fixed)
+                 │
+             tool_link
+```
+
+### Links
+
+Links represent physical robot components with visual, collision, and inertial properties:
+
+```xml
+<link name="base_link">
+  <!-- Appearance for rendering (RViz) -->
+  <visual>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <geometry>
+      <box size="0.5 0.3 0.1"/>
+    </geometry>
+    <material name="blue">
+      <color rgba="0 0 0.8 1"/>
+    </material>
+  </visual>
+
+  <!-- Shape for physics/collision detection -->
+  <collision>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <geometry>
+      <box size="0.5 0.3 0.1"/>
+    </geometry>
+  </collision>
+
+  <!-- Mass properties for dynamics simulation -->
+  <inertial>
+    <origin xyz="0 0 0.05" rpy="0 0 0"/>
+    <mass value="10.0"/>
+    <inertia ixx="0.1" ixy="0" ixz="0" iyy="0.2" iyz="0" izz="0.1"/>
+  </inertial>
+</link>
+```
+
+**Geometry types**: `<box>`, `<cylinder>`, `<sphere>`, `<mesh>`
+
+<Aside type="caution">
+Every link needs `<inertial>` properties for physics simulation. Missing or zero inertia causes robots to behave erratically in Gazebo.
+</Aside>
+
+### Joints
+
+Joints define kinematic relationships between links:
+
+```xml
+<joint name="joint_1" type="revolute">
+  <parent link="base_link"/>
+  <child link="link_1"/>
+  <origin xyz="0 0 0.1" rpy="0 0 0"/>
+  <axis xyz="0 0 1"/>
+  <limit lower="-3.14" upper="3.14" velocity="1.0" effort="100"/>
+  <dynamics damping="0.1" friction="0.0"/>
+</joint>
+```
+
+**Joint types**:
+
+| Type | Description | Limits |
+|------|-------------|--------|
+| `revolute` | Rotation about axis | min/max angle |
+| `continuous` | Unlimited rotation | none |
+| `prismatic` | Linear sliding | min/max position |
+| `fixed` | No relative motion | N/A |
+
+## Xacro Features
+
+Xacro extends URDF with programming constructs that dramatically reduce repetition.
+
+### Properties (Variables)
+
+```xml
+<xacro:property name="wheel_radius" value="0.1"/>
+<xacro:property name="wheel_width" value="0.05"/>
+
+<!-- Usage with ${} -->
+<cylinder radius="${wheel_radius}" length="${wheel_width}"/>
+```
+
+### Math Expressions
+
+```xml
+<!-- Basic math -->
+<origin xyz="${base_length/2} 0 ${base_height + wheel_radius}"/>
+
+<!-- Trigonometry -->
+<origin xyz="${cos(pi/4)} ${sin(pi/4)} 0"/>
+
+<!-- Complex expressions -->
+<mass value="${density * pi * wheel_radius**2 * wheel_width}"/>
+```
+
+### Macros
+
+Define reusable components:
+
+```xml
+<!-- Define a wheel macro -->
+<xacro:macro name="wheel" params="prefix reflect">
+  <link name="${prefix}_wheel_link">
+    <visual>
+      <geometry>
+        <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
+      </geometry>
+    </visual>
+  </link>
+
+  <joint name="${prefix}_wheel_joint" type="continuous">
+    <parent link="base_link"/>
+    <child link="${prefix}_wheel_link"/>
+    <origin xyz="0 ${reflect * wheel_separation/2} 0" rpy="${-pi/2} 0 0"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+</xacro:macro>
+
+<!-- Create left and right wheels from one definition -->
+<xacro:wheel prefix="left" reflect="1"/>
+<xacro:wheel prefix="right" reflect="-1"/>
+```
+
+### Conditionals and Includes
+
+```xml
+<!-- Conditional inclusion -->
+<xacro:if value="${use_gazebo}">
+  <gazebo reference="base_link">
+    <material>Gazebo/Gray</material>
+  </gazebo>
+</xacro:if>
+
+<!-- Include other files -->
+<xacro:include filename="$(find robot_description)/urdf/sensors.xacro"/>
+
+<!-- Command-line arguments -->
+<xacro:arg name="use_sim" default="false"/>
+<xacro:property name="sim_mode" value="$(arg use_sim)"/>
+```
+
+## Complete Xacro Example
+
+A minimal 2-DOF robot arm:
+
+```xml
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="simple_arm">
+
+  <!-- Properties -->
+  <xacro:property name="link_length" value="0.3"/>
+  <xacro:property name="link_radius" value="0.02"/>
+  <xacro:property name="link_mass" value="1.0"/>
+  <xacro:property name="pi" value="3.14159265359"/>
+
+  <!-- Inertia macro for cylinders -->
+  <xacro:macro name="cylinder_inertia" params="mass radius length">
+    <inertial>
+      <mass value="${mass}"/>
+      <inertia
+        ixx="${(1/12) * mass * (3 * radius**2 + length**2)}"
+        iyy="${(1/12) * mass * (3 * radius**2 + length**2)}"
+        izz="${(1/2) * mass * radius**2}"
+        ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+  </xacro:macro>
+
+  <!-- Materials -->
+  <material name="blue"><color rgba="0 0 0.8 1"/></material>
+  <material name="red"><color rgba="0.8 0 0 1"/></material>
+
+  <!-- Base -->
+  <link name="base_link">
+    <visual>
+      <geometry><cylinder radius="0.1" length="0.05"/></geometry>
+      <material name="blue"/>
+    </visual>
+    <collision>
+      <geometry><cylinder radius="0.1" length="0.05"/></geometry>
+    </collision>
+    <xacro:cylinder_inertia mass="2.0" radius="0.1" length="0.05"/>
+  </link>
+
+  <!-- Link 1 -->
+  <link name="link_1">
+    <visual>
+      <origin xyz="${link_length/2} 0 0" rpy="0 ${pi/2} 0"/>
+      <geometry><cylinder radius="${link_radius}" length="${link_length}"/></geometry>
+      <material name="red"/>
+    </visual>
+    <collision>
+      <origin xyz="${link_length/2} 0 0" rpy="0 ${pi/2} 0"/>
+      <geometry><cylinder radius="${link_radius}" length="${link_length}"/></geometry>
+    </collision>
+    <xacro:cylinder_inertia mass="${link_mass}" radius="${link_radius}" length="${link_length}"/>
+  </link>
+
+  <!-- Link 2 -->
+  <link name="link_2">
+    <visual>
+      <origin xyz="${link_length/2} 0 0" rpy="0 ${pi/2} 0"/>
+      <geometry><cylinder radius="${link_radius}" length="${link_length}"/></geometry>
+      <material name="blue"/>
+    </visual>
+    <collision>
+      <origin xyz="${link_length/2} 0 0" rpy="0 ${pi/2} 0"/>
+      <geometry><cylinder radius="${link_radius}" length="${link_length}"/></geometry>
+    </collision>
+    <xacro:cylinder_inertia mass="${link_mass}" radius="${link_radius}" length="${link_length}"/>
+  </link>
+
+  <!-- Joints -->
+  <joint name="joint_1" type="revolute">
+    <parent link="base_link"/>
+    <child link="link_1"/>
+    <origin xyz="0 0 0.025" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="${-pi}" upper="${pi}" velocity="1.0" effort="10"/>
+  </joint>
+
+  <joint name="joint_2" type="revolute">
+    <parent link="link_1"/>
+    <child link="link_2"/>
+    <origin xyz="${link_length} 0 0" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="${-pi/2}" upper="${pi/2}" velocity="1.0" effort="10"/>
+  </joint>
+
+</robot>
+```
+
+## Processing and Visualization
+
+### Command Line
+
+```bash
+# Convert xacro to URDF
+ros2 run xacro xacro robot.urdf.xacro > robot.urdf
+
+# With arguments
+ros2 run xacro xacro robot.urdf.xacro use_sim:=true > robot.urdf
+
+# Validate URDF
+ros2 run urdf_parser check_urdf robot.urdf
+```
+
+### Launch File
+
+```python
+from launch import LaunchDescription
+from launch.substitutions import Command, PathJoinSubstitution
+from launch_ros.actions import Node
+from launch_ros.substitutions import FindPackageShare
+
+def generate_launch_description():
+    robot_description = Command([
+        'xacro ',
+        PathJoinSubstitution([
+            FindPackageShare('my_robot_description'),
+            'urdf', 'robot.urdf.xacro'
+        ])
+    ])
+
+    robot_state_publisher = Node(
+        package='robot_state_publisher',
+        executable='robot_state_publisher',
+        parameters=[{'robot_description': robot_description}]
+    )
+
+    joint_state_publisher_gui = Node(
+        package='joint_state_publisher_gui',
+        executable='joint_state_publisher_gui'
+    )
+
+    rviz = Node(
+        package='rviz2',
+        executable='rviz2'
+    )
+
+    return LaunchDescription([
+        robot_state_publisher,
+        joint_state_publisher_gui,
+        rviz
+    ])
+```
+
+## ros2_control Integration
+
+URDF includes `<ros2_control>` tags for hardware abstraction:
+
+```xml
+<ros2_control name="robot_control" type="system">
+  <hardware>
+    <xacro:if value="$(arg use_sim)">
+      <plugin>gz_ros2_control/GazeboSimSystem</plugin>
+    </xacro:if>
+    <xacro:unless value="$(arg use_sim)">
+      <plugin>my_robot_hardware/MyRobotHardware</plugin>
+    </xacro:unless>
+  </hardware>
+
+  <joint name="joint_1">
+    <command_interface name="position"/>
+    <state_interface name="position"/>
+    <state_interface name="velocity"/>
+  </joint>
+</ros2_control>
+```
+
+This enables the same URDF to work with both simulated and real hardware.
+
+## NVIDIA Isaac Sim Integration
+
+Isaac Sim imports URDF and converts it to USD format:
+
+1. **GUI Import**: File > Import > Select URDF
+2. **ROS 2 Bridge**: Read from `/robot_description` topic (handles Xacro automatically)
+3. **Python API**: Use `UrdfImporter` class
+
+```bash
+# For Isaac Sim, convert xacro first
+ros2 run xacro xacro robot.urdf.xacro > robot.urdf
+# Then import robot.urdf into Isaac Sim
+```
+
+## Package Organization
+
+Recommended structure for robot description packages:
+
+```
+my_robot_description/
+├── CMakeLists.txt
+├── package.xml
+├── urdf/
+│   ├── robot.urdf.xacro      # Main robot file
+│   ├── materials.xacro       # Color definitions
+│   └── sensors.xacro         # Sensor macros
+├── meshes/
+│   ├── visual/               # Detailed meshes (.stl, .dae)
+│   └── collision/            # Simplified meshes
+├── launch/
+│   └── view_robot.launch.py
+└── rviz/
+    └── view_robot.rviz
+```
+
+## Common Issues
+
+| Problem | Cause | Solution |
+|---------|-------|----------|
+| Robot at origin in Gazebo | Missing `<inertial>` | Add inertial to all links |
+| Joints don't move | Zero/tiny inertia values | Use realistic inertia |
+| Self-intersection | Wrong joint origins | Check `<origin>` transforms |
+| Mesh not found | Bad package path | Use `package://pkg/path` format |
+| TF tree broken | Duplicate/missing links | Ensure single-parent tree |
+| Robot flies away | Unrealistic mass/inertia | Verify calculations |
+
+## Related Terms
+
+<CardGrid>
+  <LinkCard
+    title="ros2_control"
+    description="Hardware abstraction and controller framework"
+    href="/robotics-glossary/software/ros2/ros2-control/"
+  />
+  <LinkCard
+    title="TF2"
+    description="Transform library for coordinate frames"
+    href="/robotics-glossary/software/ros2/tf2/"
+  />
+  <LinkCard
+    title="MoveIt 2"
+    description="Motion planning framework"
+    href="/robotics-glossary/software/ros2/moveit2/"
+  />
+  <LinkCard
+    title="Gazebo"
+    description="Physics simulation environment"
+    href="/robotics-glossary/software/simulation/gazebo/"
+  />
+</CardGrid>
+
+## Learn More
+
+- [ROS 2 URDF Tutorials (Jazzy)](https://docs.ros.org/en/jazzy/Tutorials/Intermediate/URDF/URDF-Main.html) — Official tutorial series
+- [Articulated Robotics URDF Guide](https://articulatedrobotics.xyz/tutorials/ready-for-ros/urdf/) — Comprehensive walkthrough
+- [ros2_control 6-DOF Robot Demo](https://control.ros.org/rolling/doc/ros2_control_demos/example_7/doc/userdoc.html) — Complete robot arm example
+
+## Sources
+
+- [ROS 2 URDF Tutorials](https://docs.ros.org/en/jazzy/Tutorials/Intermediate/URDF/URDF-Main.html) — Official ROS 2 documentation
+- [URDF XML Specification](http://wiki.ros.org/urdf/XML) — Complete XML reference
+- [Xacro Wiki](http://wiki.ros.org/xacro) — Xacro syntax and features
+- [ros2_control Documentation](https://control.ros.org/rolling/doc/getting_started/getting_started.html) — Hardware interface integration
+- [Isaac Sim URDF Importer](https://docs.isaacsim.omniverse.nvidia.com/latest/importer_exporter/ext_isaacsim_asset_importer_urdf.html) — NVIDIA simulation import
