@@ -1,6 +1,7 @@
 ---
 title: SLAM
 description: Simultaneous Localization and Mapping — how robots build maps while tracking their position
+last_validated: 2026-01-20
 sidebar:
   badge:
     text: Deep Dive
@@ -58,7 +59,7 @@ The "chicken and egg" problem: You need a map to localize, but you need to know 
     Uses laser scanners for precise 3D measurements.
 
     **Approaches:**
-    - **2D LiDAR**: Hector SLAM, GMapping, Cartographer
+    - **2D LiDAR**: Hector SLAM, GMapping, SLAM Toolbox
     - **3D LiDAR**: LOAM, LeGO-LOAM, LIO-SAM
 
     **Pros:** Precise depth, works in darkness, large-scale mapping
@@ -146,7 +147,7 @@ When the robot recognizes a previously visited location, it can correct accumula
 
 <CardGrid>
   <Card title="cuVSLAM" icon="rocket">
-    NVIDIA's GPU-accelerated Visual SLAM in Isaac ROS. 60+ FPS on Jetson Orin.
+    NVIDIA's GPU-accelerated Visual SLAM in Isaac ROS. Best-in-class performance on KITTI benchmark.
   </Card>
   <Card title="nvblox" icon="setting">
     Real-time 3D reconstruction using TSDF fusion. Builds meshes and occupancy grids.
@@ -227,9 +228,11 @@ ros2 launch isaac_ros_visual_slam isaac_ros_visual_slam_rviz.launch.py
   />
 </CardGrid>
 
-## Learn More
+## Sources
 
-- [ORB-SLAM3 Paper](https://arxiv.org/abs/2007.11898) — State-of-the-art visual SLAM
-- [Cartographer](https://google-cartographer.readthedocs.io/) — Google's 2D/3D SLAM
-- [GTSAM](https://gtsam.org/) — Factor graph optimization library
-- [Isaac ROS Visual SLAM](https://nvidia-isaac-ros.github.io/repositories_and_packages/isaac_ros_visual_slam/index.html)
+- [Isaac ROS Visual SLAM](https://nvidia-isaac-ros.github.io/repositories_and_packages/isaac_ros_visual_slam/index.html) — cuVSLAM documentation and benchmarks
+- [cuVSLAM Concepts](https://nvidia-isaac-ros.github.io/concepts/visual_slam/cuvslam/index.html) — GPU-accelerated SLAM architecture
+- [Isaac ROS nvblox](https://nvidia-isaac-ros.github.io/repositories_and_packages/isaac_ros_nvblox/index.html) — 3D reconstruction with TSDF
+- [SLAM Toolbox (ROS 2)](https://docs.ros.org/en/jazzy/p/slam_toolbox/) — Actively maintained 2D SLAM for ROS 2
+- [ORB-SLAM3 Paper](https://arxiv.org/abs/2007.11898) — State-of-the-art visual-inertial SLAM
+- [DROID-SLAM](https://github.com/princeton-vl/DROID-SLAM) — Deep learning-based dense SLAM
