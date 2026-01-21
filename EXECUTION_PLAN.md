@@ -25,7 +25,7 @@ Each file needs:
 | `hardware/compute/jetson-thor.mdx` | ✅ | Verify specs (Thor was announced but check GA status) |
 | `hardware/compute/dgx-spark.mdx` | ✅ | Announced GTC 2025, verify availability/specs |
 | `software/isaac/isaac-ros.mdx` | ✅ | Isaac ROS 3.2 → check if 4.0 is out, NITROS changes |
-| `software/simulation/isaac-sim.mdx` | 🔴 | Isaac Sim 4.x status, Omniverse integration |
+| `software/simulation/isaac-sim.mdx` | ✅ | Isaac Sim 4.x status, Omniverse integration |
 
 #### Priority 2: ROS2 Ecosystem
 | File | Status | Key Validation Points |
