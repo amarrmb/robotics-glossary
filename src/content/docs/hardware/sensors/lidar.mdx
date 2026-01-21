@@ -1,7 +1,7 @@
 ---
 title: LiDAR
 description: Light Detection and Ranging — precise 3D sensing using laser pulses
-last_validated: 2026-01-20
+last_validated: 2026-01-21
 sidebar:
   badge:
     text: Practical
@@ -134,7 +134,7 @@ ros2 run rviz2 rviz2
 **Isaac ROS 4.0** (current release, requires ROS 2 Jazzy) provides GPU-accelerated LiDAR processing:
 
 ```python
-# nvblox: Real-time 3D reconstruction from LiDAR
+# nvblox: Real-time 3D reconstruction from depth cameras and/or 3D LiDAR
 # Isaac ROS packages:
 # - isaac_ros_nvblox
 # - isaac_ros_pointcloud_utils
@@ -154,7 +154,7 @@ ros2 run rviz2 rviz2
 
 ### Autonomous Vehicles
 - **Hesai AT128** — $1,000+, automotive-grade
-- **Luminar Iris** — Long-range automotive
+- **Hesai FT120** — Solid-state, blind-spot detection
 
 ### Drones
 - **Livox Mid-40** — Lightweight, compact
