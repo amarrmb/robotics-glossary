@@ -1,0 +1,83 @@
+---
+title: Degrees of Freedom (DOF)
+description: The number of independent parameters that define a system's configuration
+sidebar:
+  badge:
+    text: Conceptual
+    variant: note
+---
+
+<span class="level-badge conceptual">Conceptual</span>
+
+**Degrees of Freedom (DOF)** refers to the number of independent variables needed to completely specify the position and orientation of a system. In robotics, DOF determines what movements a robot can make.
+
+## Rigid Body in Space
+
+A rigid body floating freely in 3D space has **6 DOF**:
+
+| DOF | Type | Description |
+|-----|------|-------------|
+| 3 | Translation | Movement along X, Y, Z axes |
+| 3 | Rotation | Rotation about X (roll), Y (pitch), Z (yaw) |
+
+This is why robot end-effectors often need 6+ joints to reach any position and orientation.
+
+## Common Robot Configurations
+
+| Robot Type | Typical DOF | Notes |
+|------------|-------------|-------|
+| 2D mobile base | 3 | x, y, θ (heading) |
+| Quadcopter | 6 | Full 3D position + orientation |
+| Industrial arm | 6 | Minimum for arbitrary pose |
+| Collaborative arm | 7 | Redundant (extra flexibility) |
+| Humanoid arm | 7+ | Mimics human arm |
+| Human hand | 27 | Extremely dexterous |
+
+## Redundancy
+
+A robot is **kinematically redundant** when it has more DOF than needed for a task:
+
+- **6-DOF arm** reaching a 3D point (needs only 3 DOF) → Redundant
+- **7-DOF arm** reaching a 6D pose → 1 DOF redundancy
+
+Redundancy enables:
+- Obstacle avoidance while maintaining end-effector pose
+- Optimizing for secondary objectives (minimize energy, avoid singularities)
+- More natural, human-like motion
+
+## Constraints Reduce DOF
+
+Real robots have constraints that reduce effective DOF:
+
+- **Joint limits**: Can't rotate beyond certain angles
+- **Obstacles**: Some configurations cause collisions
+- **Singularities**: Configurations where DOF is temporarily lost
+
+## Calculating DOF
+
+For a mechanism with joints:
+
+```
+DOF = Σ(joint freedoms) - constraints
+```
+
+**Grübler's Formula** (planar mechanisms):
+```
+DOF = 3(n-1) - 2j₁ - j₂
+```
+Where:
+- n = number of links (including ground)
+- j₁ = number of 1-DOF joints
+- j₂ = number of 2-DOF joints
+
+## Workspace vs Configuration Space
+
+- **Workspace**: The set of positions/orientations the end-effector can reach (in Cartesian space)
+- **Configuration Space (C-space)**: The set of all possible joint configurations (dimension = DOF)
+
+A 6-DOF robot arm has a 6-dimensional configuration space, even though it operates in 3D workspace.
+
+## Related Terms
+
+- [Kinematics](/robotics-glossary/concepts/fundamentals/kinematics/) — How joints create motion
+- [SLAM](/robotics-glossary/concepts/perception/slam/) — Mapping and localization

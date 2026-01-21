@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 40" fill="none">
+  <!-- Robot arm icon -->
+  <g stroke="#e6edf3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Base -->
+    <rect x="5" y="30" width="20" height="6" rx="1" fill="#5a8f00"/>
+    <!-- Arm segment 1 -->
+    <rect x="12" y="18" width="6" height="14" rx="1" fill="#76b900"/>
+    <!-- Arm segment 2 -->
+    <rect x="10" y="10" width="10" height="10" rx="1" fill="#76b900"/>
+    <!-- Joint circles -->
+    <circle cx="15" cy="15" r="3" fill="#9ed93c"/>
+    <circle cx="15" cy="25" r="2" fill="#9ed93c"/>
+    <!-- Gripper -->
+    <path d="M8 6 L15 10 L22 6" stroke="#76b900" stroke-width="2.5"/>
+  </g>
+  <!-- Text -->
+  <text x="35" y="26" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="700" fill="#e6edf3">
+    Robotics Glossary
+  </text>
+</svg>

@@ -1,0 +1,310 @@
+---
+title: Isaac Sim
+description: NVIDIA's photorealistic robotics simulation platform built on Omniverse
+sidebar:
+  badge:
+    text: Practical
+    variant: success
+---
+
+import { Aside, Card, CardGrid, LinkCard, Tabs, TabItem } from '@astrojs/starlight/components';
+
+<span class="level-badge practical">Practical</span>
+
+**Isaac Sim** is NVIDIA's robotics simulation platform built on Omniverse. It provides photorealistic rendering, accurate physics, and seamless integration with ROS 2 and Isaac ROS, making it the gold standard for developing and testing robot software before deploying to real hardware.
+
+<Aside type="tip" title="Current Version">
+Isaac Sim 4.5 (2026) — Includes Isaac Lab for robot learning, improved ROS 2 Jazzy support, and enhanced sensor simulation.
+</Aside>
+
+## Why Isaac Sim?
+
+| Challenge | Isaac Sim Solution |
+|-----------|-------------------|
+| Real robots are expensive | Simulate thousands in parallel |
+| Real-world testing is slow | 10,000x faster than real-time possible |
+| Collecting real data is hard | Generate unlimited synthetic data |
+| Edge cases are rare | Create any scenario on demand |
+| Sim-to-real gap | Photorealistic rendering, accurate physics |
+
+## Key Features
+
+### Photorealistic Rendering
+- **RTX ray tracing** — Accurate reflections, shadows, global illumination
+- **Path tracing** — Ground-truth lighting for synthetic data
+- **Material physics** — Realistic surfaces, transparency, subsurface scattering
+
+### PhysX 5 Simulation
+- **Rigid body dynamics** — Accurate contact, friction, collisions
+- **Soft body** — Deformable objects, cloth, rope
+- **Fluid simulation** — Liquids, particles
+- **GPU acceleration** — Thousands of objects in real-time
+
+### Sensor Simulation
+| Sensor | Simulation Quality |
+|--------|-------------------|
+| RGB Camera | Photorealistic with ray tracing |
+| Depth Camera | Multiple noise models (stereo, ToF) |
+| LiDAR | Physically accurate beam simulation |
+| IMU | Configurable noise, bias models |
+| Contact/Force | From PhysX collision detection |
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        Isaac Sim                             │
+├─────────────────────────────────────────────────────────────┤
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │
+│  │ Isaac Lab   │  │ Replicator  │  │ ROS 2 Bridge        │ │
+│  │ (RL/IL)     │  │ (Syn Data)  │  │ (Robot Integration) │ │
+│  └─────────────┘  └─────────────┘  └─────────────────────┘ │
+├─────────────────────────────────────────────────────────────┤
+│                    Omniverse Kit                             │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │
+│  │ PhysX 5     │  │ RTX Renderer│  │ USD Scene Graph     │ │
+│  └─────────────┘  └─────────────┘  └─────────────────────┘ │
+├─────────────────────────────────────────────────────────────┤
+│                    NVIDIA GPU                                │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## Getting Started
+
+### System Requirements
+
+| Component | Minimum | Recommended |
+|-----------|---------|-------------|
+| GPU | RTX 2070 | RTX 4080+ / DGX Spark |
+| VRAM | 8GB | 16GB+ |
+| RAM | 32GB | 64GB+ |
+| Storage | 50GB SSD | NVMe SSD |
+| OS | Ubuntu 22.04 | Ubuntu 22.04/24.04 |
+
+### Installation
+
+<Tabs>
+  <TabItem label="Omniverse Launcher">
+    ```bash
+    # 1. Download Omniverse Launcher
+    # https://www.nvidia.com/en-us/omniverse/
+
+    # 2. Install from Launcher
+    # Exchange → Isaac Sim → Install
+
+    # 3. Launch
+    ~/.local/share/ov/pkg/isaac-sim-4.5.0/isaac-sim.sh
+    ```
+  </TabItem>
+  <TabItem label="Docker">
+    ```bash
+    # Pull Isaac Sim container
+    docker pull nvcr.io/nvidia/isaac-sim:4.5.0
+
+    # Run with GUI
+    docker run --gpus all -e "ACCEPT_EULA=Y" \
+      -v ~/docker/isaac-sim/cache:/isaac-sim/cache \
+      -v ~/docker/isaac-sim/logs:/root/.nvidia-omniverse/logs \
+      nvcr.io/nvidia/isaac-sim:4.5.0
+    ```
+  </TabItem>
+  <TabItem label="Headless">
+    ```bash
+    # For training/CI (no GUI)
+    ./isaac-sim.sh --headless \
+      --/app/window/enabled=false \
+      --/app/livestream/enabled=true
+    ```
+  </TabItem>
+</Tabs>
+
+## Core Workflows
+
+### 1. Import Your Robot
+
+Load robots from URDF, MJCF, or USD:
+
+```python
+from omni.isaac.core.utils.stage import add_reference_to_stage
+
+# Import URDF
+from omni.isaac.urdf import _urdf
+urdf_interface = _urdf.acquire_urdf_interface()
+robot_path = urdf_interface.parse_urdf(
+    "robot.urdf",
+    import_config
+)
+```
+
+### 2. Build Your Scene
+
+```python
+from omni.isaac.core import World
+from omni.isaac.core.objects import DynamicCuboid
+
+# Create world
+world = World()
+
+# Add ground plane
+world.scene.add_default_ground_plane()
+
+# Add objects
+cube = world.scene.add(
+    DynamicCuboid(
+        prim_path="/World/Cube",
+        position=[0.5, 0, 0.5],
+        size=0.1,
+    )
+)
+```
+
+### 3. Connect to ROS 2
+
+```python
+# Enable ROS 2 bridge
+import omni.graph.core as og
+
+# Create ROS 2 camera publisher
+og.Controller.edit(
+    {"graph_path": "/ROS2_Camera"},
+    {
+        og.Controller.Keys.CREATE_NODES: [
+            ("OnPlaybackTick", "omni.graph.action.OnPlaybackTick"),
+            ("CameraHelper", "omni.isaac.ros2_bridge.ROS2CameraHelper"),
+        ],
+        og.Controller.Keys.SET_VALUES: [
+            ("CameraHelper.inputs:topicName", "/camera/image_raw"),
+            ("CameraHelper.inputs:frameId", "camera"),
+        ],
+    },
+)
+```
+
+### 4. Run Simulation
+
+```python
+# Step simulation
+while world.is_playing():
+    world.step(render=True)
+
+    # Get sensor data
+    rgb = camera.get_rgba()
+    depth = depth_camera.get_depth()
+
+    # Send commands
+    robot.apply_action(joint_commands)
+```
+
+## Isaac Lab (Robot Learning)
+
+Isaac Lab is the framework for training robot policies:
+
+```python
+from omni.isaac.lab.envs import ManagerBasedRLEnv
+
+# Create parallel environments
+env = ManagerBasedRLEnv(
+    cfg=MyRobotEnvCfg,
+    num_envs=4096,  # Massive parallelism!
+)
+
+# Training loop
+obs = env.reset()
+for _ in range(1000000):
+    actions = policy(obs)
+    obs, rewards, dones, infos = env.step(actions)
+```
+
+**Capabilities**:
+- 4096+ parallel environments on single GPU
+- Domain randomization built-in
+- Pre-built tasks: locomotion, manipulation, navigation
+
+## Replicator (Synthetic Data)
+
+Generate labeled training data:
+
+```python
+import omni.replicator.core as rep
+
+# Randomize scene
+with rep.trigger.on_frame():
+    # Randomize lighting
+    rep.randomizer.light(
+        intensity=rep.distribution.uniform(500, 5000)
+    )
+    # Randomize object poses
+    rep.randomizer.scatter_2d(
+        surface=table,
+        num_objects=rep.distribution.uniform(5, 10)
+    )
+
+# Generate labels
+rep.WriterRegistry.get("BasicWriter")(
+    output_dir="./synthetic_data",
+    rgb=True,
+    bounding_box_2d_tight=True,
+    semantic_segmentation=True,
+)
+```
+
+## Performance Tips
+
+1. **Use GPU physics** — Enable PhysX GPU acceleration
+2. **Lower render resolution** during training
+3. **Disable ray tracing** when not needed
+4. **Use headless mode** for CI/training
+5. **Batch sensor reads** — Don't query every frame if not needed
+
+## Integration with Real Robots
+
+```
+┌─────────────────┐       ┌─────────────────┐
+│                 │       │                 │
+│   Isaac Sim     │ ◄───► │    ROS 2        │
+│   (Simulation)  │       │   (Bridge)      │
+│                 │       │                 │
+└─────────────────┘       └────────┬────────┘
+                                   │
+                          Same ROS 2 messages
+                                   │
+                          ┌────────▼────────┐
+                          │                 │
+                          │   Real Robot    │
+                          │   (Jetson)      │
+                          │                 │
+                          └─────────────────┘
+```
+
+Your ROS 2 code runs unchanged in sim and on real hardware.
+
+## Related Terms
+
+<CardGrid>
+  <LinkCard
+    title="Isaac ROS"
+    description="GPU-accelerated ROS 2 packages"
+    href="/robotics-glossary/software/isaac/isaac-ros/"
+  />
+  <LinkCard
+    title="Reinforcement Learning"
+    description="Train policies in Isaac Lab"
+    href="/robotics-glossary/concepts/ai/reinforcement-learning/"
+  />
+  <LinkCard
+    title="DGX Spark"
+    description="Desktop workstation for Isaac Sim"
+    href="/robotics-glossary/hardware/compute/dgx-spark/"
+  />
+  <LinkCard
+    title="Jetson Thor"
+    description="Deploy trained policies"
+    href="/robotics-glossary/hardware/compute/jetson-thor/"
+  />
+</CardGrid>
+
+## Learn More
+
+- [Isaac Sim Documentation](https://docs.omniverse.nvidia.com/isaacsim)
+- [Isaac Lab GitHub](https://github.com/isaac-sim/IsaacLab)
+- [Omniverse Developer Portal](https://developer.nvidia.com/omniverse)

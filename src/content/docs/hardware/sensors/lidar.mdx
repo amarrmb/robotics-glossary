@@ -1,0 +1,166 @@
+---
+title: LiDAR
+description: Light Detection and Ranging — precise 3D sensing using laser pulses
+sidebar:
+  badge:
+    text: Practical
+    variant: success
+---
+
+<span class="level-badge practical">Practical</span>
+
+**LiDAR (Light Detection and Ranging)** uses laser pulses to measure distances with millimeter precision. By scanning in 2D or 3D, it creates detailed point clouds of the environment, essential for autonomous navigation, mapping, and obstacle detection.
+
+## How LiDAR Works
+
+```
+1. Emit laser pulse ──────────► Object
+2. Pulse reflects ◄──────────── Object
+3. Measure time-of-flight
+4. Calculate distance: d = (c × t) / 2
+
+c = speed of light
+t = round-trip time
+```
+
+Modern LiDARs emit thousands of pulses per second, building 3D maps in real-time.
+
+## LiDAR Types
+
+### Mechanical Spinning
+
+A rotating mirror or assembly scans the laser across the scene.
+
+| Pros | Cons |
+|------|------|
+| 360° field of view | Moving parts wear out |
+| Mature technology | Expensive ($4,000-$75,000) |
+| High accuracy | Bulky form factor |
+
+**Examples**: Velodyne VLP-16, Ouster OS1
+
+### Solid-State
+
+No moving parts. Uses phased arrays or MEMS mirrors.
+
+| Pros | Cons |
+|------|------|
+| Compact, rugged | Limited field of view |
+| Lower cost | Newer technology |
+| No mechanical wear | May need multiple units for 360° |
+
+**Examples**: Livox Mid-360, Hesai AT128
+
+### Flash LiDAR
+
+Illuminates entire scene at once, like a camera flash.
+
+| Pros | Cons |
+|------|------|
+| No scanning needed | Shorter range |
+| Very fast | Lower resolution |
+| Simple design | Higher power consumption |
+
+**Examples**: Intel RealSense L515 (discontinued)
+
+## Key Specifications
+
+| Spec | Description | Typical Range |
+|------|-------------|---------------|
+| Range | Maximum detection distance | 10-300m |
+| Points/sec | Measurement rate | 300K-2M |
+| Channels | Vertical resolution (spinning) | 16-128 |
+| FoV | Field of view | 90°-360° |
+| Angular resolution | Angle between points | 0.1°-0.4° |
+| Accuracy | Distance error | ±2-5cm |
+
+## Robotics Applications
+
+### SLAM and Mapping
+LiDAR provides accurate distance measurements for building maps:
+- 2D LiDAR → 2D occupancy grids (mobile bases)
+- 3D LiDAR → 3D point cloud maps (autonomous vehicles)
+
+### Obstacle Detection
+Reliable detection regardless of lighting:
+- Works in complete darkness
+- Not affected by shadows or glare
+- Precise distance to obstacles
+
+### Localization
+Match current scan to known map:
+- Iterative Closest Point (ICP)
+- Normal Distributions Transform (NDT)
+
+## LiDAR vs Cameras vs Radar
+
+| Aspect | LiDAR | Camera | Radar |
+|--------|-------|--------|-------|
+| Range accuracy | Excellent | Poor (needs depth estimation) | Good |
+| Works in dark | Yes | No | Yes |
+| Works in fog/rain | Degraded | Degraded | Good |
+| Color/texture | No | Yes | No |
+| Cost | High | Low | Medium |
+| Point density | High | Very high (pixels) | Low |
+
+Most autonomous systems use **sensor fusion** — combining all three.
+
+## ROS 2 Integration
+
+Standard message type: `sensor_msgs/PointCloud2`
+
+```bash
+# View LiDAR data
+ros2 topic echo /scan            # 2D LaserScan
+ros2 topic echo /points          # 3D PointCloud2
+
+# Visualize in RViz2
+ros2 run rviz2 rviz2
+# Add PointCloud2 display, set topic to /points
+```
+
+### Common Packages
+
+| Package | Purpose |
+|---------|---------|
+| `pointcloud_to_laserscan` | Convert 3D to 2D |
+| `laser_filters` | Filter noisy points |
+| `pcl_ros` | Point Cloud Library integration |
+| `nvblox` | GPU-accelerated 3D reconstruction |
+
+## NVIDIA Isaac Integration
+
+**Isaac ROS** provides GPU-accelerated LiDAR processing:
+
+```python
+# nvblox: Real-time 3D reconstruction from LiDAR
+# Isaac ROS packages:
+# - isaac_ros_nvblox
+# - isaac_ros_pointcloud_utils
+```
+
+**Isaac Sim** can simulate LiDAR sensors with realistic noise models.
+
+## Popular Sensors by Application
+
+### Mobile Robots (Indoor)
+- **RPLidar A1/A2** — $100-200, 2D, 360°
+- **Livox Mid-360** — $1,000, 3D solid-state
+
+### Mobile Robots (Outdoor)
+- **Ouster OS0/OS1** — $4,000-8,000, 3D, 360°
+- **Velodyne VLP-16** — $4,000, 3D, 16-channel
+
+### Autonomous Vehicles
+- **Hesai AT128** — $1,000+, automotive-grade
+- **Luminar Iris** — Long-range automotive
+
+### Drones
+- **Livox Mid-40** — Lightweight, compact
+- **Velodyne VLP-16** — If payload allows
+
+## Related Terms
+
+- [SLAM](/robotics-glossary/concepts/perception/slam/) — Uses LiDAR for mapping
+- [Cameras](/robotics-glossary/hardware/sensors/cameras/) — Complementary sensor
+- [Isaac ROS](/robotics-glossary/software/isaac/isaac-ros/) — GPU-accelerated processing

@@ -1,0 +1,235 @@
+---
+title: SLAM
+description: Simultaneous Localization and Mapping — how robots build maps while tracking their position
+sidebar:
+  badge:
+    text: Deep Dive
+    variant: tip
+---
+
+import { Aside, Card, CardGrid, LinkCard, Tabs, TabItem } from '@astrojs/starlight/components';
+
+<span class="level-badge deepdive">Deep Dive</span>
+
+**SLAM (Simultaneous Localization and Mapping)** is the computational problem of constructing a map of an unknown environment while simultaneously tracking the robot's location within it. It's fundamental to autonomous navigation.
+
+<Aside>
+The "chicken and egg" problem: You need a map to localize, but you need to know your position to build a map. SLAM solves both simultaneously.
+</Aside>
+
+## The SLAM Problem
+
+```
+                    ┌─────────────┐
+    Sensors ───────►│    SLAM     │───────► Map
+   (camera,         │  Algorithm  │───────► Robot Pose (x, y, θ)
+    LiDAR,          └─────────────┘
+    IMU)                  ▲
+                          │
+                    Odometry (wheel encoders, IMU)
+```
+
+### Inputs
+- **Sensor observations**: What the robot sees (images, point clouds, depth)
+- **Odometry**: Motion estimates from wheels/IMU (often noisy)
+
+### Outputs
+- **Map**: Representation of the environment
+- **Pose**: Robot's position and orientation in the map
+
+## Types of SLAM
+
+<Tabs>
+  <TabItem label="Visual SLAM">
+    Uses cameras as the primary sensor.
+
+    **Approaches:**
+    - **Feature-based**: Extract and track keypoints (ORB-SLAM, VINS)
+    - **Direct**: Use raw pixel intensities (LSD-SLAM, DSO)
+    - **Deep learning**: Learned features and depth (DROID-SLAM)
+
+    **Pros:** Rich information, low-cost sensors, works indoors/outdoors
+    **Cons:** Sensitive to lighting, texture-poor environments
+
+    **NVIDIA Solution:** [Isaac ROS Visual SLAM](/robotics-glossary/software/isaac/isaac-ros/) (cuVSLAM)
+  </TabItem>
+
+  <TabItem label="LiDAR SLAM">
+    Uses laser scanners for precise 3D measurements.
+
+    **Approaches:**
+    - **2D LiDAR**: Hector SLAM, GMapping, Cartographer
+    - **3D LiDAR**: LOAM, LeGO-LOAM, LIO-SAM
+
+    **Pros:** Precise depth, works in darkness, large-scale mapping
+    **Cons:** Expensive sensors, struggles with glass/reflective surfaces
+
+    **NVIDIA Solution:** [nvblox](/robotics-glossary/nvidia-stack/isaac/nvblox/) for 3D reconstruction
+  </TabItem>
+
+  <TabItem label="Visual-Inertial">
+    Fuses camera with IMU for robust tracking.
+
+    **Approaches:**
+    - **Tightly-coupled**: VINS-Mono, OKVIS
+    - **Loosely-coupled**: ROVIO
+
+    **Pros:** Robust to fast motion, handles brief visual occlusion
+    **Cons:** IMU bias drift, calibration required
+
+    **NVIDIA Solution:** cuVSLAM supports IMU fusion
+  </TabItem>
+</Tabs>
+
+## Map Representations
+
+| Type | Description | Use Case |
+|------|-------------|----------|
+| **Occupancy Grid** | 2D/3D grid of occupied/free cells | Navigation, path planning |
+| **Point Cloud** | Set of 3D points | 3D reconstruction, dense mapping |
+| **Feature Map** | Sparse 3D landmarks | Visual localization |
+| **Mesh** | Triangulated surface | Simulation, visualization |
+| **TSDF** | Truncated Signed Distance Field | Real-time 3D fusion |
+| **Neural** | Learned implicit representation | NeRF-based mapping |
+
+## The SLAM Pipeline
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                       SLAM Pipeline                             │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  1. FRONTEND (Real-time)                                        │
+│  ┌──────────────┐   ┌──────────────┐   ┌──────────────┐        │
+│  │   Feature    │──►│   Tracking   │──►│  Local Map   │        │
+│  │  Extraction  │   │  (Frame-to-  │   │   Update     │        │
+│  │              │   │   Frame)     │   │              │        │
+│  └──────────────┘   └──────────────┘   └──────────────┘        │
+│                                                                 │
+│  2. BACKEND (Optimization)                                      │
+│  ┌──────────────┐   ┌──────────────┐   ┌──────────────┐        │
+│  │    Loop      │──►│    Bundle    │──►│  Global Map  │        │
+│  │   Closure    │   │  Adjustment  │   │  Correction  │        │
+│  │  Detection   │   │   / Pose     │   │              │        │
+│  │              │   │   Graph      │   │              │        │
+│  └──────────────┘   └──────────────┘   └──────────────┘        │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Frontend
+- Runs at sensor rate (30+ Hz)
+- Extracts features, tracks motion
+- Builds local map incrementally
+
+### Backend
+- Runs asynchronously (1-10 Hz)
+- Detects loop closures (been here before?)
+- Optimizes full trajectory and map
+
+## Loop Closure
+
+The key to drift-free SLAM:
+
+```
+Start ──► ──► ──► ──► ──► ──►
+                              │
+                     "I've been here!"
+                              │
+                              ▼
+        ◄── ◄── ◄── ◄── Loop Closure ◄──
+```
+
+When the robot recognizes a previously visited location, it can correct accumulated drift by adding a constraint in the pose graph.
+
+## SLAM on NVIDIA Jetson
+
+<CardGrid>
+  <Card title="cuVSLAM" icon="rocket">
+    NVIDIA's GPU-accelerated Visual SLAM in Isaac ROS. 60+ FPS on Jetson Orin.
+  </Card>
+  <Card title="nvblox" icon="setting">
+    Real-time 3D reconstruction using TSDF fusion. Builds meshes and occupancy grids.
+  </Card>
+</CardGrid>
+
+### Isaac ROS Visual SLAM Example
+
+```bash
+# Launch cuVSLAM with RealSense camera
+ros2 launch isaac_ros_visual_slam isaac_ros_visual_slam_realsense.launch.py
+
+# Visualize in RViz
+ros2 launch isaac_ros_visual_slam isaac_ros_visual_slam_rviz.launch.py
+```
+
+**Output topics:**
+- `/visual_slam/tracking/odometry` — Robot pose
+- `/visual_slam/vis/observations_cloud` — Feature point cloud
+- `/visual_slam/vis/landmarks_cloud` — Map landmarks
+
+## Challenges
+
+<Aside type="caution" title="Common Failure Modes">
+- **Texture-poor environments**: Blank walls, uniform surfaces
+- **Dynamic objects**: Moving people, cars
+- **Lighting changes**: Day/night, flickering lights
+- **Fast motion**: Motion blur
+- **Large-scale drift**: Without loop closure
+</Aside>
+
+## Evaluation Metrics
+
+| Metric | Description |
+|--------|-------------|
+| **ATE** (Absolute Trajectory Error) | Global accuracy of estimated trajectory |
+| **RPE** (Relative Pose Error) | Local drift over fixed intervals |
+| **Loop Closure Recall** | % of true loops detected |
+| **Map Consistency** | How well the map aligns with itself |
+
+## Prerequisites
+
+<CardGrid>
+  <LinkCard
+    title="Coordinate Frames"
+    description="Understanding transforms between frames"
+    href="/robotics-glossary/fundamentals/coordinate-frames/"
+  />
+  <LinkCard
+    title="Computer Vision"
+    description="Feature detection and matching"
+    href="/robotics-glossary/perception/computer-vision/"
+  />
+</CardGrid>
+
+## Related Terms
+
+<CardGrid>
+  <LinkCard
+    title="Visual Odometry"
+    description="Estimating motion from cameras (no map)"
+    href="/robotics-glossary/perception/visual-odometry/"
+  />
+  <LinkCard
+    title="Sensor Fusion"
+    description="Combining multiple sensor modalities"
+    href="/robotics-glossary/perception/sensor-fusion/"
+  />
+  <LinkCard
+    title="Nav2"
+    description="ROS 2 navigation stack that uses SLAM maps"
+    href="/robotics-glossary/software/nav2/"
+  />
+  <LinkCard
+    title="Isaac ROS"
+    description="GPU-accelerated SLAM on Jetson"
+    href="/robotics-glossary/software/isaac/isaac-ros/"
+  />
+</CardGrid>
+
+## Learn More
+
+- [ORB-SLAM3 Paper](https://arxiv.org/abs/2007.11898) — State-of-the-art visual SLAM
+- [Cartographer](https://google-cartographer.readthedocs.io/) — Google's 2D/3D SLAM
+- [GTSAM](https://gtsam.org/) — Factor graph optimization library
+- [Isaac ROS Visual SLAM](https://nvidia-isaac-ros.github.io/repositories_and_packages/isaac_ros_visual_slam/index.html)

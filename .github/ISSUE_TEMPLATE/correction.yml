@@ -1,0 +1,55 @@
+name: "🐛 Correction or Improvement"
+description: Report an error or suggest an improvement to an existing entry
+title: "[Fix]: "
+labels: ["correction", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Help us keep the glossary accurate! Please describe the issue below.
+
+  - type: input
+    id: page
+    attributes:
+      label: Page/Term
+      description: Which glossary entry has the issue?
+      placeholder: e.g., "Jetson Orin", "/nvidia-stack/isaac/isaac-ros"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: Issue Type
+      options:
+        - Factual error
+        - Outdated information
+        - Typo / grammar
+        - Broken link
+        - Missing information
+        - Unclear explanation
+        - Code example doesn't work
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: current
+    attributes:
+      label: Current Content
+      description: What does it currently say?
+      placeholder: Quote or describe the problematic content
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Suggested Fix
+      description: What should it say instead?
+      placeholder: Provide the corrected content if you know it
+
+  - type: textarea
+    id: source
+    attributes:
+      label: Source/Reference
+      description: How do you know the current content is wrong?
+      placeholder: Link to documentation, your expertise, etc.

@@ -1,0 +1,184 @@
+---
+title: IMU
+description: Inertial Measurement Unit — sensing acceleration and rotation for robot state estimation
+sidebar:
+  badge:
+    text: Conceptual
+    variant: note
+---
+
+<span class="level-badge conceptual">Conceptual</span>
+
+An **IMU (Inertial Measurement Unit)** measures linear acceleration and angular velocity, enabling robots to estimate their orientation and motion. IMUs are essential for state estimation, complementing cameras and LiDAR by providing high-rate proprioceptive data.
+
+## What's Inside an IMU
+
+```
+┌─────────────────────────────────────┐
+│              IMU                     │
+│  ┌───────────┐  ┌───────────────┐  │
+│  │Accelero-  │  │ Gyroscope     │  │
+│  │meter (3)  │  │ (3-axis)      │  │
+│  │           │  │               │  │
+│  │ ax ay az  │  │ ωx ωy ωz     │  │
+│  └───────────┘  └───────────────┘  │
+│        Optional:                    │
+│  ┌───────────────────────────────┐ │
+│  │     Magnetometer (3-axis)     │ │
+│  │         mx my mz              │ │
+│  └───────────────────────────────┘ │
+└─────────────────────────────────────┘
+```
+
+- **Accelerometer**: Measures linear acceleration (m/s²)
+- **Gyroscope**: Measures angular velocity (rad/s)
+- **Magnetometer**: Measures magnetic field (compass heading)
+
+An IMU with magnetometer is sometimes called an **AHRS** (Attitude and Heading Reference System).
+
+## Sensor Characteristics
+
+### Accelerometer
+Measures specific force (acceleration + gravity).
+
+```
+Reading = True Acceleration - Gravity
+
+At rest: a = [0, 0, 9.81] m/s² (standing upright)
+```
+
+**Use**: Tilt sensing, vibration, step counting
+
+### Gyroscope
+Measures angular velocity around each axis.
+
+```
+Reading = [ωx, ωy, ωz] rad/s (roll rate, pitch rate, yaw rate)
+```
+
+**Use**: Orientation tracking, stabilization
+
+**Problem**: Drift — small errors accumulate over time
+
+### Magnetometer
+Measures magnetic field (mostly Earth's).
+
+```
+Reading = [mx, my, mz] μT
+```
+
+**Use**: Heading/yaw reference
+
+**Problem**: Easily disturbed by nearby metal, electronics
+
+## Key Specifications
+
+| Spec | Description | Good Value |
+|------|-------------|------------|
+| Noise density | Sensor noise level | &lt;0.1 mg/√Hz (accel), &lt;0.01°/s/√Hz (gyro) |
+| Bias stability | How much bias drifts | &lt;10 μg (accel), &lt;1°/hr (gyro) |
+| Sample rate | Output frequency | 100-1000 Hz |
+| Range | Maximum measurable | ±16g, ±2000°/s |
+
+### IMU Grades
+
+| Grade | Use Case | Gyro Bias | Cost |
+|-------|----------|-----------|------|
+| Consumer | Phones, toys | 10-100°/hr | $1-10 |
+| Industrial | Drones, robots | 1-10°/hr | $50-500 |
+| Tactical | Navigation, surveying | 0.1-1°/hr | $1,000-10,000 |
+| Navigation | Aircraft, ships | &lt;0.01°/hr | $10,000+ |
+
+## Sensor Fusion
+
+Raw IMU data drifts over time. Fusion with other sensors corrects this:
+
+### Complementary Filter
+Simple, fast — blend gyro (short-term accurate) with accel (long-term accurate):
+
+```python
+# Complementary filter for pitch
+alpha = 0.98
+pitch = alpha * (pitch + gyro_rate * dt) + (1-alpha) * accel_pitch
+```
+
+### Kalman Filter / EKF
+Optimal fusion, handles noise models:
+
+```
+┌────────────┐     ┌────────────┐
+│    IMU     │ ──► │            │
+└────────────┘     │   Kalman   │ ──► State Estimate
+┌────────────┐     │   Filter   │     (position, velocity,
+│   GPS /    │ ──► │            │      orientation)
+│ Camera/    │     │            │
+│ LiDAR      │     └────────────┘
+└────────────┘
+```
+
+### Visual-Inertial Odometry (VIO)
+Fuse IMU with camera — gold standard for robot state estimation.
+
+**Tools**: VINS-Mono, ORB-SLAM3, Isaac ROS Visual SLAM
+
+## Common IMU Chips
+
+| Chip | Grade | Notes |
+|------|-------|-------|
+| MPU-6050 | Consumer | Very cheap, adequate for simple projects |
+| BMI088 | Industrial | Good for drones |
+| ICM-42688-P | Industrial | Low noise, Jetson-compatible |
+| ADIS16470 | Tactical | High accuracy, SPI interface |
+
+## ROS 2 Integration
+
+Standard message: `sensor_msgs/Imu`
+
+```python
+# IMU message fields:
+orientation         # Quaternion (if filter provides)
+angular_velocity    # rad/s (gyro)
+linear_acceleration # m/s² (accel)
+```
+
+### Launch Example
+
+```bash
+# Start IMU driver (varies by hardware)
+ros2 launch imu_driver imu.launch.py
+
+# View data
+ros2 topic echo /imu/data
+```
+
+### Fusion Packages
+
+| Package | Purpose |
+|---------|---------|
+| `robot_localization` | EKF/UKF sensor fusion |
+| `imu_filter_madgwick` | Orientation from IMU |
+| `imu_complementary_filter` | Simple orientation filter |
+| `isaac_ros_visual_slam` | VIO with GPU acceleration |
+
+## Calibration
+
+IMUs require calibration for best accuracy:
+
+### Accelerometer
+- **Scale factor**: Correct gain errors
+- **Bias**: Remove constant offset
+- **Axis misalignment**: Correct non-orthogonal axes
+
+### Gyroscope
+- **Bias**: Remove constant offset (changes with temperature!)
+- **Scale factor**: Correct gain
+
+### Magnetometer
+- **Hard iron**: Remove constant offset (nearby magnets)
+- **Soft iron**: Correct for nearby metals distorting field
+
+## Related Terms
+
+- [SLAM](/robotics-glossary/concepts/perception/slam/) — Visual-Inertial SLAM
+- [LiDAR](/robotics-glossary/hardware/sensors/lidar/) — Complementary sensor
+- [Cameras](/robotics-glossary/hardware/sensors/cameras/) — VIO fusion partner

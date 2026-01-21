@@ -1,0 +1,72 @@
+name: "📝 New Term Proposal"
+description: Suggest a new term to add to the glossary
+title: "[Term]: "
+labels: ["new-term", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping grow the robotics glossary! Please fill out the details below.
+
+  - type: input
+    id: term
+    attributes:
+      label: Term Name
+      description: The term you want to add
+      placeholder: e.g., "TensorRT", "Inverse Kinematics", "LiDAR"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      description: Which category does this term belong to?
+      options:
+        - Fundamentals
+        - Hardware
+        - NVIDIA Stack - Jetson
+        - NVIDIA Stack - Isaac
+        - NVIDIA Stack - Omniverse
+        - Perception
+        - Software
+        - AI & ML
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Brief Description
+      description: A one-paragraph explanation of the term
+      placeholder: What is this term and why is it important for robotics?
+    validations:
+      required: true
+
+  - type: textarea
+    id: related
+    attributes:
+      label: Related Terms
+      description: Other glossary terms this relates to
+      placeholder: |
+        - CUDA
+        - Jetson Orin
+        - etc.
+
+  - type: textarea
+    id: resources
+    attributes:
+      label: Resources
+      description: Links to documentation, papers, or tutorials
+      placeholder: |
+        - https://developer.nvidia.com/...
+        - https://arxiv.org/...
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      options:
+        - label: I would like to write this entry myself
+        - label: I can provide technical review if someone else writes it

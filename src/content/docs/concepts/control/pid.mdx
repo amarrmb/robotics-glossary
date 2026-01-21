@@ -1,0 +1,164 @@
+---
+title: PID Control
+description: Proportional-Integral-Derivative control — the fundamental feedback controller
+sidebar:
+  badge:
+    text: Conceptual
+    variant: note
+---
+
+<span class="level-badge conceptual">Conceptual</span>
+
+**PID Control** is the most widely used feedback control algorithm in robotics and automation. It continuously calculates an error between a desired setpoint and a measured process variable, then applies a correction based on proportional, integral, and derivative terms.
+
+## The PID Equation
+
+```
+u(t) = Kp·e(t) + Ki·∫e(t)dt + Kd·de(t)/dt
+```
+
+Where:
+- `u(t)` = control output
+- `e(t)` = error (setpoint - measured value)
+- `Kp` = proportional gain
+- `Ki` = integral gain
+- `Kd` = derivative gain
+
+## The Three Terms
+
+### Proportional (P)
+Reacts to the **current** error. Larger error → larger correction.
+
+- **Effect**: Reduces rise time, but can't eliminate steady-state error alone
+- **Too high**: Oscillation, instability
+- **Too low**: Slow response
+
+### Integral (I)
+Reacts to **accumulated** error over time. Eliminates steady-state error.
+
+- **Effect**: Drives error to zero over time
+- **Too high**: Overshoot, slow oscillations (integral windup)
+- **Too low**: Steady-state error persists
+
+### Derivative (D)
+Reacts to **rate of change** of error. Predicts future error.
+
+- **Effect**: Reduces overshoot, dampens oscillations
+- **Too high**: Amplifies noise, jerky response
+- **Too low**: More overshoot
+
+## Visual Intuition
+
+```
+                Setpoint
+                   │
+Error = ──────────►├◄────── Measured Value
+                   │
+                   ▼
+          ┌────────────────┐
+          │   PID Control  │
+          │                │
+          │  P: "React"    │
+          │  I: "Remember" │
+          │  D: "Predict"  │
+          └───────┬────────┘
+                  │
+                  ▼
+            Control Output
+            (motor speed, valve position, etc.)
+```
+
+## Tuning Methods
+
+### Ziegler-Nichols Method
+1. Set Ki = Kd = 0
+2. Increase Kp until system oscillates at constant amplitude
+3. Note the critical gain (Ku) and oscillation period (Tu)
+4. Calculate gains from lookup table
+
+| Control Type | Kp | Ki | Kd |
+|--------------|----|----|-----|
+| P | 0.5·Ku | 0 | 0 |
+| PI | 0.45·Ku | 1.2·Kp/Tu | 0 |
+| PID | 0.6·Ku | 2·Kp/Tu | Kp·Tu/8 |
+
+### Manual Tuning
+1. Start with Kp only, increase until fast response with some overshoot
+2. Add Kd to reduce overshoot
+3. Add Ki to eliminate steady-state error
+4. Fine-tune all three
+
+## Code Example
+
+```python
+class PIDController:
+    def __init__(self, kp, ki, kd, setpoint=0):
+        self.kp = kp
+        self.ki = ki
+        self.kd = kd
+        self.setpoint = setpoint
+        self.integral = 0
+        self.prev_error = 0
+
+    def update(self, measured, dt):
+        error = self.setpoint - measured
+
+        # Proportional
+        p_term = self.kp * error
+
+        # Integral (with anti-windup)
+        self.integral += error * dt
+        self.integral = max(-100, min(100, self.integral))
+        i_term = self.ki * self.integral
+
+        # Derivative
+        derivative = (error - self.prev_error) / dt
+        d_term = self.kd * derivative
+        self.prev_error = error
+
+        return p_term + i_term + d_term
+
+# Usage: motor speed control
+pid = PIDController(kp=2.0, ki=0.5, kd=0.1, setpoint=100)
+current_speed = 0
+dt = 0.01  # 10ms loop
+
+for _ in range(1000):
+    output = pid.update(current_speed, dt)
+    # Apply output to motor...
+```
+
+## Common Issues
+
+### Integral Windup
+When the actuator saturates, the integral term keeps growing. Solution: clamp the integral or use anti-windup techniques.
+
+### Derivative Noise
+High-frequency noise gets amplified by the D term. Solution: low-pass filter on derivative or measured value.
+
+### Setpoint Kick
+Sudden setpoint changes cause large derivative spikes. Solution: apply D term only to measured value, not error.
+
+## Applications in Robotics
+
+| Application | Typical Tuning Priority |
+|-------------|------------------------|
+| Motor position | High P, moderate D, low I |
+| Temperature | High I, low P and D |
+| Drone altitude | Balanced P, I, D |
+| Line following | High P, moderate D |
+| Balancing robot | High P and D, low I |
+
+## Limitations
+
+PID works well for **linear, single-input/single-output (SISO) systems**. For complex robots, consider:
+
+- **Model Predictive Control (MPC)** — handles constraints and multi-variable systems
+- **LQR** — optimal control for linear systems
+- **Adaptive control** — adjusts gains based on system changes
+- **Neural network controllers** — learns complex nonlinear dynamics
+
+## Related Terms
+
+- [Motion Planning](/robotics-glossary/concepts/control/motion-planning/) — High-level trajectory generation
+- [Kinematics](/robotics-glossary/concepts/fundamentals/kinematics/) — Robot motion geometry

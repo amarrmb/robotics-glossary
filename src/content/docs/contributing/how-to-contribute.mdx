@@ -1,0 +1,130 @@
+---
+title: How to Contribute
+description: Help grow the robotics glossary — add terms, fix errors, improve explanations
+---
+
+We welcome contributions from the robotics community! This glossary is open-source under CC-BY-4.0.
+
+## Ways to Contribute
+
+### 1. Add a New Term
+
+The most valuable contribution! We need coverage across all categories.
+
+**Process:**
+1. Check if the term already exists (use search)
+2. [Open an issue](https://github.com/amarrmb/robotics-glossary/issues/new?template=new-term.yml) proposing the term
+3. Fork the repo and create a branch
+4. Add your term following the [style guide](/robotics-glossary/contributing/style-guide/)
+5. Submit a pull request
+
+**High-priority terms we need:**
+- Software: Omniverse, TensorRT, cuMotion, nvblox, MoveIt 2
+- Hardware: More sensors, actuators, compute modules
+- Concepts: Coordinate frames, sensor fusion, state estimation
+
+### 2. Improve Existing Terms
+
+- Fix errors or outdated information
+- Add missing code examples
+- Improve explanations for clarity
+- Add diagrams or visualizations
+- Update version numbers
+
+### 3. Add Diagrams and Visuals
+
+We strongly prefer visual explanations. You can contribute:
+- Architecture diagrams (SVG or ASCII art)
+- Flowcharts
+- Comparison tables
+- Code examples with output
+
+### 4. Report Issues
+
+Found an error? [Open an issue](https://github.com/amarrmb/robotics-glossary/issues/new?template=correction.yml) with:
+- The term/page affected
+- What's wrong
+- What it should say (if you know)
+
+## Development Setup
+
+```bash
+# Clone the repo
+git clone https://github.com/amarrmb/robotics-glossary.git
+cd robotics-glossary
+
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+# Opens at http://localhost:4321/robotics-glossary/
+```
+
+## File Structure
+
+```
+src/content/docs/
+├── concepts/
+│   ├── fundamentals/   # Kinematics, DOF, transforms
+│   ├── perception/     # SLAM, sensor fusion
+│   ├── control/        # PID, motion planning
+│   └── ai/             # Neural networks, RL
+├── hardware/
+│   ├── compute/        # Jetson, DGX
+│   └── sensors/        # LiDAR, cameras, IMU
+├── software/
+│   ├── frameworks/     # ROS 2
+│   ├── isaac/          # Isaac ROS, Isaac Sim
+│   └── simulation/     # Simulation tools
+└── contributing/       # This guide
+```
+
+## Creating a New Term
+
+1. Create a new `.md` or `.mdx` file in the appropriate category folder
+2. Use this frontmatter template:
+
+```yaml
+---
+title: Term Name
+description: One-line description (shown in search results)
+sidebar:
+  badge:
+    text: Conceptual  # or Practical, Deep Dive
+    variant: note     # note (blue), success (green), tip (purple)
+---
+```
+
+3. Add the level badge at the top of your content:
+
+```html
+<span class="level-badge conceptual">Conceptual</span>
+```
+
+Level options:
+- `conceptual` — Theory, foundations, "what is this?"
+- `practical` — Hands-on, "how do I use this?"
+- `deepdive` — Comprehensive, in-depth coverage
+
+4. Follow the content structure in the [style guide](/robotics-glossary/contributing/style-guide/)
+
+## Pull Request Guidelines
+
+- One term per PR (easier to review)
+- Include a brief description of your changes
+- Ensure the site builds: `npm run build`
+- Link to any sources/references you used
+
+## Code of Conduct
+
+Be respectful and constructive. We're all here to learn and share knowledge about robotics.
+
+## Questions?
+
+- [Open a discussion](https://github.com/amarrmb/robotics-glossary/discussions) on GitHub
+- Tag `@maintainers` in your issue/PR if you need help
+
+---
+
+Thank you for helping build the canonical robotics reference!

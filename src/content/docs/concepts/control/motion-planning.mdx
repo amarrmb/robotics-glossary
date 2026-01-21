@@ -1,0 +1,174 @@
+---
+title: Motion Planning
+description: Finding collision-free paths for robots to move from start to goal
+sidebar:
+  badge:
+    text: Deep Dive
+    variant: tip
+---
+
+<span class="level-badge deepdive">Deep Dive</span>
+
+**Motion Planning** is the problem of finding a sequence of valid configurations that moves a robot from a start state to a goal state while avoiding obstacles. It's one of the core challenges in robotics, bridging perception (knowing where obstacles are) and control (executing movements).
+
+## The Planning Problem
+
+Given:
+- **Start configuration**: Where the robot begins (joint angles, position)
+- **Goal configuration**: Where the robot needs to go
+- **Obstacles**: Objects the robot must not collide with
+- **Robot model**: Geometry and kinematics of the robot
+
+Find:
+- A **collision-free path** from start to goal
+- Optionally: the **shortest** or **smoothest** path
+
+## Configuration Space (C-Space)
+
+Instead of planning in physical space, we plan in **configuration space** — the space of all possible robot configurations.
+
+```
+Physical Space (3D)          Configuration Space
+    ┌───────────┐            ┌───────────────────┐
+    │   Robot   │            │                   │
+    │    ◯──◯   │  ───────►  │   q = (θ₁, θ₂)   │
+    │   /       │            │                   │
+    │  Base     │            │   Dimension = DOF │
+    └───────────┘            └───────────────────┘
+```
+
+- A 6-DOF robot arm has a 6D configuration space
+- Obstacles in physical space become **C-space obstacles**
+- The planning problem becomes: find a path through free C-space
+
+## Algorithm Categories
+
+### Sampling-Based Planners
+
+Build a graph by randomly sampling configurations and connecting them.
+
+**RRT (Rapidly-exploring Random Tree)**
+```
+1. Start with tree rooted at start configuration
+2. Sample random configuration q_rand
+3. Find nearest node q_near in tree
+4. Extend toward q_rand by small step → q_new
+5. If path to q_new is collision-free, add to tree
+6. Repeat until goal is reached
+```
+
+**PRM (Probabilistic Roadmap)**
+```
+1. Sample N random configurations
+2. Connect nearby configurations if path is collision-free
+3. Query: find path from start to goal through roadmap
+```
+
+| Planner | Best For | Limitations |
+|---------|----------|-------------|
+| RRT | Single-query problems | Non-optimal paths |
+| RRT* | Optimal paths | Slower convergence |
+| PRM | Multi-query (same environment) | Preprocessing time |
+
+### Search-Based Planners
+
+Discretize the space and search for optimal path.
+
+**A\*** — Optimal search with heuristic
+```
+f(n) = g(n) + h(n)
+```
+- g(n) = cost from start to n
+- h(n) = heuristic estimate to goal
+
+**Dijkstra's** — A* with h(n) = 0 (uniform cost search)
+
+### Optimization-Based Planners
+
+Formulate path as optimization problem.
+
+**CHOMP** — Covariant Hamiltonian Optimization
+**TrajOpt** — Sequential convex optimization
+**cuMotion** — NVIDIA's GPU-accelerated motion planning
+
+## NVIDIA cuMotion
+
+NVIDIA's Isaac platform includes **cuMotion** for GPU-accelerated motion planning:
+
+```python
+from isaac_ros_cumotion import CumotionPlanner
+
+# Initialize planner with robot URDF
+planner = CumotionPlanner(
+    robot_urdf="franka.urdf",
+    world_model=collision_world,
+)
+
+# Plan path
+trajectory = planner.plan(
+    start_joints=current_joints,
+    goal_pose=target_pose,
+    num_seeds=32,  # Parallel planning seeds
+)
+```
+
+**Key advantages:**
+- Plans 1000s of trajectories in parallel on GPU
+- Real-time replanning for dynamic environments
+- Integrates with Isaac ROS and MoveIt
+
+## Practical Considerations
+
+### Collision Checking
+The most expensive operation. Approaches:
+- **Geometric primitives** — Fast but approximate
+- **Mesh-based** — Accurate but slower
+- **Signed Distance Fields (SDF)** — Fast queries, precomputed
+- **GPU-accelerated** — nvblox, cuCollision
+
+### Smoothing
+Raw paths are often jerky. Post-processing:
+- Shortcutting (remove unnecessary waypoints)
+- Spline fitting
+- Time-optimal trajectory generation
+
+### Dynamic Environments
+When obstacles move:
+- Replan frequently (MPC-style)
+- Use local planners for reactive avoidance
+- Predict obstacle motion
+
+## Motion Planning Stack
+
+```
+┌─────────────────────────────────────────┐
+│           Task Planner                   │
+│     "Pick up object A, place at B"      │
+├─────────────────────────────────────────┤
+│         Motion Planner (Global)          │
+│  Find collision-free path to goal pose  │
+├─────────────────────────────────────────┤
+│         Trajectory Optimizer             │
+│   Smooth path, respect velocity limits   │
+├─────────────────────────────────────────┤
+│         Local Planner / Controller       │
+│    Execute trajectory, react to errors   │
+└─────────────────────────────────────────┘
+```
+
+## Common Tools
+
+| Tool | Type | Notes |
+|------|------|-------|
+| MoveIt 2 | ROS 2 framework | Most popular, multiple backends |
+| OMPL | Library | Sampling-based planners |
+| cuMotion | NVIDIA | GPU-accelerated |
+| Drake | Framework | Optimization-based |
+| Tesseract | Library | Industrial focused |
+
+## Related Terms
+
+- [Kinematics](/robotics-glossary/concepts/fundamentals/kinematics/) — Robot motion geometry
+- [SLAM](/robotics-glossary/concepts/perception/slam/) — Building maps for planning
+- [PID Control](/robotics-glossary/concepts/control/pid/) — Executing planned trajectories
+- [ROS 2](/robotics-glossary/software/frameworks/ros2/) — MoveIt 2 integration

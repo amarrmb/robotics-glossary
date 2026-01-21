@@ -1,0 +1,266 @@
+---
+title: Jetson Thor
+description: NVIDIA's flagship edge AI supercomputer for humanoid robots and advanced autonomous systems (2025+)
+sidebar:
+  badge:
+    text: Practical
+    variant: success
+---
+
+import { Aside, Card, CardGrid, LinkCard, Tabs, TabItem } from '@astrojs/starlight/components';
+
+<span class="level-badge practical">Practical</span>
+
+**Jetson Thor** is NVIDIA's most powerful edge AI computing platform, purpose-built for humanoid robots, autonomous vehicles, and advanced robotics requiring datacenter-class AI at the edge. Announced at GTC 2024 and shipping in 2025, Thor delivers 800+ TOPS with native Transformer Engine support.
+
+<Aside type="tip" title="Current Status">
+Jetson Thor developer kits began shipping Q4 2025. JetPack 7.0 is the primary SDK. Production modules available Q1 2026.
+</Aside>
+
+## Why Thor?
+
+Thor represents a generational leap designed specifically for the **foundation model era**:
+
+- **Transformer Engine**: Native FP8 support for running large vision-language-action (VLA) models
+- **Unified memory**: Up to 128GB shared between CPU and GPU
+- **Multi-modal AI**: Run perception, planning, and control models simultaneously
+- **Humanoid-ready**: Designed for the compute demands of next-gen robots
+
+## Specifications
+
+| Spec | Jetson Thor |
+|------|-------------|
+| AI Performance | 800 TOPS (INT8), 400 TFLOPS (FP8) |
+| GPU Architecture | NVIDIA Blackwell |
+| GPU Cores | 4096+ CUDA cores, 512 Tensor Cores |
+| Transformer Engine | Yes (FP8/FP16) |
+| CPU | 16-core Arm Neoverse V2 |
+| Memory | Up to 128GB LPDDR5X unified |
+| Memory Bandwidth | 512 GB/s |
+| Power | 50W - 150W (configurable) |
+| Process | 4nm |
+
+## Architecture
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                       Jetson Thor SoC                             │
+├──────────────────────────────────────────────────────────────────┤
+│  ┌────────────────────┐  ┌────────────────────────────────────┐  │
+│  │   Arm CPU          │  │         NVIDIA Blackwell GPU       │  │
+│  │   Neoverse V2      │  │  ┌──────────┐  ┌───────────────┐  │  │
+│  │   16 cores @ 3GHz  │  │  │  CUDA    │  │  Transformer  │  │  │
+│  │   SVE2 SIMD        │  │  │  Cores   │  │  Engine       │  │  │
+│  └────────────────────┘  │  │  4096+   │  │  FP8/FP16     │  │  │
+│                          │  └──────────┘  └───────────────┘  │  │
+│  ┌────────────────────┐  │  ┌──────────┐  ┌───────────────┐  │  │
+│  │  Safety Island     │  │  │  Tensor  │  │  RT Cores     │  │  │
+│  │  Lockstep cores    │  │  │  Cores   │  │  Ray tracing  │  │  │
+│  │  ASIL-D capable    │  │  │  512     │  │               │  │  │
+│  └────────────────────┘  └──┴──────────┴──┴───────────────┴──┘  │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │           128GB LPDDR5X Unified Memory (512 GB/s)        │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐  │
+│  │  NVDLA v3   │  │  PVA v3     │  │  Video: 8K60 decode     │  │
+│  │  (2x)       │  │  (2x)       │  │  4K120 encode           │  │
+│  └─────────────┘  └─────────────┘  └─────────────────────────┘  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### Key Innovations
+
+- **Blackwell GPU**: Latest architecture with 4th-gen Tensor Cores
+- **Transformer Engine**: Hardware-accelerated FP8 for LLM/VLA inference
+- **Safety Island**: Dedicated lockstep cores for functional safety (ASIL-D)
+- **Unified Memory**: CPU and GPU share 128GB pool—no copying overhead
+
+## Target Applications
+
+<CardGrid>
+  <Card title="Humanoid Robots" icon="seti:robot">
+    Full-body control, real-time VLA models, multi-camera perception at 800+ TOPS
+  </Card>
+  <Card title="Autonomous Vehicles" icon="seti:json">
+    Level 4/5 autonomy with functional safety, sensor fusion, redundant compute
+  </Card>
+  <Card title="Industrial Manipulation" icon="setting">
+    High-DOF arms, force feedback, real-time path planning with foundation models
+  </Card>
+  <Card title="Medical Robotics" icon="heart">
+    Surgical assistance, diagnostic AI, safety-critical applications
+  </Card>
+</CardGrid>
+
+## Software Stack
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Your Application                          │
+├─────────────────────────────────────────────────────────────┤
+│  Isaac Lab │ Isaac ROS 4.0 │ Omniverse │ cuMotion │ OSMO   │
+├─────────────────────────────────────────────────────────────┤
+│  TensorRT 10 │ cuDNN 9 │ CUDA 12.8 │ Triton Server         │
+├─────────────────────────────────────────────────────────────┤
+│                  JetPack 7.0 SDK                             │
+├─────────────────────────────────────────────────────────────┤
+│        Linux Kernel 6.6 + Safety Extensions                  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+<Tabs>
+  <TabItem label="JetPack 7.0">
+    ```bash
+    # JetPack 7.0 - Primary Thor SDK
+    # Ubuntu 24.04, CUDA 12.8, TensorRT 10.2
+    # Transformer Engine support included
+
+    # Flash Thor developer kit
+    sudo ./flash.sh jetson-thor-devkit internal
+
+    # Install full SDK
+    sudo apt update
+    sudo apt install nvidia-jetpack
+    ```
+  </TabItem>
+  <TabItem label="Isaac ROS 4.0">
+    ```bash
+    # Isaac ROS 4.0 optimized for Thor
+    # Includes GR00T foundation model support
+
+    # Add Isaac ROS apt repository
+    sudo apt-add-repository ppa:nvidia/isaac-ros
+    sudo apt update
+
+    # Install Isaac ROS packages
+    sudo apt install ros-jazzy-isaac-ros-core
+    sudo apt install ros-jazzy-isaac-ros-visual-slam
+    sudo apt install ros-jazzy-isaac-ros-gr00t
+    ```
+  </TabItem>
+</Tabs>
+
+## Transformer Engine for Robotics
+
+Thor's Transformer Engine enables running foundation models at the edge:
+
+```python
+import torch
+import transformer_engine.pytorch as te
+
+# Run GR00T-style VLA model on Thor
+class RobotPolicy(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        # FP8 automatic mixed precision
+        self.vision_encoder = te.Linear(768, 1024)
+        self.transformer = te.TransformerLayer(
+            hidden_size=1024,
+            ffn_hidden_size=4096,
+            num_attention_heads=16,
+        )
+        self.action_head = te.Linear(1024, 32)  # Joint commands
+
+    def forward(self, images, proprioception):
+        # Runs in FP8 automatically on Thor
+        x = self.vision_encoder(images)
+        x = self.transformer(x)
+        return self.action_head(x)
+```
+
+<Aside type="note">
+The Transformer Engine automatically manages FP8/FP16 precision, achieving 2x throughput vs FP16-only inference while maintaining accuracy.
+</Aside>
+
+## Thor vs Orin Comparison
+
+| Aspect | Jetson Thor | Jetson AGX Orin |
+|--------|-------------|-----------------|
+| AI Performance | 800+ TOPS | 275 TOPS |
+| GPU Architecture | Blackwell | Ampere |
+| Transformer Engine | Yes | No |
+| Max Memory | 128GB | 64GB |
+| Memory Bandwidth | 512 GB/s | 204 GB/s |
+| Power Range | 50-150W | 15-60W |
+| Foundation Models | Native support | Limited |
+| Target | Humanoids, L4/5 AV | AMRs, drones, industrial |
+
+## Development Workflow
+
+1. **Simulate in Isaac Sim**: Train and validate with Omniverse digital twin
+2. **Develop on DGX Spark**: Use desktop supercomputer for model development
+3. **Deploy to Thor**: Seamless transition with JetPack 7.0 compatibility
+4. **Scale with OSMO**: Orchestrate fleets across edge and cloud
+
+## Getting Started
+
+### 1. Order Developer Kit
+
+Thor developer kits available through NVIDIA partners. Includes:
+- Jetson Thor module (128GB)
+- Developer carrier board
+- Power supply (200W)
+- Cooling solution
+
+### 2. Flash and Setup
+
+```bash
+# Download JetPack 7.0 from NVIDIA
+# Use SDK Manager or command line
+sudo ./flash.sh jetson-thor-devkit internal
+
+# After boot, verify
+tegrastats
+nvidia-smi
+```
+
+### 3. Run Benchmark
+
+```python
+import torch
+import time
+
+# Verify Transformer Engine
+device = torch.device('cuda')
+x = torch.randn(32, 1024, 4096, device=device, dtype=torch.float16)
+
+# Measure FP8 inference
+with torch.cuda.amp.autocast(dtype=torch.float8_e4m3fn):
+    start = time.time()
+    for _ in range(100):
+        y = torch.nn.functional.linear(x, torch.randn(4096, 4096, device=device))
+    torch.cuda.synchronize()
+    print(f"FP8 throughput: {100/(time.time()-start):.1f} iter/s")
+```
+
+## Related Terms
+
+<CardGrid>
+  <LinkCard
+    title="Jetson Orin"
+    description="Previous-gen platform (275 TOPS), now in LTS"
+    href="/robotics-glossary/hardware/compute/jetson-orin/"
+  />
+  <LinkCard
+    title="DGX Spark"
+    description="Desktop AI supercomputer for development"
+    href="/robotics-glossary/hardware/compute/dgx-spark/"
+  />
+  <LinkCard
+    title="Isaac ROS"
+    description="GPU-accelerated ROS 2 packages"
+    href="/robotics-glossary/software/isaac/isaac-ros/"
+  />
+  <LinkCard
+    title="GR00T"
+    description="Foundation model for humanoid robots"
+    href="/robotics-glossary/ai-ml/gr00t/"
+  />
+</CardGrid>
+
+## Learn More
+
+- [Jetson Thor Official Page](https://www.nvidia.com/en-us/autonomous-machines/embedded-systems/jetson-thor/)
+- [JetPack 7.0 Documentation](https://developer.nvidia.com/embedded/jetpack-7)
+- [GTC 2024: Thor Announcement](https://www.nvidia.com/gtc/session-catalog/)
+- [Thor Design Guide](https://developer.nvidia.com/embedded/jetson-thor-design-guide)

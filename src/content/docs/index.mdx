@@ -1,0 +1,89 @@
+---
+title: Welcome to the Robotics Glossary
+description: The canonical, community-maintained reference for robotics concepts and the NVIDIA ecosystem
+template: splash
+hero:
+  tagline: From fundamentals to production — understand the complete robotics stack
+  image:
+    file: ../../assets/hero-robot.svg
+  actions:
+    - text: Start Exploring
+      link: /robotics-glossary/concepts/fundamentals/kinematics/
+      icon: right-arrow
+      variant: primary
+    - text: View on GitHub
+      link: https://github.com/amarrmb/robotics-glossary
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+## Why This Glossary?
+
+The robotics documentation landscape is fragmented. NVIDIA PDFs, ROS wikis, academic papers, Discord threads — knowledge is scattered across dozens of sources.
+
+This glossary brings it together in one **hyperlinked knowledge graph** organized by domain, with content tagged by type:
+
+<div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 0.5rem 0 1.5rem 0;">
+  <span class="level-badge conceptual">Conceptual</span> Theory & foundations
+  <span class="level-badge practical">Practical</span> Hands-on guides
+  <span class="level-badge deepdive">Deep Dive</span> Comprehensive coverage
+</div>
+
+<CardGrid stagger>
+  <Card title="Concepts" icon="open-book">
+    Fundamentals, perception, control — the theory behind robotics.
+  </Card>
+  <Card title="Hardware" icon="laptop">
+    Compute platforms like Jetson Thor, Orin, and DGX Spark.
+  </Card>
+  <Card title="Software" icon="setting">
+    ROS 2, Isaac ROS, simulation tools, and the NVIDIA stack.
+  </Card>
+</CardGrid>
+
+## Featured
+
+<CardGrid>
+  <LinkCard
+    title="Jetson Thor"
+    description="NVIDIA's 800+ TOPS platform for humanoid robots"
+    href="/robotics-glossary/hardware/compute/jetson-thor/"
+  />
+  <LinkCard
+    title="DGX Spark"
+    description="Desktop AI supercomputer for development"
+    href="/robotics-glossary/hardware/compute/dgx-spark/"
+  />
+  <LinkCard
+    title="Jetson Orin"
+    description="Edge AI platform (275 TOPS), now in LTS"
+    href="/robotics-glossary/hardware/compute/jetson-orin/"
+  />
+  <LinkCard
+    title="Isaac ROS"
+    description="GPU-accelerated ROS 2 packages"
+    href="/robotics-glossary/software/isaac/isaac-ros/"
+  />
+  <LinkCard
+    title="SLAM"
+    description="Simultaneous Localization and Mapping"
+    href="/robotics-glossary/concepts/perception/slam/"
+  />
+  <LinkCard
+    title="ROS 2"
+    description="Robot Operating System"
+    href="/robotics-glossary/software/frameworks/ros2/"
+  />
+</CardGrid>
+
+## Navigate
+
+- **Sidebar**: Browse by domain (Concepts → Hardware → Software)
+- **Search**: Press `/` to find any term
+- **Links**: Follow connections between concepts
+
+## Contributing
+
+This is open-source under CC-BY-4.0. [Add a term](https://github.com/amarrmb/robotics-glossary/issues/new?template=new-term.yml) or [report an issue](https://github.com/amarrmb/robotics-glossary/issues/new?template=correction.yml).

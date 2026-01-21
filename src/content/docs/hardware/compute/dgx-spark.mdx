@@ -1,0 +1,285 @@
+---
+title: DGX Spark
+description: NVIDIA's desktop AI supercomputer for robotics development and simulation
+sidebar:
+  badge:
+    text: Practical
+    variant: success
+---
+
+import { Aside, Card, CardGrid, LinkCard, Tabs, TabItem } from '@astrojs/starlight/components';
+
+<span class="level-badge practical">Practical</span>
+
+**DGX Spark** is NVIDIA's desktop-class AI supercomputer, announced at CES 2025. It brings datacenter AI performance to developers' desks, making it ideal for robotics development, simulation, and foundation model training without cloud dependencies.
+
+<Aside type="tip" title="Availability">
+DGX Spark began shipping in May 2025. Priced starting at $3,000, it's designed for individual developers, research labs, and robotics startups.
+</Aside>
+
+## Why DGX Spark for Robotics?
+
+DGX Spark fills a critical gap in the robotics development workflow:
+
+- **Train locally**: Fine-tune foundation models without cloud costs
+- **Run Isaac Sim**: Full Omniverse simulation at your desk
+- **Develop for Thor**: Same software stack as Jetson Thor deployment target
+- **Air-gapped development**: No internet required for sensitive projects
+
+## Specifications
+
+| Spec | DGX Spark |
+|------|-----------|
+| GPU | NVIDIA GB110 (Blackwell architecture) |
+| AI Performance | 1,000 TOPS (INT8) |
+| FP8 Performance | 500 TFLOPS |
+| Memory | 128GB unified LPDDR5X |
+| Memory Bandwidth | 512 GB/s |
+| CPU | MediaTek ARM-based (Grace-class) |
+| Storage | 4TB NVMe SSD |
+| Connectivity | 2x 10GbE, WiFi 7, TB5 |
+| Power | 200W typical |
+| Form Factor | Mac Studio-sized desktop |
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      DGX Spark                               │
+├─────────────────────────────────────────────────────────────┤
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │              NVIDIA GB110 GPU (Blackwell)           │   │
+│  │  ┌───────────────┐  ┌───────────────────────────┐  │   │
+│  │  │ CUDA Cores    │  │ Transformer Engine        │  │   │
+│  │  │ 4096          │  │ FP8 / FP16 / BF16         │  │   │
+│  │  └───────────────┘  └───────────────────────────┘  │   │
+│  │  ┌───────────────┐  ┌───────────────────────────┐  │   │
+│  │  │ Tensor Cores  │  │ RT Cores (Gen 4)          │  │   │
+│  │  │ 512           │  │ Ray tracing for sim       │  │   │
+│  │  └───────────────┘  └───────────────────────────┘  │   │
+│  └─────────────────────────────────────────────────────┘   │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │         128GB Unified Memory (CPU + GPU)            │   │
+│  └─────────────────────────────────────────────────────┘   │
+│  ┌──────────────┐  ┌──────────────┐  ┌───────────────┐    │
+│  │ ARM CPU      │  │ 4TB NVMe     │  │ 2x 10GbE      │    │
+│  │ 16 cores     │  │ Storage      │  │ WiFi 7        │    │
+│  └──────────────┘  └──────────────┘  └───────────────┘    │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## Robotics Development Workflow
+
+<CardGrid>
+  <Card title="1. Simulate" icon="laptop">
+    Run Isaac Sim locally with full ray-tracing. Create digital twins of your robots and environments.
+  </Card>
+  <Card title="2. Train" icon="rocket">
+    Fine-tune foundation models (GR00T, VLA) on your own data without cloud uploads.
+  </Card>
+  <Card title="3. Validate" icon="approve-check">
+    Test perception and control stacks in simulation before real hardware.
+  </Card>
+  <Card title="4. Deploy" icon="right-arrow">
+    Export to Jetson Thor/Orin with identical software stack.
+  </Card>
+</CardGrid>
+
+## Software Stack
+
+DGX Spark runs the same software as NVIDIA's datacenter DGX systems:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                   Your Development                           │
+├─────────────────────────────────────────────────────────────┤
+│  Isaac Sim │ Isaac Lab │ Omniverse Kit │ USD Composer       │
+├─────────────────────────────────────────────────────────────┤
+│  PyTorch │ TensorRT │ Triton │ NeMo │ cuML │ RAPIDS        │
+├─────────────────────────────────────────────────────────────┤
+│  CUDA 12.8 │ cuDNN 9 │ Transformer Engine │ NCCL           │
+├─────────────────────────────────────────────────────────────┤
+│                    DGX OS (Ubuntu 24.04)                    │
+└─────────────────────────────────────────────────────────────┘
+```
+
+<Tabs>
+  <TabItem label="Isaac Sim">
+    ```bash
+    # Isaac Sim runs natively on DGX Spark
+    # Full ray-tracing, PhysX 5, domain randomization
+
+    # Launch Isaac Sim
+    ~/.local/share/ov/pkg/isaac-sim-4.0.0/isaac-sim.sh
+
+    # Or via Omniverse Launcher
+    omniverse-launcher
+    ```
+
+    DGX Spark can run complex warehouse scenes at 30+ FPS with ray-tracing enabled.
+  </TabItem>
+  <TabItem label="Foundation Models">
+    ```python
+    # Fine-tune GR00T or custom VLA models locally
+    import torch
+    from nemo.collections.multimodal import VLAModel
+
+    # Load base model (fits in 128GB unified memory)
+    model = VLAModel.from_pretrained("nvidia/gr00t-base")
+
+    # Fine-tune on your robot's data
+    trainer = Trainer(
+        accelerator="gpu",
+        precision="bf16-mixed",
+        max_epochs=10,
+    )
+    trainer.fit(model, your_dataloader)
+
+    # Export for Jetson Thor
+    model.export("robot_policy.onnx", target="jetson-thor")
+    ```
+  </TabItem>
+  <TabItem label="Isaac Lab">
+    ```python
+    # Reinforcement learning for robotics
+    from omni.isaac.lab import SimulationApp
+    from omni.isaac.lab_tasks.manager_based import ManagerBasedRLEnv
+
+    # DGX Spark can run 4096+ parallel environments
+    app = SimulationApp({"headless": False})
+
+    env = ManagerBasedRLEnv(
+        cfg=my_robot_cfg,
+        num_envs=4096,  # Massive parallelism
+    )
+
+    # Train with stable-baselines3 or rl_games
+    from stable_baselines3 import PPO
+    model = PPO("MlpPolicy", env, verbose=1)
+    model.learn(total_timesteps=10_000_000)
+    ```
+  </TabItem>
+</Tabs>
+
+## Use Cases
+
+### Local Foundation Model Development
+
+```python
+# Train a 7B parameter VLA model entirely on DGX Spark
+# 128GB unified memory eliminates GPU memory constraints
+
+from transformers import AutoModelForVision2Seq
+
+# Load large model - fits in unified memory
+model = AutoModelForVision2Seq.from_pretrained(
+    "nvidia/gr00t-7b",
+    torch_dtype=torch.bfloat16,
+    device_map="auto",
+)
+
+# Fine-tune on robot demonstration data
+trainer = Trainer(
+    model=model,
+    train_dataset=robot_demos,
+    args=TrainingArguments(
+        bf16=True,
+        per_device_train_batch_size=8,  # Large batches possible
+        gradient_accumulation_steps=4,
+    ),
+)
+trainer.train()
+```
+
+### High-Fidelity Simulation
+
+Run photorealistic simulations for:
+- Synthetic data generation with domain randomization
+- Sim-to-real transfer validation
+- Digital twin verification
+- Multi-robot coordination testing
+
+### Edge Deployment Testing
+
+```bash
+# Simulate Jetson Thor performance on DGX Spark
+# Use power/performance profiles
+
+nvidia-smi --power-limit=150  # Match Thor power envelope
+# Run same JetPack 7.0 containers as production
+docker run --gpus all nvcr.io/nvidia/jetson-thor:jp7.0-runtime
+```
+
+## DGX Spark vs Alternatives
+
+| Aspect | DGX Spark | Gaming PC | Cloud GPU | DGX Station |
+|--------|-----------|-----------|-----------|-------------|
+| Price | $3,000+ | $2,000+ | $/hour | $50,000+ |
+| AI TOPS | 1,000 | ~300 | Varies | 2,000+ |
+| Unified Memory | 128GB | 16-24GB | 80GB (A100) | 256GB+ |
+| Isaac Sim | Full | Limited | Network latency | Full |
+| Transformer Engine | Yes | No | Yes (H100) | Yes |
+| Form Factor | Desktop | Tower | N/A | Workstation |
+| Air-gapped | Yes | Yes | No | Yes |
+
+## Getting Started
+
+### 1. Unbox and Connect
+
+- Connect power (200W adapter included)
+- Connect display via DisplayPort or USB-C
+- Connect to network (10GbE recommended for large datasets)
+
+### 2. Initial Setup
+
+```bash
+# DGX Spark comes with DGX OS pre-installed
+# On first boot, create user account
+
+# Verify GPU
+nvidia-smi
+
+# Check Transformer Engine
+python -c "import transformer_engine; print(transformer_engine.__version__)"
+```
+
+### 3. Install Robotics Stack
+
+```bash
+# Install Isaac Sim via Omniverse Launcher
+# Or command line:
+./omniverse-launcher-linux.AppImage
+
+# Install Isaac Lab
+pip install omni-isaac-lab
+
+# Install Isaac ROS development tools
+sudo apt install ros-jazzy-isaac-ros-dev-tools
+```
+
+## Related Terms
+
+<CardGrid>
+  <LinkCard
+    title="Jetson Thor"
+    description="Edge deployment target for DGX Spark development"
+    href="/robotics-glossary/hardware/compute/jetson-thor/"
+  />
+  <LinkCard
+    title="Isaac Sim"
+    description="Omniverse-based robotics simulation"
+    href="/robotics-glossary/software/simulation/isaac-sim/"
+  />
+  <LinkCard
+    title="Jetson Orin"
+    description="Cost-effective edge deployment option"
+    href="/robotics-glossary/hardware/compute/jetson-orin/"
+  />
+</CardGrid>
+
+## Learn More
+
+- [DGX Spark Official Page](https://www.nvidia.com/en-us/data-center/dgx-spark/)
+- [CES 2025 Announcement](https://blogs.nvidia.com/blog/ces-2025-dgx-spark/)
+- [DGX Spark Setup Guide](https://docs.nvidia.com/dgx-spark/)
+- [Isaac Sim on DGX Spark](https://developer.nvidia.com/isaac-sim)

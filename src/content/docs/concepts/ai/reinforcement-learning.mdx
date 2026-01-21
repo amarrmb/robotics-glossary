@@ -1,0 +1,198 @@
+---
+title: Reinforcement Learning
+description: Training robots through trial and error with reward signals
+sidebar:
+  badge:
+    text: Deep Dive
+    variant: tip
+---
+
+<span class="level-badge deepdive">Deep Dive</span>
+
+**Reinforcement Learning (RL)** is a machine learning paradigm where an agent learns to make decisions by interacting with an environment and receiving rewards. Unlike supervised learning, the agent isn't told the correct action — it discovers good behavior through trial and error.
+
+## The RL Framework
+
+```
+         ┌───────────────────────────────┐
+         │         Environment           │
+         │   (Robot + World Simulation)  │
+         └──────────┬──────────┬─────────┘
+                    │          │
+              State │          │ Reward
+                    ▼          ▼
+         ┌───────────────────────────────┐
+         │            Agent              │
+         │    (Neural Network Policy)    │
+         └──────────────┬────────────────┘
+                        │
+                   Action
+                        ▼
+                   Environment
+```
+
+**Key components:**
+- **State (s)**: What the agent observes (sensor readings, joint positions)
+- **Action (a)**: What the agent can do (motor commands, gripper open/close)
+- **Reward (r)**: Scalar feedback signal (positive = good, negative = bad)
+- **Policy (π)**: Mapping from states to actions (what we're learning)
+
+## Why RL for Robotics?
+
+RL shines when:
+- **Optimal behavior is unknown** — Can't manually program dexterous manipulation
+- **Environment is complex** — Physics interactions are hard to model exactly
+- **Adaptation is needed** — Robot should improve with experience
+
+Classic successes:
+- Quadruped locomotion (ANYmal, Spot)
+- Dexterous manipulation (OpenAI Rubik's cube)
+- Drone racing (beating human champions)
+
+## Core Algorithms
+
+### Value-Based Methods
+
+Learn the **value** of being in a state (or taking an action).
+
+**Q-Learning / DQN**:
+```
+Q(s, a) = expected total reward from taking action a in state s
+```
+
+Pick action with highest Q-value:
+```python
+action = argmax(Q(state, all_actions))
+```
+
+**Limitations**: Only works with discrete actions.
+
+### Policy Gradient Methods
+
+Directly learn the **policy** — a probability distribution over actions.
+
+**REINFORCE**:
+```
+∇J(θ) = E[∇log π(a|s) · R]
+```
+
+Increase probability of actions that led to high rewards.
+
+**Actor-Critic**:
+- **Actor**: Policy network (what action to take)
+- **Critic**: Value network (how good is this state)
+
+### Popular Algorithms
+
+| Algorithm | Type | Best For |
+|-----------|------|----------|
+| PPO | Policy gradient | General purpose, stable |
+| SAC | Actor-critic | Sample efficient, continuous control |
+| TD3 | Actor-critic | Continuous control, less hyperparameter sensitive |
+| DrQ-v2 | Image-based | Learning from pixels |
+
+## Sim-to-Real Transfer
+
+Training RL in the real world is slow and dangerous. Solution: **train in simulation, deploy on real robot**.
+
+### The Sim-to-Real Gap
+
+Simulations don't perfectly match reality:
+- Physics approximations
+- Sensor noise differences
+- Actuator dynamics
+
+### Domain Randomization
+
+Randomize simulation parameters so policy becomes robust:
+
+```python
+# Randomize during training
+friction = uniform(0.5, 1.5)
+mass = uniform(0.8, 1.2) * nominal_mass
+observation_noise = normal(0, 0.01)
+```
+
+The policy learns to handle variation, transfers better to real world.
+
+### NVIDIA Isaac Sim + Isaac Lab
+
+```python
+from omni.isaac.lab.envs import ManagerBasedRLEnv
+
+# Create thousands of parallel environments
+env = ManagerBasedRLEnv(
+    cfg=robot_cfg,
+    num_envs=4096,  # Massive parallelism on GPU
+)
+
+# Train with rl_games or stable-baselines3
+from rl_games.algos_torch import PPOAgent
+agent = PPOAgent(env)
+agent.train(max_iterations=10000)
+```
+
+**Benefits**:
+- 4096+ environments in parallel on single GPU
+- Photorealistic rendering for vision-based RL
+- Domain randomization built-in
+
+## Reward Engineering
+
+The reward function shapes what the robot learns. This is **critical** and often the hardest part.
+
+### Sparse vs Dense Rewards
+
+**Sparse**: Reward only at goal (task complete = +1, else 0)
+- Hard to learn — random exploration rarely finds goal
+- Clear signal — no reward hacking
+
+**Dense**: Continuous feedback (distance to goal, velocity toward target)
+- Easier to learn — gradient toward goal
+- Risk of reward hacking — robot finds unintended shortcuts
+
+### Reward Shaping Example
+
+```python
+def compute_reward(state, action, next_state):
+    # Goal: reach target position
+    distance = np.linalg.norm(next_state.position - target)
+
+    # Dense reward: closer is better
+    reward = -distance
+
+    # Bonus for reaching goal
+    if distance < 0.05:
+        reward += 100
+
+    # Penalty for excessive force
+    reward -= 0.01 * np.sum(action**2)
+
+    return reward
+```
+
+## Practical Tips
+
+### What Works
+- **PPO** — Most reliable starting point
+- **Simulation** — Always start in sim, even for simple tasks
+- **Curriculum** — Start easy, increase difficulty
+- **Reward normalization** — Keep rewards in reasonable range
+
+### Common Pitfalls
+- **Reward hacking** — Robot finds unintended way to maximize reward
+- **Hyperparameter sensitivity** — RL algorithms are notoriously finicky
+- **Sample inefficiency** — May need millions of steps
+- **Sim-to-real gap** — Works in sim, fails on real robot
+
+## State of the Art (2026)
+
+- **Isaac Lab** — NVIDIA's framework for GPU-accelerated robot learning
+- **Foundation policies** — Pre-trained on diverse tasks, fine-tune for specific robot
+- **Real-world RL** — Becoming more practical with better sim-to-real and safer exploration
+
+## Related Terms
+
+- [Neural Networks](/robotics-glossary/concepts/ai/neural-networks/) — Policy representations
+- [Isaac Sim](/robotics-glossary/software/simulation/isaac-sim/) — Simulation for RL
+- [Motion Planning](/robotics-glossary/concepts/control/motion-planning/) — Classical alternative to learned policies

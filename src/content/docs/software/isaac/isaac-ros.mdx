@@ -1,0 +1,263 @@
+---
+title: Isaac ROS
+description: GPU-accelerated ROS 2 packages for high-performance robotics perception and navigation
+sidebar:
+  badge:
+    text: Practical
+    variant: success
+---
+
+import { Aside, Card, CardGrid, LinkCard, Tabs, TabItem, Steps } from '@astrojs/starlight/components';
+
+<span class="level-badge practical">Practical</span>
+
+**Isaac ROS** is NVIDIA's collection of GPU-accelerated ROS 2 packages that bring high-performance AI and perception capabilities to robots running on Jetson and discrete GPUs.
+
+<Aside type="note" title="Current Version">
+Isaac ROS 3.2 — Aligned with JetPack 6.1 and ROS 2 Humble
+</Aside>
+
+## Why Isaac ROS?
+
+Standard ROS 2 perception runs on CPU. Isaac ROS moves the heavy lifting to GPU:
+
+| Capability | CPU (Standard ROS) | GPU (Isaac ROS) |
+|------------|-------------------|-----------------|
+| Image processing | ~30 FPS | ~300+ FPS |
+| Stereo depth | ~10 FPS | ~90 FPS |
+| Visual SLAM | ~15 FPS | ~60 FPS |
+| Object detection | ~5 FPS | ~100+ FPS |
+| 3D reconstruction | Seconds | Real-time |
+
+<Aside type="tip">
+Isaac ROS uses **NITROS** (NVIDIA Isaac Transport for ROS) for zero-copy GPU memory sharing between nodes — no CPU copying bottleneck.
+</Aside>
+
+## Architecture
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                      Your ROS 2 Application                      │
+├──────────────────────────────────────────────────────────────────┤
+│  Isaac ROS Packages                                              │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌────────────┐ │
+│  │ Visual SLAM │ │  AprilTag   │ │ Freespace   │ │  DNN       │ │
+│  │             │ │  Detection  │ │ Segmentation│ │  Inference │ │
+│  └─────────────┘ └─────────────┘ └─────────────┘ └────────────┘ │
+├──────────────────────────────────────────────────────────────────┤
+│  NITROS (Zero-Copy Transport)          ┌─────────────────────┐  │
+│  ┌─────────────────────────────────┐   │ Type Adaptation     │  │
+│  │ GPU Memory → GPU Memory         │   │ (sensor_msgs ↔      │  │
+│  │ No CPU copy between nodes       │   │  nitros types)      │  │
+│  └─────────────────────────────────┘   └─────────────────────┘  │
+├──────────────────────────────────────────────────────────────────┤
+│  NVIDIA Libraries                                                │
+│  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌───────────┐  │
+│  │   VPI   │ │TensorRT │ │ cuDNN   │ │  CUDA   │ │  Triton   │  │
+│  └─────────┘ └─────────┘ └─────────┘ └─────────┘ └───────────┘  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+## Key Packages
+
+<Tabs>
+  <TabItem label="Perception">
+    ### Visual Perception
+
+    | Package | Function |
+    |---------|----------|
+    | `isaac_ros_visual_slam` | GPU-accelerated Visual SLAM (cuVSLAM) |
+    | `isaac_ros_apriltag` | Fiducial marker detection |
+    | `isaac_ros_centerpose` | 6-DOF object pose estimation |
+    | `isaac_ros_foundationpose` | Zero-shot pose estimation |
+    | `isaac_ros_depth_image_proc` | Depth processing and pointcloud |
+    | `isaac_ros_image_proc` | Image rectification, resize, format conversion |
+  </TabItem>
+
+  <TabItem label="AI/DNN">
+    ### Deep Learning Inference
+
+    | Package | Function |
+    |---------|----------|
+    | `isaac_ros_dnn_inference` | TensorRT inference wrapper |
+    | `isaac_ros_triton` | Triton Inference Server integration |
+    | `isaac_ros_detectnet` | Object detection |
+    | `isaac_ros_segmentation` | Semantic/instance segmentation |
+    | `isaac_ros_yolov8` | YOLOv8 object detection |
+  </TabItem>
+
+  <TabItem label="Navigation">
+    ### Autonomous Navigation
+
+    | Package | Function |
+    |---------|----------|
+    | `isaac_ros_nvblox` | Real-time 3D reconstruction and mapping |
+    | `isaac_ros_freespace_segmentation` | Drivable area detection |
+    | `isaac_ros_occupancy_grid_localizer` | Grid-based localization |
+    | `isaac_ros_map_localization` | Map-based localization |
+  </TabItem>
+
+  <TabItem label="Manipulation">
+    ### Robot Manipulation
+
+    | Package | Function |
+    |---------|----------|
+    | `isaac_ros_cumotion` | GPU-accelerated motion planning |
+    | `isaac_manipulator` | Pick-and-place pipelines |
+    | `isaac_ros_pose_estimation` | Object pose for grasping |
+  </TabItem>
+</Tabs>
+
+## NITROS: Zero-Copy Transport
+
+The secret sauce of Isaac ROS performance:
+
+```cpp
+// Standard ROS 2: CPU memory copy at every node
+Node A (GPU) → Copy to CPU → Publish → Subscribe → Copy to GPU → Node B (GPU)
+
+// NITROS: GPU memory stays on GPU
+Node A (GPU) → NITROS Publish → NITROS Subscribe → Node B (GPU)
+                    ↓                    ↑
+              [Same GPU memory pointer]
+```
+
+### Using NITROS Types
+
+```python
+# Standard ROS image subscriber (CPU)
+from sensor_msgs.msg import Image
+
+# NITROS-accelerated subscriber (GPU)
+from isaac_ros_nitros_image_type.msg import NitrosImage
+```
+
+NITROS types are automatically adapted to/from standard ROS types at graph boundaries.
+
+## Installation
+
+<Steps>
+1. **Set up Docker** (recommended approach)
+
+   ```bash
+   # Clone Isaac ROS Common
+   git clone https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_common.git
+   cd isaac_ros_common
+   ```
+
+2. **Launch development container**
+
+   ```bash
+   # On Jetson
+   ./scripts/run_dev.sh
+
+   # On x86 with GPU
+   ./scripts/run_dev.sh --gpus all
+   ```
+
+3. **Clone desired packages**
+
+   ```bash
+   cd /workspaces/isaac_ros-dev/src
+   git clone https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_visual_slam.git
+   ```
+
+4. **Build and source**
+
+   ```bash
+   cd /workspaces/isaac_ros-dev
+   colcon build --symlink-install
+   source install/setup.bash
+   ```
+</Steps>
+
+## Example: Visual SLAM
+
+```bash
+# Launch Isaac ROS Visual SLAM with a RealSense camera
+ros2 launch isaac_ros_visual_slam isaac_ros_visual_slam_realsense.launch.py
+```
+
+```python
+# Subscribe to SLAM output
+import rclpy
+from nav_msgs.msg import Odometry
+
+def odom_callback(msg):
+    pos = msg.pose.pose.position
+    print(f"Position: ({pos.x:.2f}, {pos.y:.2f}, {pos.z:.2f})")
+
+# ... standard ROS 2 subscriber setup
+```
+
+## Performance Tips
+
+<Aside type="tip" title="Optimization Checklist">
+1. **Use NITROS types** between GPU-accelerated nodes
+2. **Set appropriate power mode** with `nvpmodel`
+3. **Pre-build TensorRT engines** for your specific GPU
+4. **Match camera FPS** to your processing capability
+5. **Use `ros2 topic hz`** to verify throughput
+</Aside>
+
+## Comparison with Standard ROS
+
+| Aspect | Standard ROS 2 | Isaac ROS |
+|--------|---------------|-----------|
+| Compute | CPU | GPU (CUDA, TensorRT) |
+| Memory | System RAM | GPU VRAM + zero-copy |
+| Latency | Higher (CPU bound) | Lower (parallel GPU) |
+| Power | Less efficient | Optimized for Jetson |
+| Compatibility | Universal | NVIDIA hardware |
+
+## Prerequisites
+
+<CardGrid>
+  <LinkCard
+    title="Jetson Orin"
+    description="Recommended hardware platform"
+    href="/robotics-glossary/hardware/compute/jetson-orin/"
+  />
+  <LinkCard
+    title="ROS 2"
+    description="Robot Operating System 2"
+    href="/robotics-glossary/software/ros2/"
+  />
+  <LinkCard
+    title="TensorRT"
+    description="For optimized DNN inference"
+    href="/robotics-glossary/nvidia-stack/tensorrt/"
+  />
+</CardGrid>
+
+## Related Terms
+
+<CardGrid>
+  <LinkCard
+    title="Isaac Sim"
+    description="Simulation environment for testing Isaac ROS"
+    href="/robotics-glossary/nvidia-stack/isaac/isaac-sim/"
+  />
+  <LinkCard
+    title="cuMotion"
+    description="GPU-accelerated motion planning"
+    href="/robotics-glossary/nvidia-stack/isaac/cumotion/"
+  />
+  <LinkCard
+    title="nvblox"
+    description="Real-time 3D reconstruction"
+    href="/robotics-glossary/nvidia-stack/isaac/nvblox/"
+  />
+  <LinkCard
+    title="SLAM"
+    description="Simultaneous Localization and Mapping"
+    href="/robotics-glossary/perception/slam/"
+  />
+</CardGrid>
+
+## Learn More
+
+- [Isaac ROS Documentation](https://nvidia-isaac-ros.github.io/)
+- [Isaac ROS GitHub Organization](https://github.com/NVIDIA-ISAAC-ROS)
+- [NITROS Deep Dive](https://nvidia-isaac-ros.github.io/concepts/nitros/index.html)
+- [Isaac ROS Release Notes](https://nvidia-isaac-ros.github.io/releases/index.html)

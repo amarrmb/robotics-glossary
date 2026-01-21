@@ -1,0 +1,201 @@
+---
+title: Cameras
+description: Vision sensors for robotics — from RGB to depth to event cameras
+sidebar:
+  badge:
+    text: Practical
+    variant: success
+---
+
+<span class="level-badge practical">Practical</span>
+
+**Cameras** are the most versatile sensors in robotics, providing rich visual information for object detection, navigation, manipulation, and human-robot interaction. Modern robotics uses various camera types, each with specific strengths.
+
+## Camera Types
+
+### RGB Cameras
+Standard color cameras capturing 2D images.
+
+**Use cases**: Object detection, tracking, visual inspection, HRI
+
+**Common sensors**:
+- Machine vision: FLIR Blackfly, Basler ace
+- Consumer: Logitech Brio, Intel RealSense RGB
+- Industrial: Cognex, Keyence
+
+### Depth Cameras
+Measure distance to each pixel, producing 3D data.
+
+**Technologies**:
+
+| Type | How it works | Range | Best for |
+|------|-------------|-------|----------|
+| Stereo | Two cameras, triangulation | 0.5-10m | Outdoor, long range |
+| Structured light | Project IR pattern | 0.3-5m | Indoor, high accuracy |
+| Time-of-flight (ToF) | Measure light travel time | 0.2-8m | Fast capture, low light |
+
+**Popular sensors**:
+- Intel RealSense D435/D455 (stereo)
+- Azure Kinect (ToF)
+- Orbbec Femto (structured light)
+- ZED 2 (stereo, long range)
+
+### Event Cameras
+Output pixel-level brightness changes asynchronously, not frames.
+
+| Pros | Cons |
+|------|------|
+| Microsecond latency | No standard image format |
+| 140dB dynamic range | Specialized algorithms needed |
+| No motion blur | More expensive |
+
+**Use cases**: High-speed tracking, drone racing, low-light environments
+
+**Examples**: Prophesee EVK4, iniVation DVS
+
+## Key Specifications
+
+| Spec | Description | Typical Range |
+|------|-------------|---------------|
+| Resolution | Pixels | 640×480 to 4K |
+| Frame rate | FPS | 30-120+ |
+| FoV | Field of view | 60°-170° |
+| Interface | Connection type | USB, GigE, MIPI CSI |
+| Global/rolling shutter | Capture method | Global preferred for motion |
+
+## Multi-Camera Systems
+
+### Stereo Pairs
+Two cameras for 3D reconstruction via triangulation.
+
+```
+Left Camera          Right Camera
+    │                     │
+    └────────┬────────────┘
+             │
+        Disparity Map
+             │
+        Depth Image
+```
+
+### Camera Arrays
+Multiple cameras for:
+- 360° coverage (autonomous vehicles)
+- Multi-view reconstruction
+- Redundancy
+
+### RGB-D Systems
+Combined RGB + depth (Intel RealSense, Azure Kinect).
+
+## Jetson Camera Support
+
+NVIDIA Jetson supports cameras via:
+
+**MIPI CSI-2** (direct connection):
+- Lowest latency
+- ISP processing on Jetson
+- Up to 6-12 cameras per Jetson
+
+**USB 3.0**:
+- Plug-and-play
+- Higher latency
+- Compressed streams
+
+**GigE Vision**:
+- Industrial standard
+- Long cable runs
+- Multiple cameras on network
+
+### Common Jetson Camera Modules
+
+| Camera | Resolution | FPS | Interface |
+|--------|------------|-----|-----------|
+| IMX219 (Pi Camera v2) | 8MP | 30 | CSI-2 |
+| IMX477 (HQ Camera) | 12MP | 40 | CSI-2 |
+| Leopard Imaging LI-IMX390 | 2MP | 60 | CSI-2, HDR |
+| FLIR Blackfly S | 5MP | 75 | USB/GigE |
+| Intel RealSense D455 | 1MP depth | 90 | USB |
+
+## ROS 2 Integration
+
+Standard message types:
+- `sensor_msgs/Image` — RGB images
+- `sensor_msgs/CameraInfo` — Calibration data
+- `sensor_msgs/PointCloud2` — Depth as point cloud
+
+```bash
+# List camera topics
+ros2 topic list | grep image
+
+# View camera feed
+ros2 run rqt_image_view rqt_image_view
+```
+
+### Common Packages
+
+| Package | Purpose |
+|---------|---------|
+| `usb_cam` | USB camera driver |
+| `realsense2_camera` | Intel RealSense |
+| `zed_wrapper` | ZED cameras |
+| `image_proc` | Basic processing |
+| `cv_bridge` | ROS ↔ OpenCV conversion |
+
+## NVIDIA Isaac Integration
+
+**Isaac ROS** provides GPU-accelerated image processing:
+
+```python
+# GPU-accelerated packages:
+# - isaac_ros_image_proc (resize, rectify)
+# - isaac_ros_stereo_image_proc (disparity)
+# - isaac_ros_visual_slam (tracking)
+# - isaac_ros_detectnet (detection)
+```
+
+**Isaac Sim** simulates cameras with:
+- Physically accurate rendering
+- Synthetic data generation
+- Ground truth labels
+
+## Camera Calibration
+
+Essential for accurate 3D reconstruction and multi-camera systems.
+
+### Intrinsic Calibration
+Camera's internal parameters (focal length, distortion).
+
+```bash
+# ROS 2 camera calibration
+ros2 run camera_calibration cameracalibrator \
+  --size 8x6 --square 0.025 \
+  image:=/camera/image_raw camera:=/camera
+```
+
+### Extrinsic Calibration
+Camera's pose relative to robot or other sensors.
+
+### Stereo Calibration
+Relative pose between stereo pair cameras.
+
+## Processing Pipeline
+
+```
+┌─────────────┐    ┌──────────────┐    ┌───────────────┐
+│   Raw       │ →  │  Undistort   │ →  │   Rectify     │
+│   Image     │    │  (intrinsic) │    │   (stereo)    │
+└─────────────┘    └──────────────┘    └───────────────┘
+                                              │
+                                              ▼
+┌─────────────┐    ┌──────────────┐    ┌───────────────┐
+│   Neural    │ ←  │   Resize     │ ←  │   Color       │
+│   Network   │    │              │    │   Convert     │
+└─────────────┘    └──────────────┘    └───────────────┘
+```
+
+## Related Terms
+
+- [LiDAR](/robotics-glossary/hardware/sensors/lidar/) — Complementary 3D sensing
+- [SLAM](/robotics-glossary/concepts/perception/slam/) — Visual SLAM uses cameras
+- [Neural Networks](/robotics-glossary/concepts/ai/neural-networks/) — Process camera images
+- [Isaac ROS](/robotics-glossary/software/isaac/isaac-ros/) — GPU acceleration

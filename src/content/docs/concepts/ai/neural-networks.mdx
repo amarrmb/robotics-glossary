@@ -1,0 +1,154 @@
+---
+title: Neural Networks for Robotics
+description: Deep learning architectures that enable perception, decision-making, and control
+sidebar:
+  badge:
+    text: Conceptual
+    variant: note
+---
+
+<span class="level-badge conceptual">Conceptual</span>
+
+**Neural Networks** are computational models inspired by biological neurons that learn patterns from data. In robotics, they power perception (object detection, depth estimation), decision-making (policy learning), and increasingly, end-to-end control.
+
+## Why Neural Networks for Robots?
+
+Traditional robotics relied on hand-crafted algorithms. Neural networks excel when:
+
+- **Input is high-dimensional** — cameras, LiDAR produce millions of data points
+- **Patterns are complex** — object recognition, natural language
+- **Rules are hard to specify** — dexterous manipulation, social navigation
+- **Adaptation is needed** — handle novel situations not seen during programming
+
+## Key Architectures
+
+### Convolutional Neural Networks (CNNs)
+
+Process spatial data like images. Used for:
+- Object detection (YOLO, Faster R-CNN)
+- Semantic segmentation (U-Net, DeepLab)
+- Depth estimation (MiDaS, DepthAnything)
+
+```
+Image → [Conv] → [Conv] → [Pool] → [FC] → Detection
+         ↓        ↓
+     Features  Features
+```
+
+### Transformers
+
+Attention-based architecture. Originally for language, now dominant in:
+- Vision (ViT, DINO)
+- Multi-modal models (VLMs)
+- Robot foundation models (RT-2, GR00T)
+
+```
+Input Tokens → [Self-Attention] → [FFN] → Output
+                    ↓
+              "What's relevant?"
+```
+
+### Recurrent Networks (RNN, LSTM)
+
+Process sequences. Used for:
+- Trajectory prediction
+- Language understanding
+- Time-series sensor data
+
+Increasingly replaced by Transformers.
+
+## Neural Networks in the Robot Stack
+
+```
+┌─────────────────────────────────────────────────┐
+│                Perception                        │
+│  CNN: Object detection, segmentation            │
+│  ViT: Scene understanding                       │
+│  Depth networks: 3D reconstruction              │
+├─────────────────────────────────────────────────┤
+│              Understanding                       │
+│  VLM: "What do I see?" + "What should I do?"   │
+│  LLM: Task planning from language              │
+├─────────────────────────────────────────────────┤
+│                 Policy                           │
+│  Imitation learning: Learn from demonstrations  │
+│  RL: Learn from trial and error                │
+│  VLA: Vision-Language-Action models            │
+├─────────────────────────────────────────────────┤
+│                Control                           │
+│  Neural network controllers                     │
+│  Residual learning on top of classical control │
+└─────────────────────────────────────────────────┘
+```
+
+## Training Paradigms
+
+### Supervised Learning
+Learn from labeled examples: (input, correct_output) pairs
+
+**Robotics use**: Object detection, segmentation, depth estimation
+
+### Reinforcement Learning (RL)
+Learn from rewards: trial and error
+
+**Robotics use**: Locomotion, manipulation, game playing
+
+### Imitation Learning
+Learn from demonstrations: watch expert, mimic behavior
+
+**Robotics use**: Manipulation tasks, driving
+
+### Self-Supervised Learning
+Learn from data structure itself: no labels needed
+
+**Robotics use**: Pre-training visual representations (DINO, MAE)
+
+## Deployment Considerations
+
+### Inference Speed
+Real-time robotics requires fast inference:
+
+| Hardware | Typical Inference |
+|----------|------------------|
+| CPU only | 100ms+ |
+| GPU (desktop) | 5-20ms |
+| Jetson Orin | 10-30ms |
+| Jetson Thor | 5-15ms |
+| TensorRT optimized | 2-10ms |
+
+### Model Optimization
+
+**TensorRT** (NVIDIA) — Optimizes models for Jetson/GPU:
+- Layer fusion
+- Precision reduction (FP32 → FP16 → INT8)
+- Kernel auto-tuning
+
+```bash
+# Convert PyTorch model to TensorRT
+trtexec --onnx=model.onnx --saveEngine=model.trt --fp16
+```
+
+### Edge vs Cloud
+- **Edge** (Jetson): Low latency, works offline, limited compute
+- **Cloud**: Unlimited compute, high latency, requires connectivity
+
+Most robots use edge inference for real-time control, cloud for heavy lifting.
+
+## Foundation Models for Robotics
+
+Large models pre-trained on massive data, fine-tuned for robotics:
+
+| Model | Type | Use Case |
+|-------|------|----------|
+| RT-2 | VLA | Manipulation from language |
+| GR00T | Humanoid | Full-body control |
+| PaLM-E | VLM | Embodied reasoning |
+| Octo | Policy | Generalizable manipulation |
+
+These run efficiently on Jetson Thor with Transformer Engine.
+
+## Related Terms
+
+- [Reinforcement Learning](/robotics-glossary/concepts/ai/reinforcement-learning/) — Learning from rewards
+- [Isaac ROS](/robotics-glossary/software/isaac/isaac-ros/) — GPU-accelerated inference
+- [Jetson Thor](/robotics-glossary/hardware/compute/jetson-thor/) — Hardware for foundation models

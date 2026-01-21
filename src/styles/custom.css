@@ -1,0 +1,221 @@
+/* Robotics Glossary Custom Styles */
+
+/* Color Palette */
+:root {
+  /* NVIDIA-inspired green for primary accent */
+  --sl-color-accent-low: #1a3d1a;
+  --sl-color-accent: #76b900;
+  --sl-color-accent-high: #9ed93c;
+
+  /* Level colors */
+  --level-conceptual: #3b82f6;  /* Blue - theory/understanding */
+  --level-practical: #22c55e;   /* Green - hands-on/how-to */
+  --level-deepdive: #a855f7;    /* Purple - advanced/comprehensive */
+
+  /* Category colors for badges/tags */
+  --color-hardware: #ff6b35;
+  --color-software: #4ecdc4;
+  --color-nvidia: #76b900;
+  --color-ai-ml: #9b59b6;
+  --color-perception: #3498db;
+  --color-control: #e74c3c;
+
+  /* Improved text contrast */
+  --sl-color-text: #e6edf3;
+  --sl-color-text-accent: #76b900;
+
+  /* Code blocks */
+  --sl-color-bg-inline-code: rgba(118, 185, 0, 0.1);
+}
+
+/* Light mode overrides */
+:root[data-theme="light"] {
+  --sl-color-accent-low: #e8f5e0;
+  --sl-color-accent: #5a8f00;
+  --sl-color-accent-high: #3d6600;
+  --sl-color-text: #1a1a2e;
+  --sl-color-bg-inline-code: rgba(90, 143, 0, 0.1);
+}
+
+/* Enhanced typography */
+.sl-markdown-content h1 {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.sl-markdown-content h2 {
+  font-weight: 700;
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--sl-color-gray-5);
+}
+
+/* Code blocks */
+.sl-markdown-content pre {
+  border-radius: 8px;
+  border: 1px solid var(--sl-color-gray-5);
+}
+
+.sl-markdown-content code {
+  font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
+  font-size: 0.9em;
+}
+
+/* Tables */
+.sl-markdown-content table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1.5rem 0;
+}
+
+.sl-markdown-content th {
+  background: var(--sl-color-gray-6);
+  font-weight: 600;
+  text-align: left;
+  padding: 0.75rem 1rem;
+}
+
+.sl-markdown-content td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--sl-color-gray-5);
+}
+
+.sl-markdown-content tr:hover {
+  background: var(--sl-color-gray-7);
+}
+
+/* Card grid improvements */
+.sl-link-card {
+  border-radius: 8px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.sl-link-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Sidebar badges */
+.sl-badge {
+  font-weight: 600;
+  font-size: 0.7em;
+  padding: 0.2em 0.5em;
+  border-radius: 4px;
+}
+
+/* ASCII diagrams / code art */
+.sl-markdown-content pre:has(code:not([class*="language-"])) {
+  background: var(--sl-color-gray-6);
+  font-size: 0.85em;
+  line-height: 1.4;
+}
+
+/* Aside/callout improvements */
+.starlight-aside {
+  border-radius: 8px;
+  margin: 1.5rem 0;
+}
+
+.starlight-aside--tip {
+  border-left-color: var(--sl-color-accent);
+}
+
+/* Search highlight */
+mark {
+  background: rgba(118, 185, 0, 0.3);
+  color: inherit;
+  padding: 0.1em 0.2em;
+  border-radius: 2px;
+}
+
+/* Hero section (landing page) */
+.hero {
+  padding: 3rem 0;
+}
+
+.hero .tagline {
+  font-size: 1.25rem;
+  color: var(--sl-color-gray-2);
+}
+
+/* Footer branding */
+.site-title {
+  font-weight: 700;
+}
+
+/* Mobile improvements */
+@media (max-width: 768px) {
+  .sl-markdown-content h1 {
+    font-size: 1.75rem;
+  }
+
+  .sl-markdown-content h2 {
+    font-size: 1.35rem;
+  }
+
+  .sl-markdown-content table {
+    font-size: 0.875rem;
+  }
+
+  .sl-markdown-content th,
+  .sl-markdown-content td {
+    padding: 0.5rem;
+  }
+}
+
+/* Level indicator badges in sidebar */
+[data-level="conceptual"] .sl-badge {
+  background: var(--level-conceptual) !important;
+  color: white !important;
+}
+
+[data-level="practical"] .sl-badge {
+  background: var(--level-practical) !important;
+  color: white !important;
+}
+
+[data-level="deepdive"] .sl-badge {
+  background: var(--level-deepdive) !important;
+  color: white !important;
+}
+
+/* Level indicator in content header */
+.level-badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25em 0.75em;
+  border-radius: 9999px;
+  margin-bottom: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.level-badge.conceptual {
+  background: var(--level-conceptual);
+  color: white;
+}
+
+.level-badge.practical {
+  background: var(--level-practical);
+  color: white;
+}
+
+.level-badge.deepdive {
+  background: var(--level-deepdive);
+  color: white;
+}
+
+/* Print styles */
+@media print {
+  .sidebar,
+  .right-sidebar,
+  .mobile-preferences,
+  .pagination-links {
+    display: none !important;
+  }
+
+  .main-pane {
+    max-width: 100% !important;
+  }
+}
