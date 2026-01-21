@@ -1,6 +1,6 @@
 # IMU Research Notes
 
-**Research Date:** January 2026
+**Research Date:** 2026-01-21
 **File:** src/content/docs/hardware/sensors/imu.mdx
 
 ---
@@ -8,9 +8,12 @@
 ## NVIDIA Isaac ROS
 
 ### Current Versions
-- **Isaac ROS 4.0** - Latest release (ROSCon 2025, October)
+- **Isaac ROS 4.0** - Latest release (v4.0.0, October 2025)
+  - Update 1 available: v4.0-1
+  - Added ROS 2 Jazzy support (October 24, 2025)
 - **Isaac ROS 3.2** - Released at CES 2025 (January 7, 2025)
-- **cuVSLAM** - CUDA-accelerated visual SLAM, 2025 arXiv paper (2506.04359)
+- **cuVSLAM** - Version 11+ (renamed from ELBRUS VSLAM in DP3.1 release)
+  - 2025 arXiv paper (2506.04359)
 
 ### Visual-Inertial SLAM
 - `isaac_ros_visual_slam` uses cuVSLAM for GPU-accelerated VSLAM
@@ -24,8 +27,10 @@
 - Consider updating to reference Isaac ROS 4.0 availability
 
 ### Sources
+- https://nvidia-isaac-ros.github.io/releases/index.html
 - https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_visual_slam
 - https://developer.nvidia.com/isaac/ros
+- https://nvidia-isaac-ros.github.io/concepts/visual_slam/cuvslam/index.html
 - https://forums.developer.nvidia.com/t/ces-2025-isaac-ros-3-2-and-platform-updates/319021
 - https://blogs.nvidia.com/blog/roscon-2025-open-framework-robotics/
 
@@ -122,6 +127,9 @@
 - Manufacturer: Bosch Sensortec
 - Grade: Industrial
 - Type: 6-axis IMU
+- Accelerometer: ±3g, ±6g, ±12g, ±24g (extended range for vibration)
+- Gyroscope: ±125°/s to ±2000°/s
+- Package: LGA-16 (3x4.5mm)
 - Good for drones (designed for vibration rejection)
 - Widely used in flight controllers
 
@@ -129,8 +137,13 @@
 - Manufacturer: TDK InvenSense
 - Grade: Industrial
 - Type: 6-axis MotionTracking device
+- Accelerometer: ±2g, ±4g, ±8g, ±16g
+- Gyroscope: ±15.625°/s to ±2000°/s (8 configurable ranges)
+- Package: 2.5x3x0.91mm (14-pin LGA)
+- 2KB FIFO buffer
 - Low noise specifications
 - Supports I3C, I2C, SPI interfaces
+- APEX features: pedometer, tilt detection
 - Note: Some temperature sensitivity reported
 
 ### ADIS16470
@@ -147,6 +160,9 @@
 ### Sources
 - https://product.tdk.com/en/search/sensor/mortion-inertial/imu/info?part_no=MPU-6050
 - https://invensense.tdk.com/products/motion-tracking/6-axis/icm-42688-p/
+- https://invensense.tdk.com/wp-content/uploads/2022/12/DS-000347-ICM-42688-P-v1.7.pdf
+- https://www.bosch-sensortec.com/products/motion-sensors/imus/bmi088/
+- https://www.bosch-sensortec.com/media/boschsensortec/downloads/datasheets/bst-bmi088-ds001.pdf
 - https://www.utmel.com/components/bmi088-imu-bmi088-datasheet-pinout-bmi088-vs-mpu6050
 
 ---
