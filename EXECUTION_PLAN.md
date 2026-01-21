@@ -157,6 +157,7 @@ degrees-of-freedom → coordinate-frames → transforms → tf2 → urdf → nav
 | `software/ros2/tf2.mdx` | ✅ Complete | 2026-01-21 | P0 ROS 2 transform library |
 | `software/ros2/nav2.mdx` | ✅ Complete | 2026-01-21 | P0 ROS 2 navigation stack |
 | `software/ros2/moveit2.mdx` | ✅ Complete | 2026-01-21 | P0 ROS 2 motion planning framework |
+| `software/ros2/urdf-xacro.mdx` | ✅ Complete | 2026-01-21 | P1 Robot description format |
 
 ### Week 3-4: New Critical Content
 - [x] Write `transforms.mdx` and `coordinate-frames.mdx`
