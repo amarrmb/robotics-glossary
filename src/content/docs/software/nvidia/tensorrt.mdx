@@ -1,0 +1,259 @@
+---
+title: TensorRT
+description: NVIDIA deep learning inference optimizer
+last_validated: 2026-01-21
+sidebar:
+  badge:
+    text: Practical
+    variant: success
+---
+
+import { Aside, Card, CardGrid, LinkCard, Tabs, TabItem } from '@astrojs/starlight/components';
+
+<span class="level-badge practical">Practical</span>
+
+**TensorRT** is NVIDIA's high-performance deep learning inference SDK that optimizes trained neural networks for deployment on NVIDIA GPUs. It compiles models into optimized engines that deliver low latency and high throughput through layer fusion, kernel auto-tuning, and precision calibration.
+
+<Aside type="note">
+TensorRT engines are platform-specific — you must build on the same GPU architecture where you deploy. Isaac ROS packages handle this automatically.
+</Aside>
+
+## Prerequisites
+
+<CardGrid>
+  <LinkCard
+    title="Neural Networks"
+    description="Deep learning model fundamentals"
+    href="/robotics-glossary/concepts/ai/neural-networks/"
+  />
+  <LinkCard
+    title="Isaac ROS"
+    description="NVIDIA GPU-accelerated ROS ecosystem"
+    href="/robotics-glossary/software/isaac/isaac-ros/"
+  />
+</CardGrid>
+
+## Why TensorRT Matters
+
+- **Inference speed**: Up to 40x faster than CPU inference, 18x faster than TensorFlow
+- **Memory efficiency**: FP16 uses ~50% memory, INT8 uses ~25% memory
+- **Edge deployment**: Critical for real-time inference on Jetson platforms
+- **Isaac ROS integration**: Powers perception pipelines (detection, segmentation, depth estimation)
+- **Production ready**: Serialized engines load instantly without runtime compilation
+
+## Optimization Pipeline
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    TensorRT Optimization Pipeline                    │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────────┐  │
+│  │ Trained  │───►│   ONNX   │───►│ TensorRT │───►│  Optimized   │  │
+│  │  Model   │    │  Export  │    │  Builder │    │   Engine     │  │
+│  │(PyTorch) │    │          │    │          │    │   (.trt)     │  │
+│  └──────────┘    └──────────┘    └────┬─────┘    └──────────────┘  │
+│                                       │                             │
+│                          ┌────────────┼────────────┐                │
+│                          │            │            │                │
+│                     ┌────▼────┐ ┌─────▼────┐ ┌────▼─────┐          │
+│                     │  Layer  │ │  Kernel  │ │Precision │          │
+│                     │ Fusion  │ │Auto-Tune │ │ Calib.   │          │
+│                     └─────────┘ └──────────┘ └──────────┘          │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+## Core Optimizations
+
+### Layer Fusion
+
+Combines sequential operations into single GPU kernels:
+
+```
+Before:  Conv → Bias → ReLU  (3 kernel launches, 3 memory transfers)
+After:   CBR                  (1 kernel launch, 1 memory transfer)
+```
+
+### Kernel Auto-Tuning
+
+Benchmarks multiple kernel implementations during build time and selects the fastest for your specific GPU and tensor dimensions.
+
+### Precision Calibration
+
+| Precision | Memory | Speed | Use Case |
+|-----------|--------|-------|----------|
+| FP32 | Baseline | Baseline | Training, debugging |
+| FP16 | ~50% | ~2x | General deployment |
+| INT8 | ~25% | ~4x | Edge devices (needs calibration) |
+| FP8 | ~25% | ~4x | Ada/Hopper GPUs |
+
+<Aside type="caution">
+INT8 quantization requires a calibration dataset to maintain accuracy. FP16 usually works without calibration.
+</Aside>
+
+## Building Engines
+
+<Tabs>
+  <TabItem label="trtexec CLI">
+    The fastest way to convert ONNX models:
+    ```bash
+    # Basic FP16 conversion
+    trtexec --onnx=yolov8n.onnx --saveEngine=yolov8n.trt --fp16
+
+    # With dynamic batch size
+    trtexec --onnx=model.onnx \
+        --fp16 \
+        --minShapes=input:1x3x224x224 \
+        --optShapes=input:8x3x224x224 \
+        --maxShapes=input:16x3x224x224 \
+        --saveEngine=model_dynamic.trt
+
+    # INT8 with calibration cache
+    trtexec --onnx=model.onnx --int8 --calib=calibration.cache \
+        --saveEngine=model_int8.trt
+    ```
+  </TabItem>
+
+  <TabItem label="Python API">
+    For programmatic engine building:
+    ```python
+    import tensorrt as trt
+
+    logger = trt.Logger(trt.Logger.WARNING)
+    builder = trt.Builder(logger)
+    network = builder.create_network(
+        1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
+    )
+    parser = trt.OnnxParser(network, logger)
+
+    with open("model.onnx", "rb") as f:
+        parser.parse(f.read())
+
+    config = builder.create_builder_config()
+    config.set_flag(trt.BuilderFlag.FP16)
+
+    engine = builder.build_serialized_network(network, config)
+    with open("model.trt", "wb") as f:
+        f.write(engine)
+    ```
+  </TabItem>
+
+  <TabItem label="Torch-TensorRT">
+    Direct PyTorch integration:
+    ```python
+    import torch
+    import torch_tensorrt
+
+    model = YourModel().eval().cuda()
+    optimized = torch.compile(model, backend="tensorrt")
+
+    # First call compiles, subsequent calls are fast
+    output = optimized(input_tensor)
+    ```
+  </TabItem>
+</Tabs>
+
+## ROS 2 Integration
+
+Isaac ROS provides TensorRT nodes for perception pipelines:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                   ROS 2 + TensorRT Pipeline                      │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌──────────┐    ┌──────────────┐    ┌─────────────────────┐    │
+│  │  Camera  │───►│   Image      │───►│  TensorRT Node      │    │
+│  │  Driver  │    │   Resize     │    │  (isaac_ros_tensor) │    │
+│  └──────────┘    └──────────────┘    └──────────┬──────────┘    │
+│                                                  │               │
+│                                           ┌──────▼──────┐        │
+│                                           │ Detection/  │        │
+│                                           │ Segmentation│        │
+│                                           │   Results   │        │
+│                                           └─────────────┘        │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Isaac ROS Packages
+
+| Package | Purpose |
+|---------|---------|
+| `isaac_ros_tensor_rt` | TensorRT inference node |
+| `isaac_ros_triton` | Triton inference server integration |
+| `isaac_ros_dnn_inference` | DNN preprocessing utilities |
+
+### Launch Configuration
+
+```yaml
+tensor_rt_node:
+  ros__parameters:
+    model_file_path: "/models/detection.onnx"
+    engine_file_path: "/models/detection.trt"
+    input_tensor_names: ["input"]
+    output_tensor_names: ["output"]
+    input_binding_names: ["input"]
+    output_binding_names: ["output"]
+```
+
+## Jetson Deployment
+
+TensorRT is the primary inference runtime for Jetson platforms:
+
+| Platform | Performance | Notes |
+|----------|-------------|-------|
+| Orin Nano | YOLOv8n @ 47 FPS | Entry-level edge AI |
+| Orin NX | 2x Orin Nano | Mid-range applications |
+| AGX Orin | 4x Orin Nano | High-performance edge |
+| Jetson Thor | With TensorRT Edge-LLM | LLM/VLM on edge |
+
+<Aside type="tip">
+Batch sizes that are multiples of 32 are optimal for FP16/INT8 inference with Tensor Cores.
+</Aside>
+
+## Hardware Requirements
+
+- **GPU**: NVIDIA with Compute Capability 7.5+ (Turing and newer)
+- **FP8 support**: Ada Lovelace or Hopper architecture
+- **Software**: CUDA Toolkit 12.x, Python 3.8+
+
+## Related Terms
+
+<CardGrid>
+  <LinkCard
+    title="Isaac ROS"
+    description="NVIDIA GPU-accelerated ROS ecosystem"
+    href="/robotics-glossary/software/isaac/isaac-ros/"
+  />
+  <LinkCard
+    title="cuMotion"
+    description="GPU-accelerated motion planning"
+    href="/robotics-glossary/software/nvidia/cumotion/"
+  />
+  <LinkCard
+    title="nvblox"
+    description="Real-time 3D reconstruction"
+    href="/robotics-glossary/software/nvidia/nvblox/"
+  />
+  <LinkCard
+    title="Jetson Orin"
+    description="NVIDIA edge AI compute platform"
+    href="/robotics-glossary/hardware/nvidia/jetson-orin/"
+  />
+</CardGrid>
+
+## Learn More
+
+- [TensorRT Quick Start Guide](https://docs.nvidia.com/deeplearning/tensorrt/latest/getting-started/quick-start-guide.html) — Official getting started tutorial
+- [Torch-TensorRT Documentation](https://docs.pytorch.org/TensorRT/) — PyTorch integration guide
+- [Isaac ROS DNN Inference](https://nvidia-isaac-ros.github.io/concepts/dnn_inference/tensorrt_and_triton_info.html) — ROS 2 integration
+
+## Sources
+
+- [TensorRT Documentation](https://docs.nvidia.com/deeplearning/tensorrt/latest/index.html) — Official SDK reference
+- [TensorRT GitHub Repository](https://github.com/NVIDIA/TensorRT) — Source code and samples
+- [TensorRT Release Notes 10.14.1](https://docs.nvidia.com/deeplearning/tensorrt/latest/getting-started/release-notes.html) — Latest version features
+- [Isaac ROS DNN Inference](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_dnn_inference) — ROS 2 package source
+- [TensorRT Best Practices](https://docs.nvidia.com/deeplearning/tensorrt/latest/performance/best-practices.html) — Performance optimization guide
