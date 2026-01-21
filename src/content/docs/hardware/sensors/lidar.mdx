@@ -1,6 +1,7 @@
 ---
 title: LiDAR
 description: Light Detection and Ranging — precise 3D sensing using laser pulses
+last_validated: 2026-01-20
 sidebar:
   badge:
     text: Practical
@@ -37,11 +38,11 @@ A rotating mirror or assembly scans the laser across the scene.
 | Mature technology | Expensive ($4,000-$75,000) |
 | High accuracy | Bulky form factor |
 
-**Examples**: Velodyne VLP-16, Ouster OS1
+**Examples**: Velodyne VLP-16 (now sold through Ouster), Ouster OS1
 
-### Solid-State
+### Solid-State / Hybrid
 
-No moving parts. Uses phased arrays or MEMS mirrors.
+No external moving parts. Uses phased arrays, MEMS mirrors, or internal rotating mirrors.
 
 | Pros | Cons |
 |------|------|
@@ -49,7 +50,7 @@ No moving parts. Uses phased arrays or MEMS mirrors.
 | Lower cost | Newer technology |
 | No mechanical wear | May need multiple units for 360° |
 
-**Examples**: Livox Mid-360, Hesai AT128
+**Examples**: Livox Mid-360 (hybrid), Hesai AT128
 
 ### Flash LiDAR
 
@@ -61,7 +62,7 @@ Illuminates entire scene at once, like a camera flash.
 | Very fast | Lower resolution |
 | Simple design | Higher power consumption |
 
-**Examples**: Intel RealSense L515 (discontinued)
+**Examples**: Intel RealSense L515 (discontinued Feb 2022; consider D455/D435i stereo depth cameras as alternatives)
 
 ## Key Specifications
 
@@ -130,7 +131,7 @@ ros2 run rviz2 rviz2
 
 ## NVIDIA Isaac Integration
 
-**Isaac ROS** provides GPU-accelerated LiDAR processing:
+**Isaac ROS 4.0** (current release, requires ROS 2 Jazzy) provides GPU-accelerated LiDAR processing:
 
 ```python
 # nvblox: Real-time 3D reconstruction from LiDAR
@@ -149,7 +150,7 @@ ros2 run rviz2 rviz2
 
 ### Mobile Robots (Outdoor)
 - **Ouster OS0/OS1** — $4,000-8,000, 3D, 360°
-- **Velodyne VLP-16** — $4,000, 3D, 16-channel
+- **Velodyne VLP-16** — $4,000, 3D, 16-channel (via Ouster)
 
 ### Autonomous Vehicles
 - **Hesai AT128** — $1,000+, automotive-grade
@@ -164,3 +165,13 @@ ros2 run rviz2 rviz2
 - [SLAM](/robotics-glossary/concepts/perception/slam/) — Uses LiDAR for mapping
 - [Cameras](/robotics-glossary/hardware/sensors/cameras/) — Complementary sensor
 - [Isaac ROS](/robotics-glossary/software/isaac/isaac-ros/) — GPU-accelerated processing
+
+## Sources
+
+- [Ouster VLP-16](https://ouster.com/products/hardware/vlp-16) — VLP-16 specs and availability
+- [Ouster OS1](https://ouster.com/products/hardware/os1-lidar-sensor) — OS1 specifications
+- [Livox Mid-360](https://www.livoxtech.com/mid-360) — Mid-360 specs and hybrid design
+- [Hesai AT128](https://www.hesaitech.com/product/at128/) — AT128 automotive LiDAR specs
+- [SLAMTEC RPLidar](https://www.slamtec.com/en/lidar/a1) — RPLidar A1/A2 specifications
+- [NVIDIA Isaac ROS](https://nvidia-isaac-ros.github.io/) — Isaac ROS packages and version info
+- [ROS 2 Releases](https://docs.ros.org/en/kilted/Releases.html) — Current ROS 2 distributions
