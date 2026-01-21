@@ -5,6 +5,7 @@ sidebar:
   badge:
     text: Deep Dive
     variant: tip
+last_validated: 2026-01-21
 ---
 
 <span class="level-badge deepdive">Deep Dive</span>
@@ -115,27 +116,31 @@ observation_noise = normal(0, 0.01)
 
 The policy learns to handle variation, transfers better to real world.
 
-### NVIDIA Isaac Sim + Isaac Lab
+### NVIDIA Isaac Sim 5.1 + Isaac Lab 2.3
+
+```bash
+# Train locomotion policy with RSL-RL
+python source/standalone/workflows/rsl_rl/train.py \
+    --task Isaac-Velocity-Flat-Anymal-D-v0 \
+    --num_envs 4096
+```
+
+Or use the Python API:
 
 ```python
 from omni.isaac.lab.envs import ManagerBasedRLEnv
 
-# Create thousands of parallel environments
 env = ManagerBasedRLEnv(
     cfg=robot_cfg,
     num_envs=4096,  # Massive parallelism on GPU
 )
-
-# Train with rl_games or stable-baselines3
-from rl_games.algos_torch import PPOAgent
-agent = PPOAgent(env)
-agent.train(max_iterations=10000)
 ```
 
 **Benefits**:
-- 4096+ environments in parallel on single GPU
+- 4096+ environments in parallel on single GPU (~90,000 FPS training)
 - Photorealistic rendering for vision-based RL
-- Domain randomization built-in
+- Domain randomization built-in with ADR (Automatic Domain Randomization)
+- PBT (Population-Based Training) support
 
 ## Reward Engineering
 
@@ -187,7 +192,8 @@ def compute_reward(state, action, next_state):
 
 ## State of the Art (2026)
 
-- **Isaac Lab** — NVIDIA's framework for GPU-accelerated robot learning
+- **Isaac Lab 2.3** — NVIDIA's framework for GPU-accelerated robot learning with DexSuite for dexterous manipulation
+- **Isaac Lab-Arena** — Policy evaluation framework for generalist robot policies
 - **Foundation policies** — Pre-trained on diverse tasks, fine-tune for specific robot
 - **Real-world RL** — Becoming more practical with better sim-to-real and safer exploration
 
@@ -196,3 +202,10 @@ def compute_reward(state, action, next_state):
 - [Neural Networks](/robotics-glossary/concepts/ai/neural-networks/) — Policy representations
 - [Isaac Sim](/robotics-glossary/software/simulation/isaac-sim/) — Simulation for RL
 - [Motion Planning](/robotics-glossary/concepts/control/motion-planning/) — Classical alternative to learned policies
+
+## Sources
+
+- [Isaac Lab 2.3 Release](https://github.com/isaac-sim/IsaacLab/discussions/3898) — Version and feature information
+- [Isaac Lab Documentation](https://developer.nvidia.com/isaac/lab) — Framework capabilities and supported robots
+- [Isaac Lab RL Frameworks](https://isaac-sim.github.io/IsaacLab/main/source/overview/reinforcement-learning/rl_frameworks.html) — Supported RL libraries
+- [Isaac Lab-Arena Blog](https://developer.nvidia.com/blog/simplify-generalist-robot-policy-evaluation-in-simulation-with-nvidia-isaac-lab-arena/) — Policy evaluation framework
