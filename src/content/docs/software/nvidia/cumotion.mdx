@@ -1,0 +1,248 @@
+---
+title: cuMotion
+description: NVIDIA GPU-accelerated motion planning
+last_validated: 2026-01-21
+sidebar:
+  badge:
+    text: Practical
+    variant: success
+---
+
+import { Aside, Card, CardGrid, LinkCard, Tabs, TabItem } from '@astrojs/starlight/components';
+
+<span class="level-badge practical">Practical</span>
+
+**cuMotion** is NVIDIA's GPU-accelerated motion planning package for robotic manipulators. Part of the Isaac ROS ecosystem, it leverages massive GPU parallelism to evaluate thousands of trajectories simultaneously, producing collision-free, time-optimal, smooth paths in tens of milliseconds.
+
+<Aside type="note">
+cuMotion integrates as a MoveIt 2 plugin, making it a drop-in replacement for CPU-based planners like OMPL in ROS 2 applications.
+</Aside>
+
+## Prerequisites
+
+<CardGrid>
+  <LinkCard
+    title="MoveIt 2"
+    description="Motion planning framework for ROS 2"
+    href="/robotics-glossary/software/ros2/moveit2/"
+  />
+  <LinkCard
+    title="Kinematics"
+    description="Forward and inverse kinematics concepts"
+    href="/robotics-glossary/concepts/fundamentals/kinematics/"
+  />
+</CardGrid>
+
+## Why cuMotion Matters
+
+- **GPU parallelism**: Plans thousands of trajectories simultaneously on NVIDIA GPUs
+- **Speed**: 60x average speedup vs CPU planners, plans in tens of milliseconds
+- **Smooth motion**: Produces minimal-jerk, time-optimal trajectories by default
+- **Cluttered environments**: Outperforms CPU planners in obstacle-dense scenes
+- **Real-time perception**: Integrates with nvblox for depth-based obstacle avoidance
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     MoveIt 2 Application                        │
+│                  (RViz / Python API / C++)                      │
+└───────────────────────────┬─────────────────────────────────────┘
+                            │
+┌───────────────────────────▼─────────────────────────────────────┐
+│                 cuMotion MoveIt Plugin                          │
+│             (isaac_ros_cumotion_moveit)                         │
+└───────────────────────────┬─────────────────────────────────────┘
+                            │
+┌───────────────────────────▼─────────────────────────────────────┐
+│                   cuMotion Planner Node                         │
+│                   (isaac_ros_cumotion)                          │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
+│  │  Trajectory  │  │   Collision  │  │    Robot     │          │
+│  │ Optimization │  │   Checking   │  │ Segmentation │          │
+│  └──────────────┘  └──────────────┘  └──────────────┘          │
+└───────────────────────────┬─────────────────────────────────────┘
+                            │
+┌───────────────────────────▼─────────────────────────────────────┐
+│                       cuRobo Backend                            │
+│  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐               │
+│  │   IK    │ │Collision│ │Trajectory│ │   GPU   │               │
+│  │ Solver  │ │ Checker │ │Optimizer │ │ Kernels │               │
+│  └─────────┘ └─────────┘ └─────────┘ └─────────┘               │
+│                           │                                     │
+│  ┌────────────────────────▼───────────────────────────────┐    │
+│  │                  CUDA / PyTorch                         │    │
+│  └─────────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## Package Structure
+
+| Package | Purpose |
+|---------|---------|
+| `isaac_ros_cumotion` | Core planner node + robot segmentation node |
+| `isaac_ros_cumotion_moveit` | MoveIt 2 plugin exposing cuMotion as planner |
+| `isaac_ros_cumotion_examples` | Demo launch files and examples |
+
+## Installation
+
+<Tabs>
+  <TabItem label="Binary (Jazzy)">
+    ```bash
+    sudo apt-get install -y ros-jazzy-isaac-ros-cumotion \
+                            ros-jazzy-isaac-ros-cumotion-moveit
+    ```
+  </TabItem>
+
+  <TabItem label="Binary (Humble)">
+    ```bash
+    sudo apt-get install -y ros-humble-isaac-ros-cumotion \
+                            ros-humble-isaac-ros-cumotion-moveit
+    ```
+  </TabItem>
+
+  <TabItem label="Source">
+    ```bash
+    # Clone repository
+    cd ${ISAAC_ROS_WS}/src
+    git clone --recurse-submodules -b release-3.2 \
+      https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_cumotion.git
+
+    # Build
+    cd ${ISAAC_ROS_WS}
+    colcon build --symlink-install --packages-up-to isaac_ros_cumotion
+    source install/setup.bash
+    ```
+  </TabItem>
+</Tabs>
+
+<Aside type="caution">
+Requires NVIDIA GPU with **Volta architecture or newer** (Compute Capability 7.0+) and minimum 4 GB VRAM.
+</Aside>
+
+## Motion Planning Pipeline
+
+```
+Goal Pose ──► cuMotion Planner ──► Collision-Free Trajectory ──► Controller
+                   │                        │
+            ┌──────▼──────┐          ┌──────▼──────┐
+            │   cuRobo    │          │  Smooth,    │
+            │   Backend   │          │  Optimal-   │
+            │   (GPU)     │          │  Time Path  │
+            └─────────────┘          └─────────────┘
+
+Pipeline steps:
+1. Collision-free IK solution generation
+2. Seed generation for trajectory optimization
+3. Parallel trajectory optimization across many seeds
+4. Timestep re-optimization for smooth, time-optimal result
+```
+
+## Obstacle Avoidance with nvblox
+
+cuMotion supports multiple obstacle representations for collision checking:
+
+```
+┌───────────────┐    ┌───────────────┐    ┌───────────────┐
+│  Depth Camera │───►│    nvblox     │───►│   cuMotion    │
+│    Stream     │    │  (SDF Build)  │    │   Planner     │
+└───────────────┘    └───────────────┘    └───────────────┘
+                            │                     │
+                     ┌──────▼──────┐       ┌──────▼──────┐
+                     │    ESDF     │       │ Collision-  │
+                     │   Voxel     │       │ Free Path   │
+                     │    Grid     │       └─────────────┘
+                     └─────────────┘
+```
+
+Supported obstacle types:
+- **Cuboids**: Primitive shapes for known obstacles
+- **Meshes**: Complex geometry from CAD models
+- **Signed Distance Fields**: Real-time from depth cameras via nvblox
+
+## Launch cuMotion Planner
+
+```bash
+# Launch cuMotion planner with UR10e configuration
+ros2 launch isaac_ros_cumotion cumotion_planner.launch.py \
+  robot:=ur10e \
+  urdf_path:=/path/to/ur10e.urdf \
+  xrdf_path:=/path/to/ur10e.xrdf
+```
+
+## XRDF: Extended Robot Description
+
+cuMotion requires XRDF files alongside URDF for robot-specific parameters:
+
+```yaml
+format: xrdf
+format_version: 1.0
+
+cspace:
+  joint_names: [shoulder_pan, shoulder_lift, elbow, wrist_1, wrist_2, wrist_3]
+  acceleration_limits: [6.0, 6.0, 6.0, 6.0, 6.0, 6.0]
+  jerk_limits: [20.0, 20.0, 20.0, 20.0, 20.0, 20.0]
+
+tool_frames:
+  - tool0
+
+geometry:
+  collision_spheres:
+    # Sphere definitions for efficient collision checking
+```
+
+<Aside type="tip">
+Use the Visual Robot Description Editor in Isaac Sim 4.0+ to create XRDF files visually.
+</Aside>
+
+## Performance Comparison
+
+| Metric | cuMotion (GPU) | Traditional (CPU) |
+|--------|----------------|-------------------|
+| Planning time (RTX 6000) | ~tens of ms | Hundreds of ms |
+| Speedup vs OMPL | 60x average | Baseline |
+| Speedup vs TrajOpt | 87x (desktop) | Baseline |
+| Robot segmentation | ~3000 Hz | N/A |
+
+## Supported Robots
+
+Officially tested:
+- **Universal Robots**: UR5e, UR10e
+- **Franka Emika**: Panda, FR3
+- **Kinova**: Gen 3, Jaco 2
+
+Custom robots require URDF and XRDF files.
+
+## Related Terms
+
+<CardGrid>
+  <LinkCard
+    title="MoveIt 2"
+    description="Motion planning framework for ROS 2"
+    href="/robotics-glossary/software/ros2/moveit2/"
+  />
+  <LinkCard
+    title="Kinematics"
+    description="Forward and inverse kinematics"
+    href="/robotics-glossary/concepts/fundamentals/kinematics/"
+  />
+  <LinkCard
+    title="Motion Planning"
+    description="Path planning and trajectory optimization"
+    href="/robotics-glossary/concepts/control/motion-planning/"
+  />
+</CardGrid>
+
+## Learn More
+
+- [cuMotion with MoveIt Tutorial](https://nvidia-isaac-ros.github.io/concepts/manipulation/cumotion_moveit/tutorial_isaac_sim.html) — Isaac Sim integration
+- [Isaac Manipulator Workflows](https://nvidia-isaac-ros.github.io/reference_workflows/isaac_manipulator/index.html) — Higher-level pick-and-place
+- [cuRobo Technical Report](https://curobo.org/reports/curobo_report.pdf) — Algorithmic details
+
+## Sources
+
+- [Isaac ROS cuMotion Overview](https://nvidia-isaac-ros.github.io/repositories_and_packages/isaac_ros_cumotion/index.html) — Official documentation
+- [cuMotion GitHub Repository](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_cumotion) — Source code and releases
+- [cuRobo Official Site](https://curobo.org/) — Backend library documentation
+- [NVIDIA Developer Blog](https://developer.nvidia.com/blog/cuda-accelerated-robot-motion-generation-in-milliseconds-with-curobo/) — cuRobo introduction
+- [XRDF Documentation](https://nvidia-isaac-ros.github.io/concepts/manipulation/xrdf.html) — Extended Robot Description Format
