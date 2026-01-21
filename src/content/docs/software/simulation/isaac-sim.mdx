@@ -1,6 +1,7 @@
 ---
 title: Isaac Sim
 description: NVIDIA's photorealistic robotics simulation platform built on Omniverse
+last_validated: 2026-01-20
 sidebar:
   badge:
     text: Practical
@@ -14,7 +15,7 @@ import { Aside, Card, CardGrid, LinkCard, Tabs, TabItem } from '@astrojs/starlig
 **Isaac Sim** is NVIDIA's robotics simulation platform built on Omniverse. It provides photorealistic rendering, accurate physics, and seamless integration with ROS 2 and Isaac ROS, making it the gold standard for developing and testing robot software before deploying to real hardware.
 
 <Aside type="tip" title="Current Version">
-Isaac Sim 4.5 (2026) — Includes Isaac Lab for robot learning, improved ROS 2 Jazzy support, and enhanced sensor simulation.
+Isaac Sim 5.1.0 (January 2026) — Now open source. Includes Isaac Lab 2.3 for robot learning, ROS 2 Humble/Jazzy support, and Newton physics engine.
 </Aside>
 
 ## Why Isaac Sim?
@@ -75,8 +76,8 @@ Isaac Sim 4.5 (2026) — Includes Isaac Lab for robot learning, improved ROS 2 J
 
 | Component | Minimum | Recommended |
 |-----------|---------|-------------|
-| GPU | RTX 2070 | RTX 4080+ / DGX Spark |
-| VRAM | 8GB | 16GB+ |
+| GPU | RTX 4080 | RTX 5080 / RTX PRO 6000 / DGX Spark |
+| VRAM | 16GB | 16GB+ |
 | RAM | 32GB | 64GB+ |
 | Storage | 50GB SSD | NVMe SSD |
 | OS | Ubuntu 22.04 | Ubuntu 22.04/24.04 |
@@ -93,19 +94,19 @@ Isaac Sim 4.5 (2026) — Includes Isaac Lab for robot learning, improved ROS 2 J
     # Exchange → Isaac Sim → Install
 
     # 3. Launch
-    ~/.local/share/ov/pkg/isaac-sim-4.5.0/isaac-sim.sh
+    ~/.local/share/ov/pkg/isaac-sim-5.1.0/isaac-sim.sh
     ```
   </TabItem>
   <TabItem label="Docker">
     ```bash
     # Pull Isaac Sim container
-    docker pull nvcr.io/nvidia/isaac-sim:4.5.0
+    docker pull nvcr.io/nvidia/isaac-sim:5.1.0
 
     # Run with GUI
     docker run --gpus all -e "ACCEPT_EULA=Y" \
       -v ~/docker/isaac-sim/cache:/isaac-sim/cache \
       -v ~/docker/isaac-sim/logs:/root/.nvidia-omniverse/logs \
-      nvcr.io/nvidia/isaac-sim:4.5.0
+      nvcr.io/nvidia/isaac-sim:5.1.0
     ```
   </TabItem>
   <TabItem label="Headless">
@@ -303,8 +304,9 @@ Your ROS 2 code runs unchanged in sim and on real hardware.
   />
 </CardGrid>
 
-## Learn More
+## Sources
 
-- [Isaac Sim Documentation](https://docs.omniverse.nvidia.com/isaacsim)
-- [Isaac Lab GitHub](https://github.com/isaac-sim/IsaacLab)
-- [Omniverse Developer Portal](https://developer.nvidia.com/omniverse)
+- [Isaac Sim 5.1.0 Documentation](https://docs.isaacsim.omniverse.nvidia.com/5.1.0/) — Version info, system requirements, installation
+- [Isaac Sim Release Notes](https://docs.isaacsim.omniverse.nvidia.com/5.1.0/overview/release_notes.html) — Version history, deprecations
+- [Isaac Lab GitHub](https://github.com/isaac-sim/IsaacLab) — Isaac Lab source and documentation
+- [Isaac Sim GitHub](https://github.com/isaac-sim/IsaacSim) — Open source extensions
