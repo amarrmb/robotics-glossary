@@ -4,3 +4,4 @@ validate:hardware/compute/dgx-spark.mdx
 validate:software/isaac/isaac-ros.mdx
 validate:software/simulation/isaac-sim.mdx
 validate:software/frameworks/ros2.mdx
+validate:concepts/perception/slam.mdx
