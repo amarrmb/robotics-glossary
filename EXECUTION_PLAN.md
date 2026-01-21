@@ -149,8 +149,13 @@ degrees-of-freedom → coordinate-frames → transforms → tf2 → urdf → nav
 - [ ] Day 3: Validate sensor files (lidar, cameras, imu)
 - [ ] Day 4-5: Validate fundamentals & concepts
 
+### New Entries Created
+| Entry | Status | Created | Notes |
+|-------|--------|---------|-------|
+| `concepts/fundamentals/transforms.mdx` | ✅ Complete | 2026-01-21 | P0 foundation for robotics math |
+
 ### Week 3-4: New Critical Content
-- [ ] Write `transforms.mdx` and `coordinate-frames.mdx`
+- [x] Write `transforms.mdx` and `coordinate-frames.mdx`
 - [ ] Write `tf2.mdx`
 - [ ] Write `nav2.mdx`
 - [ ] Write `moveit2.mdx`
