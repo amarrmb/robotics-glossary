@@ -154,10 +154,11 @@ degrees-of-freedom → coordinate-frames → transforms → tf2 → urdf → nav
 |-------|--------|---------|-------|
 | `concepts/fundamentals/transforms.mdx` | ✅ Complete | 2026-01-21 | P0 foundation for robotics math |
 | `concepts/fundamentals/coordinate-frames.mdx` | ✅ Complete | 2026-01-21 | P0 prerequisite for TF2 |
+| `software/ros2/tf2.mdx` | ✅ Complete | 2026-01-21 | P0 ROS 2 transform library |
 
 ### Week 3-4: New Critical Content
 - [x] Write `transforms.mdx` and `coordinate-frames.mdx`
-- [ ] Write `tf2.mdx`
+- [x] Write `tf2.mdx`
 - [ ] Write `nav2.mdx`
 - [ ] Write `moveit2.mdx`
 
