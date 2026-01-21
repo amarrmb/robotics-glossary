@@ -1,0 +1,303 @@
+---
+title: MoveIt 2
+description: Motion planning framework for robot arms
+last_validated: 2026-01-21
+sidebar:
+  badge:
+    text: Practical
+    variant: success
+---
+
+import { Aside, Card, CardGrid, LinkCard, Tabs, TabItem } from '@astrojs/starlight/components';
+
+<span class="level-badge practical">Practical</span>
+
+**MoveIt 2** is the motion planning framework for ROS 2, providing manipulation capabilities including motion planning, kinematics, collision detection, and trajectory execution. It's the third most popular package in the ROS ecosystem and is developed by PickNik Robotics.
+
+<Aside type="note">
+MoveIt 2 is the standard for robot arm manipulation in ROS 2. If you're moving a robot arm, you're likely using MoveIt.
+</Aside>
+
+## Prerequisites
+
+<CardGrid>
+  <LinkCard
+    title="Kinematics"
+    description="Forward and inverse kinematics concepts"
+    href="/robotics-glossary/concepts/fundamentals/kinematics/"
+  />
+  <LinkCard
+    title="TF2"
+    description="ROS 2 transform library"
+    href="/robotics-glossary/software/ros2/tf2/"
+  />
+</CardGrid>
+
+## Why MoveIt 2 Matters
+
+- **Motion planning**: Automatically find collision-free paths for robot arms
+- **Inverse kinematics**: Multiple solver options (KDL, TRAC-IK, pick_ik)
+- **Collision detection**: Real-time checking against world and self-collision
+- **Teleoperation**: MoveIt Servo enables real-time joystick/VR control
+- **Task composition**: MoveIt Task Constructor for complex pick-and-place sequences
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     User Application                            │
+│              (Python API / C++ API / RViz)                      │
+└────────────────────────────┬────────────────────────────────────┘
+                             │
+┌────────────────────────────▼────────────────────────────────────┐
+│                        move_group Node                          │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
+│  │   Planning   │  │  Kinematics  │  │  Collision   │          │
+│  │    Plugin    │  │    Plugin    │  │   Checker    │          │
+│  │ (OMPL/STOMP) │  │ (KDL/TRAC)   │  │    (FCL)     │          │
+│  └──────────────┘  └──────────────┘  └──────────────┘          │
+│                             │                                   │
+│  ┌──────────────────────────▼──────────────────────────────┐   │
+│  │              Planning Scene Monitor                      │   │
+│  │         (Robot State + World Geometry)                   │   │
+│  └──────────────────────────────────────────────────────────┘   │
+└────────────────────────────┬────────────────────────────────────┘
+                             │
+┌────────────────────────────▼────────────────────────────────────┐
+│                        ros2_control                             │
+│                (Joint Trajectory Controller)                    │
+└────────────────────────────┬────────────────────────────────────┘
+                             │
+                    ┌────────▼────────┐
+                    │   Robot / Sim   │
+                    └─────────────────┘
+```
+
+## Planning Pipeline
+
+```
+Goal Pose → IK Solver → Joint Goal → Motion Planner → Trajectory → Controller
+                ↓                           ↓
+        Planning Scene ──────────── Collision Checking
+```
+
+## Installation
+
+```bash
+# Jazzy (recommended LTS)
+sudo apt install ros-jazzy-moveit
+
+# Humble
+sudo apt install ros-humble-moveit
+```
+
+<Aside type="tip">
+MoveIt recommends CycloneDDS as the RMW implementation for best performance.
+</Aside>
+
+## Basic Motion Planning
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    import rclpy
+    from moveit.planning import MoveItPy
+    from geometry_msgs.msg import PoseStamped
+
+    def main():
+        rclpy.init()
+
+        # Initialize MoveItPy
+        moveit = MoveItPy(node_name="moveit_py")
+        arm = moveit.get_planning_component("arm")
+
+        # Set target pose
+        target_pose = PoseStamped()
+        target_pose.header.frame_id = "base_link"
+        target_pose.pose.position.x = 0.5
+        target_pose.pose.position.y = 0.0
+        target_pose.pose.position.z = 0.4
+        target_pose.pose.orientation.w = 1.0
+
+        arm.set_goal_state(
+            pose_stamped=target_pose,
+            pose_link="gripper_link"
+        )
+
+        # Plan and execute
+        plan_result = arm.plan()
+        if plan_result:
+            arm.execute()
+
+    if __name__ == "__main__":
+        main()
+    ```
+  </TabItem>
+
+  <TabItem label="Named Pose">
+    ```python
+    # Move to predefined pose from SRDF
+    arm.set_goal_state(configuration_name="home")
+    plan_result = arm.plan()
+    if plan_result:
+        arm.execute()
+    ```
+  </TabItem>
+
+  <TabItem label="Joint Values">
+    ```python
+    # Set specific joint values
+    joint_values = {
+        "joint_1": 0.0,
+        "joint_2": -0.785,
+        "joint_3": 0.0,
+        "joint_4": -2.356,
+        "joint_5": 0.0,
+        "joint_6": 1.571,
+    }
+    arm.set_goal_state(joint_values=joint_values)
+    ```
+  </TabItem>
+</Tabs>
+
+## Motion Planners
+
+MoveIt supports multiple planning backends via plugins:
+
+| Planner | Library | Use Case |
+|---------|---------|----------|
+| RRT, RRT*, PRM | OMPL | General-purpose sampling-based |
+| STOMP | MoveIt | Trajectory optimization, smooth paths |
+| Pilz | MoveIt | Industrial linear/circular motions |
+| cuMotion | NVIDIA Isaac | GPU-accelerated, cluttered environments |
+
+## IK Solvers
+
+| Solver | Characteristics |
+|--------|-----------------|
+| **KDL** | Default, Newton-based, struggles near joint limits |
+| **TRAC-IK** | More reliable near joint limits, combines KDL + SQP |
+| **pick_ik** | Modern solver, gradient descent + evolutionary algorithms |
+
+## MoveIt Servo (Real-time Control)
+
+Stream velocity commands for teleoperation:
+
+```python
+from geometry_msgs.msg import TwistStamped
+
+# Publish Cartesian velocity commands
+twist = TwistStamped()
+twist.header.frame_id = "base_link"
+twist.header.stamp = node.get_clock().now().to_msg()
+twist.twist.linear.x = 0.1  # 10 cm/s forward
+
+servo_publisher.publish(twist)
+```
+
+MoveIt Servo accepts:
+- `geometry_msgs/TwistStamped` — Cartesian velocities
+- `control_msgs/JointJog` — Joint velocities
+- `geometry_msgs/PoseStamped` — Pose targets
+
+## MoveIt Task Constructor
+
+Framework for composing complex manipulation sequences:
+
+```
+┌─────────────────┐
+│  Current State  │ (Generator)
+└────────┬────────┘
+         ▼
+┌─────────────────┐
+│ Move to Pre-grasp│ (Connector)
+└────────┬────────┘
+         ▼
+┌─────────────────┐
+│  Close Gripper  │ (Propagator)
+└────────┬────────┘
+         ▼
+┌─────────────────┐
+│   Lift Object   │ (Propagator)
+└────────┬────────┘
+         ▼
+┌─────────────────┐
+│  Move to Place  │ (Connector)
+└────────┬────────┘
+         ▼
+┌─────────────────┐
+│  Open Gripper   │ (Propagator)
+└─────────────────┘
+```
+
+## Configuration Files
+
+MoveIt requires several configuration files, generated by the Setup Assistant:
+
+| File | Purpose |
+|------|---------|
+| `*.urdf` | Robot geometry (links, joints, meshes) |
+| `*.srdf` | Planning groups, poses, collision pairs |
+| `kinematics.yaml` | IK solver configuration |
+| `ompl_planning.yaml` | OMPL planner parameters |
+| `joint_limits.yaml` | Velocity/acceleration limits |
+| `moveit_controllers.yaml` | ros2_control integration |
+
+## NVIDIA cuMotion Integration
+
+GPU-accelerated motion planning via Isaac ROS:
+
+```bash
+# Install cuMotion MoveIt plugin
+sudo apt install ros-humble-isaac-ros-cumotion-moveit
+```
+
+Key advantages:
+- Plans thousands of trajectories in parallel on GPU
+- Sub-second planning in cluttered environments
+- Smooth, time-optimal trajectories
+
+## Common Issues
+
+| Problem | Cause | Solution |
+|---------|-------|----------|
+| "No IK solution found" | Target unreachable or in collision | Check workspace limits, verify pose is reachable |
+| "Planning failed" | Obstacles blocking path | Update planning scene, try different planner |
+| Jerky motion | Joint limits too aggressive | Tune `joint_limits.yaml` |
+| Slow planning | Complex environment | Use cuMotion or tune planner parameters |
+
+## Related Terms
+
+<CardGrid>
+  <LinkCard
+    title="Kinematics"
+    description="Forward and inverse kinematics"
+    href="/robotics-glossary/concepts/fundamentals/kinematics/"
+  />
+  <LinkCard
+    title="TF2"
+    description="Transform library for coordinate frames"
+    href="/robotics-glossary/software/ros2/tf2/"
+  />
+  <LinkCard
+    title="Nav2"
+    description="Navigation stack for mobile robots"
+    href="/robotics-glossary/software/ros2/nav2/"
+  />
+</CardGrid>
+
+## Learn More
+
+- [MoveIt 2 Getting Started](https://moveit.picknik.ai/main/doc/tutorials/getting_started/getting_started.html) — Official tutorial
+- [MoveIt Setup Assistant](https://moveit.picknik.ai/main/doc/examples/setup_assistant/setup_assistant_tutorial.html) — Configure your robot
+- [MoveIt Servo Tutorial](https://moveit.picknik.ai/humble/doc/examples/realtime_servo/realtime_servo_tutorial.html) — Real-time control
+- [Pick and Place with MTC](https://moveit.picknik.ai/humble/doc/tutorials/pick_and_place_with_moveit_task_constructor/pick_and_place_with_moveit_task_constructor.html) — Task Constructor tutorial
+
+## Sources
+
+- [MoveIt 2 Official Website](https://moveit.ai/)
+- [MoveIt 2 Documentation](https://moveit.picknik.ai/main/doc/tutorials/getting_started/getting_started.html)
+- [MoveIt 2 GitHub Repository](https://github.com/moveit/moveit2)
+- [OMPL Library](https://ompl.kavrakilab.org/)
+- [Isaac ROS cuMotion](https://nvidia-isaac-ros.github.io/repositories_and_packages/isaac_ros_cumotion/index.html)
+- [MoveIt Jazzy Release](https://moveit.ai/release/jazzy/rolling/2024/06/30/New-MoveIt-LTS-release-for-ROS-2-Jazzy.html)
