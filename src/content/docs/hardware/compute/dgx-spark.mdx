@@ -5,6 +5,7 @@ sidebar:
   badge:
     text: Practical
     variant: success
+last_validated: 2026-01-20
 ---
 
 import { Aside, Card, CardGrid, LinkCard, Tabs, TabItem } from '@astrojs/starlight/components';
@@ -14,7 +15,7 @@ import { Aside, Card, CardGrid, LinkCard, Tabs, TabItem } from '@astrojs/starlig
 **DGX Spark** is NVIDIA's desktop-class AI supercomputer, announced at CES 2025. It brings datacenter AI performance to developers' desks, making it ideal for robotics development, simulation, and foundation model training without cloud dependencies.
 
 <Aside type="tip" title="Availability">
-DGX Spark began shipping in May 2025. Priced starting at $3,000, it's designed for individual developers, research labs, and robotics startups.
+DGX Spark became commercially available October 15, 2025. Founders Edition is $3,999 (4TB storage); partner versions start at $2,999 (1TB).
 </Aside>
 
 ## Why DGX Spark for Robotics?
@@ -30,16 +31,18 @@ DGX Spark fills a critical gap in the robotics development workflow:
 
 | Spec | DGX Spark |
 |------|-----------|
-| GPU | NVIDIA GB110 (Blackwell architecture) |
-| AI Performance | 1,000 TOPS (INT8) |
-| FP8 Performance | 500 TFLOPS |
+| GPU | NVIDIA GB10 Grace Blackwell Superchip |
+| AI Performance | 1,000 TOPS (INT8), 1 PFLOP (FP4 sparse) |
+| CUDA Cores | 6,144 |
+| Tensor Cores | 192 (5th gen) |
+| RT Cores | 48 (4th gen) |
 | Memory | 128GB unified LPDDR5X |
-| Memory Bandwidth | 512 GB/s |
-| CPU | MediaTek ARM-based (Grace-class) |
-| Storage | 4TB NVMe SSD |
-| Connectivity | 2x 10GbE, WiFi 7, TB5 |
-| Power | 200W typical |
-| Form Factor | Mac Studio-sized desktop |
+| Memory Bandwidth | 273 GB/s |
+| CPU | 20-core ARM (10x Cortex-X925 + 10x Cortex-A725) |
+| Storage | 4TB NVMe (Founders), 1TB+ (partners) |
+| Connectivity | 1x 10GbE, 2x QSFP (200Gbps), WiFi 7, BT 5.3, 4x USB 4.0 |
+| Power | 240W PSU, 140W TDP |
+| Dimensions | 150 × 150 × 50.5 mm (1.2 kg) |
 
 ## Architecture
 
@@ -48,22 +51,22 @@ DGX Spark fills a critical gap in the robotics development workflow:
 │                      DGX Spark                               │
 ├─────────────────────────────────────────────────────────────┤
 │  ┌─────────────────────────────────────────────────────┐   │
-│  │              NVIDIA GB110 GPU (Blackwell)           │   │
+│  │           NVIDIA GB10 Grace Blackwell Superchip     │   │
 │  │  ┌───────────────┐  ┌───────────────────────────┐  │   │
 │  │  │ CUDA Cores    │  │ Transformer Engine        │  │   │
-│  │  │ 4096          │  │ FP8 / FP16 / BF16         │  │   │
+│  │  │ 6,144         │  │ FP4 / FP8 / BF16          │  │   │
 │  │  └───────────────┘  └───────────────────────────┘  │   │
 │  │  ┌───────────────┐  ┌───────────────────────────┐  │   │
 │  │  │ Tensor Cores  │  │ RT Cores (Gen 4)          │  │   │
-│  │  │ 512           │  │ Ray tracing for sim       │  │   │
+│  │  │ 192 (Gen 5)   │  │ 48 cores                  │  │   │
 │  │  └───────────────┘  └───────────────────────────┘  │   │
 │  └─────────────────────────────────────────────────────┘   │
 │  ┌─────────────────────────────────────────────────────┐   │
 │  │         128GB Unified Memory (CPU + GPU)            │   │
 │  └─────────────────────────────────────────────────────┘   │
 │  ┌──────────────┐  ┌──────────────┐  ┌───────────────┐    │
-│  │ ARM CPU      │  │ 4TB NVMe     │  │ 2x 10GbE      │    │
-│  │ 16 cores     │  │ Storage      │  │ WiFi 7        │    │
+│  │ ARM CPU      │  │ 4TB NVMe     │  │ 10GbE + QSFP  │    │
+│  │ 20 cores     │  │ Storage      │  │ WiFi 7        │    │
 │  └──────────────┘  └──────────────┘  └───────────────┘    │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -93,30 +96,32 @@ DGX Spark runs the same software as NVIDIA's datacenter DGX systems:
 ┌─────────────────────────────────────────────────────────────┐
 │                   Your Development                           │
 ├─────────────────────────────────────────────────────────────┤
-│  Isaac Sim │ Isaac Lab │ Omniverse Kit │ USD Composer       │
+│  Isaac Sim 5.x │ Isaac Lab │ Omniverse Kit │ USD Composer   │
 ├─────────────────────────────────────────────────────────────┤
-│  PyTorch │ TensorRT │ Triton │ NeMo │ cuML │ RAPIDS        │
+│  PyTorch 2.9 │ TensorRT │ Triton │ NeMo │ cuML │ RAPIDS    │
 ├─────────────────────────────────────────────────────────────┤
-│  CUDA 12.8 │ cuDNN 9 │ Transformer Engine │ NCCL           │
+│  CUDA 13 │ cuDNN │ Transformer Engine │ NCCL               │
 ├─────────────────────────────────────────────────────────────┤
-│                    DGX OS (Ubuntu 24.04)                    │
+│             DGX OS (Ubuntu 24.04, HWE kernel 6.14)          │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 <Tabs>
   <TabItem label="Isaac Sim">
     ```bash
-    # Isaac Sim runs natively on DGX Spark
+    # Isaac Sim 5.x runs natively on DGX Spark
     # Full ray-tracing, PhysX 5, domain randomization
 
     # Launch Isaac Sim
-    ~/.local/share/ov/pkg/isaac-sim-4.0.0/isaac-sim.sh
+    ~/.local/share/ov/pkg/isaac-sim-5.1.0/isaac-sim.sh
 
     # Or via Omniverse Launcher
     omniverse-launcher
     ```
 
     DGX Spark can run complex warehouse scenes at 30+ FPS with ray-tracing enabled.
+
+    Note: Some Isaac Lab features are not supported on aarch64: SkillGen, OpenXR, SKRL/JAX training.
   </TabItem>
   <TabItem label="Foundation Models">
     ```python
@@ -214,21 +219,21 @@ docker run --gpus all nvcr.io/nvidia/jetson-thor:jp7.0-runtime
 
 | Aspect | DGX Spark | Gaming PC | Cloud GPU | DGX Station |
 |--------|-----------|-----------|-----------|-------------|
-| Price | $3,000+ | $2,000+ | $/hour | $50,000+ |
+| Price | $2,999+ | $2,000+ | $/hour | $50,000+ |
 | AI TOPS | 1,000 | ~300 | Varies | 2,000+ |
 | Unified Memory | 128GB | 16-24GB | 80GB (A100) | 256GB+ |
 | Isaac Sim | Full | Limited | Network latency | Full |
 | Transformer Engine | Yes | No | Yes (H100) | Yes |
-| Form Factor | Desktop | Tower | N/A | Workstation |
+| Form Factor | NUC-style | Tower | N/A | Workstation |
 | Air-gapped | Yes | Yes | No | Yes |
 
 ## Getting Started
 
 ### 1. Unbox and Connect
 
-- Connect power (200W adapter included)
-- Connect display via DisplayPort or USB-C
-- Connect to network (10GbE recommended for large datasets)
+- Connect power (240W adapter included)
+- Connect display via HDMI 2.1a or USB 4.0
+- Connect to network (10GbE or QSFP recommended for large datasets)
 
 ### 2. Initial Setup
 
@@ -277,9 +282,12 @@ sudo apt install ros-jazzy-isaac-ros-dev-tools
   />
 </CardGrid>
 
-## Learn More
+## Sources
 
-- [DGX Spark Official Page](https://www.nvidia.com/en-us/data-center/dgx-spark/)
-- [CES 2025 Announcement](https://blogs.nvidia.com/blog/ces-2025-dgx-spark/)
-- [DGX Spark Setup Guide](https://docs.nvidia.com/dgx-spark/)
-- [Isaac Sim on DGX Spark](https://developer.nvidia.com/isaac-sim)
+- [NVIDIA DGX Spark Official](https://www.nvidia.com/en-us/products/workstations/dgx-spark/) — Core specifications and product overview
+- [NVIDIA DGX Spark Hardware Docs](https://docs.nvidia.com/dgx/dgx-spark/hardware.html) — Detailed hardware specifications, connectivity, dimensions
+- [NVIDIA Marketplace](https://marketplace.nvidia.com/en-us/enterprise/personal-ai-supercomputers/dgx-spark/) — Pricing and availability
+- [NVIDIA Newsroom](https://nvidianews.nvidia.com/news/nvidia-dgx-spark-arrives-for-worlds-ai-developers) — Launch announcement (Oct 2025)
+- [Isaac Sim Requirements](https://docs.isaacsim.omniverse.nvidia.com/5.1.0/installation/requirements.html) — Isaac Sim 5.x compatibility and aarch64 limitations
+- [WCCFTech GB10 Details](https://wccftech.com/nvidia-gb10-superchip-soc-3nm-20-arm-v9-2-cpu-cores-nvfp4-blackwell-gpu-lpddr5x-9400-memory-140w-tdp/) — CPU architecture details
+- [VideoCardz](https://videocardz.com/newz/nvidia-dgx-spark-features-6144-cuda-cores-just-as-many-as-rtx-5070) — CUDA core count confirmation
