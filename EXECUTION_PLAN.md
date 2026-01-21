@@ -159,6 +159,7 @@ degrees-of-freedom → coordinate-frames → transforms → tf2 → urdf → nav
 | `software/ros2/moveit2.mdx` | ✅ Complete | 2026-01-21 | P0 ROS 2 motion planning framework |
 | `software/ros2/urdf-xacro.mdx` | ✅ Complete | 2026-01-21 | P1 Robot description format |
 | `software/nvidia/cumotion.mdx` | ✅ Complete | 2026-01-21 | P1 GPU-accelerated motion planning |
+| `software/nvidia/nvblox.mdx` | ✅ Complete | 2026-01-21 | P1 Real-time 3D reconstruction |
 
 ### Week 3-4: New Critical Content
 - [x] Write `transforms.mdx` and `coordinate-frames.mdx`
@@ -168,7 +169,7 @@ degrees-of-freedom → coordinate-frames → transforms → tf2 → urdf → nav
 
 ### Week 5-6: NVIDIA Deep Dives
 - [x] Write `cumotion.mdx`
-- [ ] Write `nvblox.mdx`
+- [x] Write `nvblox.mdx`
 - [ ] Write `tensorrt.mdx`
 
 ---
