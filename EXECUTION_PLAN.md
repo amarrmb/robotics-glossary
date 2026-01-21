@@ -40,7 +40,7 @@ Each file needs:
 | `hardware/sensors/imu.mdx` | 🔴 | Standard reference |
 | `concepts/fundamentals/kinematics.mdx` | 🔴 | Timeless, light review |
 | `concepts/fundamentals/degrees-of-freedom.mdx` | 🔴 | Timeless, light review |
-| `concepts/perception/slam.mdx` | 🔴 | Isaac ROS SLAM packages |
+| `concepts/perception/slam.mdx` | ✅ | Isaac ROS SLAM packages |
 | `concepts/control/motion-planning.mdx` | 🔴 | cuMotion integration |
 | `concepts/control/pid.mdx` | 🔴 | Timeless, light review |
 | `concepts/ai/neural-networks.mdx` | 🔴 | General, light review |
