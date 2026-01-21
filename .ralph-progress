@@ -7,3 +7,4 @@ validate:software/frameworks/ros2.mdx
 validate:concepts/perception/slam.mdx
 validate:hardware/sensors/lidar.mdx
 validate:hardware/sensors/cameras.mdx
+validate:hardware/sensors/imu.mdx
