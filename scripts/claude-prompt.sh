@@ -73,9 +73,7 @@ You are updating the robotics-glossary project. Execute these 3 phases for: $TAS
 
    - Validated against $TODAY sources
    - Updated version numbers
-   - Added citations
-
-   Co-Authored-By: Claude <noreply@anthropic.com>"
+   - Added citations"
    \`\`\`
 
 ---

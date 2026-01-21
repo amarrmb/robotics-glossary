@@ -251,11 +251,7 @@ Ralph Wiggum automation - pre-update state"
 
 - Validated against Jan 2026 sources
 - Updated version numbers and links
-- Added sources/citations section
-
-Ralph Wiggum automation - post-update
-
-Co-Authored-By: Claude <noreply@anthropic.com>"
+- Added sources/citations section"
         echo -e "${GREEN}Created completion commit${NC}"
     else
         echo -e "${YELLOW}No changes to commit${NC}"
