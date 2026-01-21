@@ -1,0 +1,278 @@
+---
+title: Isaac Lab
+description: NVIDIA simulation for robot learning
+last_validated: 2026-01-21
+sidebar:
+  badge:
+    text: Practical
+    variant: success
+---
+
+import { Aside, Card, CardGrid, LinkCard, Tabs, TabItem } from '@astrojs/starlight/components';
+
+<span class="level-badge practical">Practical</span>
+
+**Isaac Lab** is NVIDIA's open-source, GPU-accelerated framework for robot learning built on Isaac Sim. It enables training reinforcement learning and imitation learning policies at massive scale—4096+ parallel environments on a single GPU—making sophisticated robot training practical without supercomputer access.
+
+<Aside type="note">
+Isaac Lab is the successor to Isaac Gym (now deprecated) and unifies IsaacGymEnvs, OmniIsaacGymEnvs, and Orbit into a single framework. Licensed BSD-3-Clause.
+</Aside>
+
+## Prerequisites
+
+<CardGrid>
+  <LinkCard
+    title="Isaac Sim"
+    description="NVIDIA's photorealistic robotics simulation platform"
+    href="/robotics-glossary/software/simulation/isaac-sim/"
+  />
+  <LinkCard
+    title="Reinforcement Learning"
+    description="Training policies through trial and error"
+    href="/robotics-glossary/concepts/ai/reinforcement-learning/"
+  />
+</CardGrid>
+
+## Why Isaac Lab Matters
+
+| Challenge | Isaac Lab Solution |
+|-----------|-------------------|
+| Training is slow on CPU | GPU-parallel: 4096+ environments simultaneously |
+| Need expensive hardware | Train on single RTX GPU, ~90,000 FPS |
+| Sim-to-real gap | Domain randomization + photorealistic rendering |
+| Complex sensor simulation | Full sensor suite: cameras, LiDAR, IMU, contact |
+| Fragmented tools | Unified framework for RL, IL, motion planning |
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         Isaac Lab                                │
+├─────────────────────────────────────────────────────────────────┤
+│  ┌──────────────────┐  ┌──────────────────┐  ┌───────────────┐  │
+│  │ RL Frameworks    │  │ Imitation        │  │ Motion        │  │
+│  │ RSL-RL, SKRL     │  │ Learning         │  │ Planning      │  │
+│  │ RL-Games, SB3    │  │ (Mimic)          │  │ (cuRobo)      │  │
+│  └────────┬─────────┘  └────────┬─────────┘  └───────┬───────┘  │
+│           │                     │                     │          │
+│  ┌────────▼─────────────────────▼─────────────────────▼───────┐  │
+│  │              Environment API (Manager/Direct)               │  │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │  │
+│  │  │ Robots      │  │ Sensors     │  │ Domain              │  │  │
+│  │  │ Actuators   │  │ Cameras,IMU │  │ Randomization       │  │  │
+│  │  │ Controllers │  │ Contact,Ray │  │ ADR, PBT            │  │  │
+│  │  └─────────────┘  └─────────────┘  └─────────────────────┘  │  │
+│  └────────────────────────────┬────────────────────────────────┘  │
+├───────────────────────────────┼───────────────────────────────────┤
+│                          Isaac Sim                                │
+│  ┌─────────────┐  ┌─────────────┐  ┌────────────────────────┐    │
+│  │ PhysX 5     │  │ RTX Render  │  │ USD Scene Graph        │    │
+│  │ (GPU)       │  │ (Tiled)     │  │ (OpenUSD)              │    │
+│  └─────────────┘  └─────────────┘  └────────────────────────┘    │
+├───────────────────────────────────────────────────────────────────┤
+│                     NVIDIA Omniverse / GPU                        │
+└───────────────────────────────────────────────────────────────────┘
+```
+
+## Getting Started
+
+### System Requirements
+
+| Component | Minimum | Recommended |
+|-----------|---------|-------------|
+| GPU | Volta+ (CC 7.0+) | RTX 4090 / A6000 |
+| VRAM | 16GB | 24GB+ |
+| RAM | 32GB | 64GB+ |
+| OS | Ubuntu 22.04 | Ubuntu 22.04/24.04 |
+| Python | 3.10 (Sim 4.X) | 3.11 (Sim 5.X) |
+
+<Aside type="caution">
+A100/H100 GPUs without RT cores are **not supported**. Isaac Lab requires GPUs with RT Cores for rendering.
+</Aside>
+
+### Installation
+
+<Tabs>
+  <TabItem label="Pip Install">
+    ```bash
+    # Install Isaac Sim first
+    pip install isaacsim==5.1.0 --extra-index-url https://pypi.nvidia.com
+
+    # Clone Isaac Lab
+    git clone https://github.com/isaac-sim/IsaacLab.git
+    cd IsaacLab
+
+    # Create conda environment and install
+    ./isaaclab.sh --install
+    ```
+  </TabItem>
+
+  <TabItem label="From Source">
+    ```bash
+    # Clone with submodules
+    git clone --recurse-submodules https://github.com/isaac-sim/IsaacLab.git
+    cd IsaacLab
+
+    # Install dependencies
+    ./isaaclab.sh --install
+
+    # Verify installation
+    ./isaaclab.sh -p source/standalone/tutorials/00_sim/create_empty.py
+    ```
+  </TabItem>
+</Tabs>
+
+## Training Your First Policy
+
+Train a quadruped locomotion policy:
+
+```bash
+# Train ANYmal-D on flat terrain with RSL-RL
+python source/standalone/workflows/rsl_rl/train.py \
+    --task Isaac-Velocity-Flat-Anymal-D-v0 \
+    --num_envs 4096 \
+    --headless
+```
+
+This trains a policy at ~90,000 FPS on an RTX A6000.
+
+## Environment Workflows
+
+Isaac Lab provides two workflow styles for creating environments:
+
+### Manager-Based (Recommended)
+
+Modular, structured approach with separate managers for observations, rewards, and actions:
+
+```python
+from omni.isaac.lab.envs import ManagerBasedRLEnv
+
+# Create parallel environments
+env = ManagerBasedRLEnv(
+    cfg=MyRobotEnvCfg,
+    num_envs=4096,
+)
+
+# Training loop
+obs = env.reset()
+for _ in range(1000000):
+    actions = policy(obs)
+    obs, rewards, dones, infos = env.step(actions)
+```
+
+### Direct (Performance-Critical)
+
+Lower-level API for maximum control, similar to Isaac Gym:
+
+```python
+from omni.isaac.lab.envs import DirectRLEnv
+from omni.isaac.lab.utils import configclass
+
+@configclass
+class MyRobotEnvCfg(DirectRLEnvCfg):
+    scene: MySceneCfg = MySceneCfg(num_envs=4096)
+    observation_space = 48
+    action_space = 12
+    episode_length_s = 20.0
+```
+
+## Supported RL Frameworks
+
+| Framework | Features |
+|-----------|----------|
+| RSL-RL | JIT/ONNX export, fast training |
+| SKRL | PyTorch + JAX, multi-agent (MAPPO, IPPO) |
+| RL-Games | Vectorized training |
+| Stable-Baselines3 | Extensive docs, numpy-based |
+
+## Pre-Built Environments (30+)
+
+### Locomotion
+- `Isaac-Velocity-Flat-Anymal-D-v0` — Quadruped flat terrain
+- `Isaac-Velocity-Rough-Anymal-C-v0` — Quadruped rough terrain
+- `Isaac-Humanoid-v0` — Humanoid walking
+
+### Manipulation
+- `Isaac-Lift-Cube-Franka-v0` — Pick and lift with Franka
+- `Isaac-Stack-Cube-Franka-v0` — Stack cubes
+
+### Dexterous (DexSuite v2.3+)
+- `Isaac-Dexsuite-Kuka-Allegro-Lift-v0` — Dexterous lifting
+- `Isaac-Dexsuite-Kuka-Allegro-Reorientation-v0` — Object reorientation
+
+## Supported Robots
+
+**Quadrupeds**: ANYmal-B/C/D, Unitree A1/Go1/Go2, Boston Dynamics Spot
+
+**Humanoids**: Unitree H1, G1
+
+**Manipulators**: Franka Panda, Kuka arms, Universal Robots
+
+**Hands**: Allegro Hand, Unitree three-finger, Inspire five-finger
+
+## Policy Export and Deployment
+
+Export trained policies for deployment:
+
+```python
+from isaaclab_rl.rsl_rl import export_policy_as_jit
+
+# Export to TorchScript for deployment
+export_policy_as_jit(agent, path="policy.pt")
+```
+
+Deploy on Jetson Orin or other edge devices via Isaac ROS.
+
+## Performance Metrics
+
+| Metric | Value |
+|--------|-------|
+| State-based training | 1.6M+ FPS (multi-GPU) |
+| Vision-based training | 60K+ FPS (multi-GPU) |
+| Locomotion training | ~90,000 FPS (RTX A6000) |
+| Parallel environments | 4096+ (single GPU) |
+
+## Isaac Gym Migration
+
+Migrating from Isaac Gym? Key differences:
+
+| Aspect | Isaac Gym | Isaac Lab |
+|--------|-----------|-----------|
+| Config format | YAML | Python configclass |
+| Scene creation | Manual loop | Cloner API (automatic) |
+| Rendering | Basic | RTX photorealistic |
+| ROS support | No | Yes (ROS 2 bridge) |
+| Soft body physics | No | Yes (PhysX 5) |
+
+## Related Terms
+
+<CardGrid>
+  <LinkCard
+    title="Isaac Sim"
+    description="Parent simulation platform"
+    href="/robotics-glossary/software/simulation/isaac-sim/"
+  />
+  <LinkCard
+    title="Isaac ROS"
+    description="GPU-accelerated ROS 2 packages"
+    href="/robotics-glossary/software/isaac/isaac-ros/"
+  />
+  <LinkCard
+    title="cuMotion"
+    description="GPU-accelerated motion planning"
+    href="/robotics-glossary/software/nvidia/cumotion/"
+  />
+  <LinkCard
+    title="Reinforcement Learning"
+    description="Core training paradigm"
+    href="/robotics-glossary/concepts/ai/reinforcement-learning/"
+  />
+</CardGrid>
+
+## Sources
+
+- [Isaac Lab Documentation](https://isaac-sim.github.io/IsaacLab/main/index.html) — Official docs, tutorials, API reference
+- [Isaac Lab GitHub](https://github.com/isaac-sim/IsaacLab) — Source code, BSD-3-Clause license
+- [Isaac Lab arXiv Paper](https://arxiv.org/abs/2511.04831) — Technical details on GPU-accelerated learning
+- [Isaac Lab 2.3 Release](https://github.com/isaac-sim/IsaacLab/releases/tag/v2.3.1) — DexSuite, ADR, PBT features
+- [Migrating from IsaacGymEnvs](https://isaac-sim.github.io/IsaacLab/main/source/migration/migrating_from_isaacgymenvs.html) — Migration guide
