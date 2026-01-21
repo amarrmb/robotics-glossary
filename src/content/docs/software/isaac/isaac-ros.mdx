@@ -5,6 +5,7 @@ sidebar:
   badge:
     text: Practical
     variant: success
+last_validated: 2026-01-20
 ---
 
 import { Aside, Card, CardGrid, LinkCard, Tabs, TabItem, Steps } from '@astrojs/starlight/components';
@@ -14,7 +15,7 @@ import { Aside, Card, CardGrid, LinkCard, Tabs, TabItem, Steps } from '@astrojs/
 **Isaac ROS** is NVIDIA's collection of GPU-accelerated ROS 2 packages that bring high-performance AI and perception capabilities to robots running on Jetson and discrete GPUs.
 
 <Aside type="note" title="Current Version">
-Isaac ROS 3.2 — Aligned with JetPack 6.1 and ROS 2 Humble
+Isaac ROS 4.0 — Supports ROS 2 Jazzy, JetPack 6.x (Orin) and JetPack 7.x (Thor)
 </Aside>
 
 ## Why Isaac ROS?
@@ -94,7 +95,7 @@ Isaac ROS uses **NITROS** (NVIDIA Isaac Transport for ROS) for zero-copy GPU mem
     | `isaac_ros_nvblox` | Real-time 3D reconstruction and mapping |
     | `isaac_ros_freespace_segmentation` | Drivable area detection |
     | `isaac_ros_occupancy_grid_localizer` | Grid-based localization |
-    | `isaac_ros_map_localization` | Map-based localization |
+    | `isaac_ros_mapping_and_localization` | Map-based localization with learning-based descriptors |
   </TabItem>
 
   <TabItem label="Manipulation">
@@ -135,6 +136,8 @@ from isaac_ros_nitros_image_type.msg import NitrosImage
 NITROS types are automatically adapted to/from standard ROS types at graph boundaries.
 
 ## Installation
+
+Requires **Docker Engine 27.2.0+**. The Isaac ROS CLI manages dev container setup.
 
 <Steps>
 1. **Set up Docker** (recommended approach)
@@ -212,6 +215,15 @@ def odom_callback(msg):
 
 ## Prerequisites
 
+**Supported platforms:**
+- **Jetson AGX Thor** with JetPack 7.x
+- **Jetson Orin** (AGX, NX) with JetPack 6.x
+- **x86_64** with NVIDIA discrete GPU
+
+<Aside type="caution">
+Jetson Xavier (AGX Xavier, Xavier NX) is no longer supported as of Isaac ROS 2.1.
+</Aside>
+
 <CardGrid>
   <LinkCard
     title="Jetson Orin"
@@ -220,7 +232,7 @@ def odom_callback(msg):
   />
   <LinkCard
     title="ROS 2"
-    description="Robot Operating System 2"
+    description="Robot Operating System 2 (Jazzy)"
     href="/robotics-glossary/software/ros2/"
   />
   <LinkCard
@@ -261,3 +273,9 @@ def odom_callback(msg):
 - [Isaac ROS GitHub Organization](https://github.com/NVIDIA-ISAAC-ROS)
 - [NITROS Deep Dive](https://nvidia-isaac-ros.github.io/concepts/nitros/index.html)
 - [Isaac ROS Release Notes](https://nvidia-isaac-ros.github.io/releases/index.html)
+
+## Sources
+
+- [Isaac ROS Release Notes](https://nvidia-isaac-ros.github.io/releases/index.html) — Version history, platform support, deprecated features
+- [Isaac ROS Getting Started](https://nvidia-isaac-ros.github.io/getting_started/index.html) — Installation requirements, Docker version, ROS 2 Jazzy support
+- [NITROS Documentation](https://nvidia-isaac-ros.github.io/concepts/nitros/index.html) — Zero-copy transport architecture
