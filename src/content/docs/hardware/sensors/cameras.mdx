@@ -5,7 +5,7 @@ sidebar:
   badge:
     text: Practical
     variant: success
-last_validated: 2026-01-20
+last_validated: 2026-01-21
 ---
 
 <span class="level-badge practical">Practical</span>
@@ -47,7 +47,7 @@ Output pixel-level brightness changes asynchronously, not frames.
 | Pros | Cons |
 |------|------|
 | Microsecond latency | No standard image format |
-| 140dB dynamic range | Specialized algorithms needed |
+| >120dB dynamic range | Specialized algorithms needed |
 | No motion blur | More expensive |
 
 **Use cases**: High-speed tracking, drone racing, low-light environments
@@ -204,9 +204,11 @@ Relative pose between stereo pair cameras.
 
 ## Sources
 
-- [Intel RealSense D455](https://www.intelrealsense.com/depth-camera-d455/) — D400 series specifications
-- [Orbbec Femto Bolt](https://www.orbbec.com/documentation/comparison-with-azure-kinect-dk/) — Azure Kinect replacement details
-- [Stereolabs ZED 2](https://www.stereolabs.com/products/zed-2) — ZED 2i specifications
+- [Intel RealSense D455](https://www.intel.com/content/www/us/en/products/sku/205847/intel-realsense-depth-camera-d455/specifications.html) — D400 series specifications
+- [Intel RealSense D456](https://store.intelrealsense.com/buy-intel-realsense-depth-camera-d456.html) — IP65-rated outdoor model
+- [Orbbec Femto Bolt](https://www.orbbec.com/products/tof-camera/femto-bolt/) — Azure Kinect replacement specifications
+- [Stereolabs ZED 2i](https://www.stereolabs.com/store/products/zed-2i) — ZED 2i specifications
 - [Prophesee EVK4](https://www.prophesee.ai/event-camera-evk4/) — Event camera specifications
-- [Isaac ROS Image Pipeline](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_image_pipeline) — GPU-accelerated processing packages
+- [iniVation Cameras](https://inivation.com/solutions/cameras/) — DVS event camera line
+- [Isaac ROS Packages](https://nvidia-isaac-ros.github.io/repositories_and_packages/index.html) — GPU-accelerated processing packages
 - [ROS 2 camera_calibration](https://docs.ros.org/en/ros2_packages/jazzy/api/camera_calibration/) — Calibration package documentation
