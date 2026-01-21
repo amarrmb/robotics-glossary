@@ -85,32 +85,63 @@ BETWEEN_PHASES_DELAY=2  # seconds between phases
 run_claude() {
     local prompt="$1"
     local attempt=1
+    local output
+    local exit_code
 
     while [ $attempt -le $MAX_RETRIES ]; do
         echo "  [Attempt $attempt/$MAX_RETRIES]"
 
-        # Run claude and capture exit code
-        if claude --dangerously-skip-permissions -p "$prompt"; then
+        # Run claude and capture output + exit code
+        output=$(claude --dangerously-skip-permissions -p "$prompt" 2>&1)
+        exit_code=$?
+
+        # Success
+        if [ $exit_code -eq 0 ]; then
+            echo "$output"
             return 0
         fi
 
-        local exit_code=$?
+        # Check for quota exceeded (don't retry - won't help)
+        if echo "$output" | grep -qi "quota\|usage.limit\|billing\|exceeded.*limit\|limit.*exceeded"; then
+            echo ""
+            echo "  ❌ USAGE QUOTA EXCEEDED"
+            echo "  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "  Your API quota has been reached."
+            echo "  Options:"
+            echo "    1. Wait for quota reset (check your plan)"
+            echo "    2. Upgrade your API plan"
+            echo "    3. Use a different API key"
+            echo ""
+            echo "  Progress saved. Resume later with:"
+            echo "    ./scripts/run-all.sh"
+            echo "  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            exit 2
+        fi
 
-        # Check if it's a rate limit (exit codes vary, but we retry on any failure)
-        if [ $attempt -lt $MAX_RETRIES ]; then
-            echo "  ⚠️  Claude call failed (exit code: $exit_code)"
-            echo "  ⏳ Waiting ${RETRY_DELAY}s before retry..."
-            sleep $RETRY_DELAY
-            # Exponential backoff
-            RETRY_DELAY=$((RETRY_DELAY * 2))
+        # Check for rate limit (retry with backoff)
+        if echo "$output" | grep -qi "rate.limit\|too.many.requests\|429"; then
+            if [ $attempt -lt $MAX_RETRIES ]; then
+                echo "  ⚠️  Rate limited. Waiting ${RETRY_DELAY}s..."
+                sleep $RETRY_DELAY
+                RETRY_DELAY=$((RETRY_DELAY * 2))
+            fi
+        else
+            # Unknown error
+            echo "  ⚠️  Error: $output"
+            if [ $attempt -lt $MAX_RETRIES ]; then
+                echo "  ⏳ Retrying in ${RETRY_DELAY}s..."
+                sleep $RETRY_DELAY
+            fi
         fi
 
         attempt=$((attempt + 1))
     done
 
     echo "  ❌ Failed after $MAX_RETRIES attempts"
-    echo "  Pausing script. Resume with: ./scripts/run-all.sh"
-    echo "  Or skip this task: echo '$CURRENT_TASK_KEY' >> .ralph-progress"
+    echo "  Last error: $output"
+    echo ""
+    echo "  Resume with: ./scripts/run-all.sh"
+    echo "  Skip task:   echo '$CURRENT_TASK_KEY' >> .ralph-progress"
     exit 1
 }
 
