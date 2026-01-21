@@ -42,7 +42,7 @@ Each file needs:
 | `concepts/fundamentals/degrees-of-freedom.mdx` | ✅ | Timeless, light review |
 | `concepts/perception/slam.mdx` | ✅ | Isaac ROS SLAM packages |
 | `concepts/control/motion-planning.mdx` | ✅ | cuMotion integration |
-| `concepts/control/pid.mdx` | 🔴 | Timeless, light review |
+| `concepts/control/pid.mdx` | ✅ | Timeless, light review |
 | `concepts/ai/neural-networks.mdx` | 🔴 | General, light review |
 | `concepts/ai/reinforcement-learning.mdx` | 🔴 | Robotics RL landscape |
 
