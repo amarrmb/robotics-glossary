@@ -30,7 +30,7 @@ Each file needs:
 #### Priority 2: ROS2 Ecosystem
 | File | Status | Key Validation Points |
 |------|--------|----------------------|
-| `software/frameworks/ros2.mdx` | 🔴 | Humble EOL date, Jazzy status, Rolling changes |
+| `software/frameworks/ros2.mdx` | ✅ | Humble EOL date, Jazzy status, Rolling changes |
 
 #### Priority 3: Sensors & Fundamentals
 | File | Status | Key Validation Points |
