@@ -1,7 +1,7 @@
 ---
 title: SLAM
 description: Simultaneous Localization and Mapping — how robots build maps while tracking their position
-last_validated: 2026-01-20
+last_validated: 2026-01-21
 sidebar:
   badge:
     text: Deep Dive
@@ -72,7 +72,7 @@ The "chicken and egg" problem: You need a map to localize, but you need to know 
     Fuses camera with IMU for robust tracking.
 
     **Approaches:**
-    - **Tightly-coupled**: VINS-Mono, OKVIS
+    - **Tightly-coupled**: VINS-Mono, OKVIS (ROS 1 focused)
     - **Loosely-coupled**: ROVIO
 
     **Pros:** Robust to fast motion, handles brief visual occlusion
@@ -147,10 +147,10 @@ When the robot recognizes a previously visited location, it can correct accumula
 
 <CardGrid>
   <Card title="cuVSLAM" icon="rocket">
-    NVIDIA's GPU-accelerated Visual SLAM in Isaac ROS. Best-in-class performance on KITTI benchmark.
+    NVIDIA's GPU-accelerated Visual SLAM in Isaac ROS. Supports multi-camera setups (up to 32 cameras) with IMU fusion. Best-in-class performance on KITTI benchmark.
   </Card>
   <Card title="nvblox" icon="setting">
-    Real-time 3D reconstruction using TSDF fusion. Builds meshes and occupancy grids.
+    Real-time 3D reconstruction using TSDF fusion. Supports multi-sensor input (3D LiDAR + up to 3 cameras). Builds meshes and occupancy grids for Nav2 integration.
   </Card>
 </CardGrid>
 
@@ -230,9 +230,9 @@ ros2 launch isaac_ros_visual_slam isaac_ros_visual_slam_rviz.launch.py
 
 ## Sources
 
-- [Isaac ROS Visual SLAM](https://nvidia-isaac-ros.github.io/repositories_and_packages/isaac_ros_visual_slam/index.html) — cuVSLAM documentation and benchmarks
-- [cuVSLAM Concepts](https://nvidia-isaac-ros.github.io/concepts/visual_slam/cuvslam/index.html) — GPU-accelerated SLAM architecture
-- [Isaac ROS nvblox](https://nvidia-isaac-ros.github.io/repositories_and_packages/isaac_ros_nvblox/index.html) — 3D reconstruction with TSDF
-- [SLAM Toolbox (ROS 2)](https://docs.ros.org/en/jazzy/p/slam_toolbox/) — Actively maintained 2D SLAM for ROS 2
-- [ORB-SLAM3 Paper](https://arxiv.org/abs/2007.11898) — State-of-the-art visual-inertial SLAM
+- [Isaac ROS Visual SLAM](https://nvidia-isaac-ros.github.io/repositories_and_packages/isaac_ros_visual_slam/index.html) — cuVSLAM documentation, multi-camera support, and KITTI benchmarks
+- [cuVSLAM Concepts](https://nvidia-isaac-ros.github.io/concepts/visual_slam/cuvslam/index.html) — GPU-accelerated SLAM architecture and IMU fusion
+- [Isaac ROS nvblox](https://nvidia-isaac-ros.github.io/repositories_and_packages/isaac_ros_nvblox/index.html) — 3D reconstruction with TSDF, multi-sensor support
+- [SLAM Toolbox (ROS 2)](https://docs.ros.org/en/jazzy/p/slam_toolbox/) — Actively maintained 2D SLAM for ROS 2 (Jazzy 2.8.3)
+- [ORB-SLAM3 Paper](https://arxiv.org/abs/2007.11898) — Visual-inertial SLAM with multi-map support
 - [DROID-SLAM](https://github.com/princeton-vl/DROID-SLAM) — Deep learning-based dense SLAM
