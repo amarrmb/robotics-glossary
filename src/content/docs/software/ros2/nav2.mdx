@@ -1,0 +1,372 @@
+---
+title: Nav2
+description: ROS 2 Navigation Stack — autonomous mobile robot navigation
+last_validated: 2026-01-21
+sidebar:
+  badge:
+    text: Practical
+    variant: success
+---
+
+import { Aside, Card, CardGrid, LinkCard, Tabs, TabItem } from '@astrojs/starlight/components';
+
+<span class="level-badge practical">Practical</span>
+
+**Nav2 (Navigation2)** is ROS 2's professional-grade navigation framework for autonomous mobile robots. It enables robots to navigate through complex environments by computing paths, avoiding obstacles, and recovering from failures — all orchestrated by behavior trees.
+
+<Aside type="note">
+Nav2 is the successor to the ROS 1 Navigation Stack, redesigned for ROS 2 with a modular, plugin-based architecture.
+</Aside>
+
+## Prerequisites
+
+<CardGrid>
+  <LinkCard
+    title="TF2"
+    description="Transform library — Nav2 requires a properly configured TF tree"
+    href="/robotics-glossary/software/ros2/tf2/"
+  />
+  <LinkCard
+    title="Coordinate Frames"
+    description="REP-105 frame conventions (map, odom, base_link)"
+    href="/robotics-glossary/concepts/fundamentals/coordinate-frames/"
+  />
+</CardGrid>
+
+## Why Nav2 Matters
+
+- **Autonomous navigation**: Plan paths and avoid obstacles without human intervention
+- **Pluggable algorithms**: Swap planners, controllers, and behaviors via plugins
+- **Recovery behaviors**: Automatically handle stuck situations with spin, wait, backup actions
+- **Industry adoption**: Trusted by 100+ companies in research and production
+
+## Architecture
+
+Nav2 uses lifecycle-managed servers that communicate via ROS 2 actions and services:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│              BT Navigator (Behavior Tree Orchestration)      │
+└──────────────────────────────┬──────────────────────────────┘
+               ┌───────────────┼───────────────┐
+               ▼               ▼               ▼
+┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐
+│  Planner Server  │ │ Controller Server│ │  Behavior Server │
+│  ┌────────────┐  │ │  ┌────────────┐  │ │  ┌────────────┐  │
+│  │   SmacNav  │  │ │  │    MPPI    │  │ │  │    Spin    │  │
+│  │   NavFn    │  │ │  │    DWB     │  │ │  │    Wait    │  │
+│  │  ThetaStar │  │ │  │    RPP     │  │ │  │   Backup   │  │
+│  └────────────┘  │ │  └────────────┘  │ │  └────────────┘  │
+│        ▲         │ │        ▲         │ └──────────────────┘
+│  Global Costmap  │ │  Local Costmap   │
+└──────────────────┘ └──────────────────┘
+```
+
+| Server | Purpose |
+|--------|---------|
+| `planner_server` | Computes global path using global costmap |
+| `controller_server` | Follows path, generates velocity commands |
+| `behavior_server` | Executes recovery behaviors (spin, wait, backup) |
+| `bt_navigator` | Orchestrates navigation via behavior trees |
+
+## TF2 Requirements
+
+Nav2 requires a properly configured transform tree per REP-105:
+
+```
+map                    ← World-fixed frame (from AMCL/SLAM)
+ └── odom              ← Continuous odometry frame
+      └── base_link    ← Robot body frame
+           ├── sensors
+           └── links
+```
+
+- `map → odom`: Published by localization (AMCL or SLAM Toolbox)
+- `odom → base_link`: Published by your odometry source
+- `base_link → sensors`: Published by `robot_state_publisher` from URDF
+
+<Aside type="caution">
+The most common Nav2 issue is a misconfigured TF tree. Always verify transforms with `ros2 run tf2_tools view_frames`.
+</Aside>
+
+## Costmaps
+
+Costmaps are 2D grids representing obstacle costs (0=free, 254=inscribed, 255=lethal):
+
+```
+┌─────────────────────────────────────┐
+│          Final Costmap              │
+├─────────────────────────────────────┤
+│       Inflation Layer               │ ← Expands obstacles for safety
+├─────────────────────────────────────┤
+│       Obstacle Layer                │ ← Dynamic obstacles from sensors
+├─────────────────────────────────────┤
+│        Static Layer                 │ ← Pre-built map
+└─────────────────────────────────────┘
+```
+
+| Costmap | Frame | Purpose |
+|---------|-------|---------|
+| Global | `map` | Used by planner, covers full environment |
+| Local | `odom` | Rolling window around robot, high update rate |
+
+## Planners
+
+Global path planning plugins for `planner_server`:
+
+| Planner | Algorithm | Best For |
+|---------|-----------|----------|
+| `SmacPlanner2D` | Cost-aware A* | Differential, omnidirectional robots |
+| `SmacPlannerHybrid` | Hybrid-A* | Ackermann vehicles (respects turning radius) |
+| `NavFn` | Dijkstra/A* | Legacy, circular robots |
+| `ThetaStar` | Theta* | Any-angle paths |
+
+## Controllers
+
+Local trajectory following plugins for `controller_server`:
+
+| Controller | Type | Notes |
+|------------|------|-------|
+| `MPPI` | Model Predictive | **Recommended** — optimization-based, handles dynamic obstacles well |
+| `DWB` | Dynamic Window | Highly configurable, plugin-based critics |
+| `RPP` | Regulated Pure Pursuit | Industrial/service robots |
+
+<Aside type="tip">
+MPPI is recommended for most new applications. It runs at 100+ Hz on modest hardware and requires less tuning than DWB.
+</Aside>
+
+## Behavior Trees
+
+Nav2 uses BehaviorTree.CPP (v4 in Jazzy) for navigation orchestration:
+
+```
+             ┌──────────────┐
+             │NavigateToPose│
+             └──────┬───────┘
+                    │
+             ┌──────▼───────┐
+             │ RecoveryNode │ (retries on failure)
+             └──────┬───────┘
+        ┌───────────┴───────────┐
+        ▼                       ▼
+┌───────────────┐       ┌───────────────┐
+│  Navigation   │       │   Recovery    │
+│   Sequence    │       │   Fallback    │
+├───────────────┤       ├───────────────┤
+│ComputePath    │       │Clear Costmaps │
+│FollowPath     │       │Spin │ Wait    │
+└───────────────┘       │Backup         │
+                        └───────────────┘
+```
+
+Default recovery sequence: clear costmaps → spin → wait → backup → retry
+
+## Code Examples
+
+### Navigate to Pose (Python)
+
+```python
+import rclpy
+from rclpy.node import Node
+from rclpy.action import ActionClient
+from nav2_msgs.action import NavigateToPose
+from geometry_msgs.msg import PoseStamped
+from tf_transformations import quaternion_from_euler
+
+class Nav2Client(Node):
+    def __init__(self):
+        super().__init__('nav2_client')
+        self.client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
+
+    def go_to_pose(self, x: float, y: float, yaw: float = 0.0):
+        """Send robot to specified pose in map frame."""
+        goal = NavigateToPose.Goal()
+        goal.pose = PoseStamped()
+        goal.pose.header.frame_id = 'map'
+        goal.pose.header.stamp = self.get_clock().now().to_msg()
+        goal.pose.pose.position.x = x
+        goal.pose.pose.position.y = y
+
+        q = quaternion_from_euler(0, 0, yaw)
+        goal.pose.pose.orientation.z = q[2]
+        goal.pose.pose.orientation.w = q[3]
+
+        self.client.wait_for_server()
+        future = self.client.send_goal_async(
+            goal, feedback_callback=self.feedback_cb)
+        future.add_done_callback(self.goal_response_cb)
+
+    def feedback_cb(self, msg):
+        self.get_logger().info(
+            f'Distance remaining: {msg.feedback.distance_remaining:.2f}m')
+
+    def goal_response_cb(self, future):
+        goal_handle = future.result()
+        if goal_handle.accepted:
+            goal_handle.get_result_async()
+
+def main():
+    rclpy.init()
+    client = Nav2Client()
+    client.go_to_pose(2.0, 1.0, 0.5)  # x=2m, y=1m, yaw=0.5rad
+    rclpy.spin(client)
+```
+
+### Configuration (YAML)
+
+```yaml
+# nav2_params.yaml
+bt_navigator:
+  ros__parameters:
+    global_frame: map
+    robot_base_frame: base_link
+    odom_topic: /odom
+
+planner_server:
+  ros__parameters:
+    planner_plugins: ["GridBased"]
+    GridBased:
+      plugin: "nav2_smac_planner::SmacPlanner2D"
+      tolerance: 0.25
+      allow_unknown: true
+
+controller_server:
+  ros__parameters:
+    controller_frequency: 20.0
+    controller_plugins: ["FollowPath"]
+    FollowPath:
+      plugin: "nav2_mppi_controller::MPPIController"
+      time_steps: 56
+      model_dt: 0.05
+      batch_size: 2000
+      vx_max: 0.5
+      wz_max: 1.9
+      motion_model: "DiffDrive"
+```
+
+### Costmap Configuration
+
+```yaml
+global_costmap:
+  global_costmap:
+    ros__parameters:
+      global_frame: map
+      robot_base_frame: base_link
+      robot_radius: 0.22
+      resolution: 0.05
+      plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
+      static_layer:
+        plugin: "nav2_costmap_2d::StaticLayer"
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        observation_sources: scan
+        scan:
+          topic: /scan
+          data_type: "LaserScan"
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        inflation_radius: 0.55
+```
+
+## CLI Commands
+
+```bash
+# Launch Nav2 stack
+ros2 launch nav2_bringup navigation_launch.py
+
+# Launch with custom parameters
+ros2 launch nav2_bringup navigation_launch.py params_file:=nav2_params.yaml
+
+# Launch with SLAM (no pre-built map)
+ros2 launch nav2_bringup navigation_launch.py slam:=True
+
+# Send navigation goal via CLI
+ros2 action send_goal /navigate_to_pose nav2_msgs/action/NavigateToPose \
+  "{pose: {header: {frame_id: 'map'}, pose: {position: {x: 2.0, y: 1.0}}}}"
+
+# Clear costmaps
+ros2 service call /global_costmap/clear_entirely_global_costmap \
+  nav2_msgs/srv/ClearEntireCostmap
+```
+
+## Localization Options
+
+| Method | Package | Use Case |
+|--------|---------|----------|
+| **AMCL** | `nav2_amcl` | Particle filter on known map — good starting point |
+| **SLAM Toolbox** | `slam_toolbox` | Simultaneous mapping and localization |
+
+Both publish the `map → odom` transform that Nav2 requires.
+
+## NVIDIA Isaac Integration
+
+### Nvblox Costmap Layer
+
+GPU-accelerated 3D reconstruction integrated as a Nav2 costmap plugin:
+
+```yaml
+local_costmap:
+  local_costmap:
+    ros__parameters:
+      plugins: ["nvblox_layer", "inflation_layer"]
+      nvblox_layer:
+        plugin: "nvblox::NvbloxCostmapLayer"
+```
+
+**Benefits**: Better detection of thin obstacles, GPU-accelerated updates, 3D voxel reconstruction projected to 2D costmap.
+
+### Isaac Perceptor
+
+Vision-based navigation using only stereo cameras (no LiDAR):
+- **cuVSLAM**: Visual SLAM for pose estimation
+- **nvblox**: Depth-based obstacle detection
+
+## Common Issues
+
+| Problem | Cause | Solution |
+|---------|-------|----------|
+| "Transform timeout" | Missing TF | Check `map → odom → base_link` chain |
+| Robot stuck in recovery loop | Planner can't find path | Check costmap clearing, increase tolerance |
+| Costmap not clearing | Stale obstacles | Verify sensor topics, check clearing config |
+| Wrong path direction | Planner/robot mismatch | Use SmacPlannerHybrid for Ackermann |
+
+## Related Terms
+
+<CardGrid>
+  <LinkCard
+    title="TF2"
+    description="Transform library required by Nav2"
+    href="/robotics-glossary/software/ros2/tf2/"
+  />
+  <LinkCard
+    title="SLAM"
+    description="Simultaneous Localization and Mapping"
+    href="/robotics-glossary/concepts/perception/slam/"
+  />
+  <LinkCard
+    title="Isaac ROS"
+    description="GPU-accelerated perception for Nav2"
+    href="/robotics-glossary/software/isaac/isaac-ros/"
+  />
+  <LinkCard
+    title="ROS 2"
+    description="The robotics middleware framework"
+    href="/robotics-glossary/software/frameworks/ros2/"
+  />
+</CardGrid>
+
+## Learn More
+
+- [Nav2 Getting Started](https://docs.nav2.org/getting_started/index.html) — Official quickstart
+- [Nav2 Configuration Guide](https://docs.nav2.org/configuration/index.html) — Full parameter reference
+- [Behavior Tree Walkthrough](https://docs.nav2.org/behavior_trees/overview/detailed_behavior_tree_walkthrough.html) — Understanding the default tree
+- [MPPI Controller Guide](https://docs.nav2.org/configuration/packages/configuring-mppic.html) — Recommended controller config
+
+## Sources
+
+- [Nav2 Documentation](https://docs.nav2.org/) — Official documentation
+- [Navigation2 GitHub](https://github.com/ros-navigation/navigation2) — Source repository
+- [Nav2 Concepts](https://docs.nav2.org/concepts/index.html) — Architecture overview
+- [SLAM Toolbox](https://github.com/SteveMacenski/slam_toolbox) — SLAM integration
+- [Isaac ROS Nvblox](https://nvidia-isaac-ros.github.io/repositories_and_packages/isaac_ros_nvblox/index.html) — GPU costmap integration
+- [REP-105](https://www.ros.org/reps/rep-0105.html) — Coordinate frame conventions
