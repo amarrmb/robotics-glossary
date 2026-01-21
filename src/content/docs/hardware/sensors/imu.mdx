@@ -1,6 +1,7 @@
 ---
 title: IMU
 description: Inertial Measurement Unit — sensing acceleration and rotation for robot state estimation
+last_validated: 2026-01-20
 sidebar:
   badge:
     text: Conceptual
@@ -158,7 +159,7 @@ ros2 topic echo /imu/data
 | `robot_localization` | EKF/UKF sensor fusion |
 | `imu_filter_madgwick` | Orientation from IMU |
 | `imu_complementary_filter` | Simple orientation filter |
-| `isaac_ros_visual_slam` | VIO with GPU acceleration |
+| `isaac_ros_visual_slam` | VIO with GPU acceleration (Isaac ROS 4.0) |
 
 ## Calibration
 
@@ -182,3 +183,12 @@ IMUs require calibration for best accuracy:
 - [SLAM](/robotics-glossary/concepts/perception/slam/) — Visual-Inertial SLAM
 - [LiDAR](/robotics-glossary/hardware/sensors/lidar/) — Complementary sensor
 - [Cameras](/robotics-glossary/hardware/sensors/cameras/) — VIO fusion partner
+
+## Sources
+
+- [ROS 2 sensor_msgs/Imu](https://docs.ros2.org/latest/api/sensor_msgs/msg/Imu.html) — Standard IMU message definition
+- [robot_localization](https://index.ros.org/p/robot_localization/) — EKF/UKF fusion package documentation
+- [imu_filter_madgwick](https://docs.ros.org/en/ros2_packages/humble/api/imu_filter_madgwick/) — Madgwick filter for orientation
+- [Isaac ROS Visual SLAM](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_visual_slam) — GPU-accelerated VIO with IMU fusion
+- [TDK InvenSense MPU-6050](https://product.tdk.com/en/search/sensor/mortion-inertial/imu/info?part_no=MPU-6050) — Consumer IMU datasheet
+- [TDK InvenSense ICM-42688-P](https://invensense.tdk.com/products/motion-tracking/6-axis/icm-42688-p/) — Industrial IMU specifications
