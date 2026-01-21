@@ -1,0 +1,274 @@
+---
+title: nvblox
+description: NVIDIA real-time 3D reconstruction
+last_validated: 2026-01-21
+sidebar:
+  badge:
+    text: Practical
+    variant: success
+---
+
+import { Aside, Card, CardGrid, LinkCard, Tabs, TabItem } from '@astrojs/starlight/components';
+
+<span class="level-badge practical">Practical</span>
+
+**nvblox** is NVIDIA's GPU-accelerated library for real-time 3D scene reconstruction. It builds volumetric representations from depth cameras and 3D LiDAR, outputting meshes, distance fields, and costmaps for robot navigation and manipulation.
+
+<Aside type="note">
+nvblox integrates directly with Nav2 as a costmap layer and provides ESDF data to cuMotion for collision-free motion planning.
+</Aside>
+
+## Prerequisites
+
+<CardGrid>
+  <LinkCard
+    title="SLAM"
+    description="Simultaneous Localization and Mapping"
+    href="/robotics-glossary/concepts/perception/slam/"
+  />
+  <LinkCard
+    title="Nav2"
+    description="ROS 2 navigation stack"
+    href="/robotics-glossary/software/ros2/nav2/"
+  />
+</CardGrid>
+
+## Why nvblox Matters
+
+- **GPU acceleration**: Up to 177x faster TSDF integration vs CPU implementations
+- **Real-time mapping**: Updates 3D reconstructions as sensor data streams in
+- **Nav2 integration**: Direct costmap layer plugin for navigation
+- **Dynamic environments**: Separates static scenes from moving objects/people
+- **Multi-sensor fusion**: Combines depth cameras and LiDAR simultaneously
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                       nvblox Pipeline                           │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  Input                    Processing                  Output    │
+│  ─────                    ──────────                  ──────    │
+│                                                                 │
+│  ┌──────────┐         ┌──────────────────┐     ┌─────────────┐ │
+│  │  RGB-D   │──┐      │     Mapper       │     │    Mesh     │ │
+│  │  Camera  │  │      │  ┌────────────┐  │────►│   (RViz)    │ │
+│  └──────────┘  │      │  │   TSDF     │  │     └─────────────┘ │
+│                ├─────►│  │ Integrator │  │                     │
+│  ┌──────────┐  │      │  └────────────┘  │     ┌─────────────┐ │
+│  │   3D     │──┤      │  ┌────────────┐  │────►│    ESDF     │ │
+│  │  LiDAR   │  │      │  │   ESDF     │  │     │  (cuMotion) │ │
+│  └──────────┘  │      │  │ Integrator │  │     └─────────────┘ │
+│                │      │  └────────────┘  │                     │
+│  ┌──────────┐  │      │  ┌────────────┐  │     ┌─────────────┐ │
+│  │   Pose   │──┘      │  │   Mesh     │  │────►│  2D Costmap │ │
+│  │  (SLAM)  │         │  │ Generator  │  │     │   (Nav2)    │ │
+│  └──────────┘         │  └────────────┘  │     └─────────────┘ │
+│                       └────────┬─────────┘                     │
+│                                │                               │
+│                       ┌────────▼────────┐                      │
+│                       │   LayerCake     │                      │
+│                       │   (GPU Memory)  │                      │
+│                       │ TSDF│ESDF│Color │                      │
+│                       └─────────────────┘                      │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## Core Concepts
+
+### TSDF (Truncated Signed Distance Function)
+
+Stores the signed distance to the nearest surface at each voxel:
+
+```
+                Surface
+                   │
+       ◄───────────│───────────►
+       Negative    │   Positive
+       (inside)    │   (outside)
+                   │
+  ─────┬─────┬─────┼─────┬─────┬─────
+      -d   -d/2    0    d/2    d      ← TSDF values (truncated)
+```
+
+- Primary representation for high-quality surface reconstruction
+- Default resolution: 5cm voxels (configurable)
+- Incrementally updated as new depth data arrives
+
+### ESDF (Euclidean Signed Distance Function)
+
+Full distance field for path planning and collision checking:
+
+- Provides distance to nearest obstacle at any point in space
+- Used by Nav2 for costmap generation
+- Used by cuMotion for manipulation collision avoidance
+- GPU-accelerated incremental computation
+
+### LayerCake Architecture
+
+Multiple co-registered volumetric layers in GPU memory:
+
+| Layer | Purpose |
+|-------|---------|
+| TSDF | Distance to surfaces |
+| ESDF | Euclidean distances for planning |
+| Color | RGB texture from cameras |
+| Occupancy | Dynamic object tracking |
+| Mesh | Extracted surface geometry |
+
+## Operating Modes
+
+<Tabs>
+  <TabItem label="Static">
+    Default mode assuming the environment is unchanging:
+    ```bash
+    ros2 launch nvblox_examples_bringup realsense_example.launch.py
+    ```
+    All sensor data integrates into a single TSDF layer.
+  </TabItem>
+
+  <TabItem label="People">
+    Uses PeopleSemSegNet DNN to separate humans from the scene:
+    ```bash
+    ros2 launch nvblox_examples_bringup realsense_example.launch.py \
+      mode:=people_segmentation
+    ```
+    People are tracked in an occupancy layer; static scene in TSDF.
+  </TabItem>
+
+  <TabItem label="Dynamic">
+    General dynamic object detection without DNN:
+    ```bash
+    ros2 launch nvblox_examples_bringup realsense_example.launch.py \
+      mode:=people_detection
+    ```
+    Objects entering previously-free space are flagged as dynamic.
+  </TabItem>
+</Tabs>
+
+## Nav2 Integration
+
+nvblox provides a direct costmap plugin for Nav2:
+
+```yaml
+local_costmap:
+  local_costmap:
+    ros__parameters:
+      global_frame: odom
+      robot_base_frame: base_link
+      rolling_window: true
+      plugins: ["nvblox_layer", "inflation_layer"]
+      nvblox_layer:
+        plugin: "nvblox::NvbloxCostmapLayer"
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        inflation_radius: 0.55
+```
+
+The pipeline slices the 3D ESDF into a 2D costmap:
+
+```
+Depth Camera → nvblox (ESDF) → 2D Slice → Nav2 Costmap → Path Planning
+```
+
+## Key Parameters
+
+```yaml
+nvblox_node:
+  ros__parameters:
+    # Voxel resolution (default: 5cm)
+    voxel_size: 0.05
+
+    # ESDF settings
+    esdf: true
+    esdf_2d: true
+    esdf_integrator_max_distance_m: 10.0
+
+    # Height slice for costmap
+    slice_height: 1.0
+    min_height: 0.0
+    max_height: 1.0
+
+    # Integration rate
+    max_tsdf_update_hz: 10.0
+```
+
+## Multi-Sensor Support
+
+nvblox can fuse data from multiple sensors simultaneously:
+
+```bash
+# LiDAR + 3 cameras
+ros2 launch nvblox_examples_bringup isaac_sim_example.launch.py \
+  lidar:=True \
+  num_cameras:=3
+```
+
+- Up to 4 simultaneous RealSense cameras (Jetson AGX Orin)
+- 3D LiDAR integration
+- Pose input from cuVSLAM or other SLAM systems
+
+## Package Structure
+
+| Package | Purpose |
+|---------|---------|
+| `isaac_ros_nvblox` | Core ROS 2 integration |
+| `nvblox_nav2` | Nav2 costmap layer plugin |
+| `nvblox_rviz_plugin` | RViz mesh visualization |
+| `nvblox_msgs` | Custom message definitions |
+| `nvblox_examples_bringup` | Launch files for tutorials |
+
+## Performance
+
+| Operation | nvblox (GPU) | voxblox (CPU) | Speedup |
+|-----------|--------------|---------------|---------|
+| TSDF Integration | Fast | Baseline | 177x |
+| ESDF Computation | Fast | Baseline | 31x |
+
+- Runs at <7ms per LiDAR scan (5cm resolution, 25m range)
+- Real-time mesh updates streamed to RViz
+
+<Aside type="caution">
+Requires NVIDIA GPU with **Volta architecture or newer** (Compute Capability 7.0+).
+</Aside>
+
+## Related Terms
+
+<CardGrid>
+  <LinkCard
+    title="Nav2"
+    description="ROS 2 navigation stack"
+    href="/robotics-glossary/software/ros2/nav2/"
+  />
+  <LinkCard
+    title="cuMotion"
+    description="GPU-accelerated motion planning"
+    href="/robotics-glossary/software/nvidia/cumotion/"
+  />
+  <LinkCard
+    title="SLAM"
+    description="Simultaneous Localization and Mapping"
+    href="/robotics-glossary/concepts/perception/slam/"
+  />
+  <LinkCard
+    title="Isaac ROS"
+    description="NVIDIA GPU-accelerated ROS ecosystem"
+    href="/robotics-glossary/software/nvidia/isaac-ros/"
+  />
+</CardGrid>
+
+## Learn More
+
+- [nvblox Tutorials](https://nvidia-isaac-ros.github.io/concepts/scene_reconstruction/nvblox/tutorials/index.html) — RealSense and Isaac Sim examples
+- [Nav2 with Isaac Perceptor](https://docs.nav2.org/tutorials/docs/using_isaac_perceptor.html) — Navigation integration guide
+- [cuMotion with nvblox](https://curobo.org/get_started/2d_nvblox_demo.html) — Manipulation obstacle avoidance
+
+## Sources
+
+- [nvblox Documentation](https://nvidia-isaac.github.io/nvblox/) — Core library reference
+- [Isaac ROS nvblox](https://nvidia-isaac-ros.github.io/repositories_and_packages/isaac_ros_nvblox/index.html) — ROS 2 package documentation
+- [nvblox GitHub Repository](https://github.com/nvidia-isaac/nvblox) — Source code (Apache 2.0)
+- [nvblox ICRA 2024 Paper](https://arxiv.org/abs/2311.00626) — "GPU-Accelerated Incremental Signed Distance Field Mapping"
+- [Isaac ROS 3.2 Release Notes](https://nvidia-isaac-ros.github.io/releases/index.html) — Latest features and updates
