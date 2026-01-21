@@ -1,7 +1,7 @@
 ---
 title: ROS 2
 description: Robot Operating System 2 — the open-source middleware framework for robotics software
-last_validated: 2026-01-20
+last_validated: 2026-01-21
 sidebar:
   badge:
     text: Practical
@@ -112,14 +112,15 @@ Client ──► /navigate_to_pose ──► Action Server
     2. **Install ROS 2**
        ```bash
        sudo apt update
-       sudo apt install ros-humble-desktop
+       sudo apt install ros-jazzy-desktop  # Recommended LTS
+       # Or: ros-humble-desktop for legacy projects
        ```
 
     3. **Source the setup**
        ```bash
-       source /opt/ros/humble/setup.bash
+       source /opt/ros/jazzy/setup.bash
        # Add to ~/.bashrc for persistence
-       echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc
+       echo "source /opt/ros/jazzy/setup.bash" >> ~/.bashrc
        ```
 
     4. **Verify installation**
@@ -134,13 +135,13 @@ Client ──► /navigate_to_pose ──► Action Server
   <TabItem label="Docker">
     ```bash
     # Pull official ROS 2 image
-    docker pull ros:humble
+    docker pull ros:jazzy
 
     # Run with GUI support (Linux)
     docker run -it --rm \
       --env="DISPLAY" \
       --volume="/tmp/.X11-unix:/tmp/.X11-unix:rw" \
-      ros:humble
+      ros:jazzy
     ```
   </TabItem>
 </Tabs>
@@ -307,3 +308,4 @@ ros2 bag play my_recording
 - [ROS 2 Distributions](https://docs.ros.org/en/rolling/Releases.html) — Version and EOL information
 - [REP 2000](https://www.ros.org/reps/rep-2000.html) — Official ROS 2 release schedule
 - [ROS 2 Middleware](https://docs.ros.org/en/kilted/Concepts/Intermediate/About-Different-Middleware-Vendors.html) — DDS vendor comparison
+- [Isaac ROS NITROS](https://nvidia-isaac-ros.github.io/concepts/nitros/index.html) — Zero-copy GPU transport
