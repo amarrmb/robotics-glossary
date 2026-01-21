@@ -17,3 +17,4 @@ validate:concepts/ai/reinforcement-learning.mdx
 create:concepts/fundamentals/transforms.mdx
 create:concepts/fundamentals/coordinate-frames.mdx
 create:software/ros2/tf2.mdx
+create:software/ros2/nav2.mdx
