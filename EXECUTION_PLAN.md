@@ -156,12 +156,13 @@ degrees-of-freedom → coordinate-frames → transforms → tf2 → urdf → nav
 | `concepts/fundamentals/coordinate-frames.mdx` | ✅ Complete | 2026-01-21 | P0 prerequisite for TF2 |
 | `software/ros2/tf2.mdx` | ✅ Complete | 2026-01-21 | P0 ROS 2 transform library |
 | `software/ros2/nav2.mdx` | ✅ Complete | 2026-01-21 | P0 ROS 2 navigation stack |
+| `software/ros2/moveit2.mdx` | ✅ Complete | 2026-01-21 | P0 ROS 2 motion planning framework |
 
 ### Week 3-4: New Critical Content
 - [x] Write `transforms.mdx` and `coordinate-frames.mdx`
 - [x] Write `tf2.mdx`
 - [x] Write `nav2.mdx`
-- [ ] Write `moveit2.mdx`
+- [x] Write `moveit2.mdx`
 
 ### Week 5-6: NVIDIA Deep Dives
 - [ ] Write `cumotion.mdx`
