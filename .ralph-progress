@@ -9,3 +9,4 @@ validate:hardware/sensors/lidar.mdx
 validate:hardware/sensors/cameras.mdx
 validate:hardware/sensors/imu.mdx
 validate:concepts/fundamentals/kinematics.mdx
+validate:concepts/fundamentals/degrees-of-freedom.mdx
