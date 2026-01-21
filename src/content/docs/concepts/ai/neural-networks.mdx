@@ -1,6 +1,7 @@
 ---
 title: Neural Networks for Robotics
 description: Deep learning architectures that enable perception, decision-making, and control
+last_validated: 2026-01-20
 sidebar:
   badge:
     text: Conceptual
@@ -141,7 +142,8 @@ Large models pre-trained on massive data, fine-tuned for robotics:
 | Model | Type | Use Case |
 |-------|------|----------|
 | RT-2 | VLA | Manipulation from language |
-| GR00T | Humanoid | Full-body control |
+| GR00T N1.6 | VLA | Humanoid full-body control |
+| OpenVLA | VLA | Generalizable manipulation (open-weight) |
 | PaLM-E | VLM | Embodied reasoning |
 | Octo | Policy | Generalizable manipulation |
 
@@ -152,3 +154,9 @@ These run efficiently on Jetson Thor with Transformer Engine.
 - [Reinforcement Learning](/robotics-glossary/concepts/ai/reinforcement-learning/) — Learning from rewards
 - [Isaac ROS](/robotics-glossary/software/isaac/isaac-ros/) — GPU-accelerated inference
 - [Jetson Thor](/robotics-glossary/hardware/compute/jetson-thor/) — Hardware for foundation models
+
+## Sources
+
+- [NVIDIA GR00T N1 Blog](https://developer.nvidia.com/blog/accelerate-generalist-humanoid-robot-development-with-nvidia-isaac-gr00t-n1/) — GR00T N1.6 architecture and capabilities
+- [OpenVLA Guide](https://robocloud-dashboard.vercel.app/learn/blog/open-weight-robot-models) — Open-weight VLA model details
+- [NVIDIA Jetson Benchmarks](https://developer.nvidia.com/embedded/jetson-benchmarks) — Hardware inference performance
