@@ -5,6 +5,7 @@ sidebar:
   badge:
     text: Practical
     variant: success
+last_validated: 2026-01-20
 ---
 
 <span class="level-badge practical">Practical</span>
@@ -35,10 +36,10 @@ Measure distance to each pixel, producing 3D data.
 | Time-of-flight (ToF) | Measure light travel time | 0.2-8m | Fast capture, low light |
 
 **Popular sensors**:
-- Intel RealSense D435/D455 (stereo)
-- Azure Kinect (ToF)
-- Orbbec Femto (structured light)
-- ZED 2 (stereo, long range)
+- Intel RealSense D455/D456 (stereo, D456 is IP65-rated)
+- Orbbec Femto Bolt (ToF, Azure Kinect replacement)
+- Orbbec Femto Mega (ToF, Ethernet/USB)
+- ZED 2i (stereo, IP66, 0.2-20m range)
 
 ### Event Cameras
 Output pixel-level brightness changes asynchronously, not frames.
@@ -85,7 +86,7 @@ Multiple cameras for:
 - Redundancy
 
 ### RGB-D Systems
-Combined RGB + depth (Intel RealSense, Azure Kinect).
+Combined RGB + depth (Intel RealSense, Orbbec Femto).
 
 ## Jetson Camera Support
 
@@ -143,12 +144,13 @@ ros2 run rqt_image_view rqt_image_view
 
 ## NVIDIA Isaac Integration
 
-**Isaac ROS** provides GPU-accelerated image processing:
+**Isaac ROS 3.2** provides GPU-accelerated image processing (compatible with ROS 2 Jazzy):
 
 ```python
 # GPU-accelerated packages:
-# - isaac_ros_image_proc (resize, rectify)
+# - isaac_ros_image_pipeline (resize, rectify, color convert)
 # - isaac_ros_stereo_image_proc (disparity)
+# - isaac_ros_depth_image_proc (depth processing)
 # - isaac_ros_visual_slam (tracking)
 # - isaac_ros_detectnet (detection)
 ```
@@ -199,3 +201,12 @@ Relative pose between stereo pair cameras.
 - [SLAM](/robotics-glossary/concepts/perception/slam/) — Visual SLAM uses cameras
 - [Neural Networks](/robotics-glossary/concepts/ai/neural-networks/) — Process camera images
 - [Isaac ROS](/robotics-glossary/software/isaac/isaac-ros/) — GPU acceleration
+
+## Sources
+
+- [Intel RealSense D455](https://www.intelrealsense.com/depth-camera-d455/) — D400 series specifications
+- [Orbbec Femto Bolt](https://www.orbbec.com/documentation/comparison-with-azure-kinect-dk/) — Azure Kinect replacement details
+- [Stereolabs ZED 2](https://www.stereolabs.com/products/zed-2) — ZED 2i specifications
+- [Prophesee EVK4](https://www.prophesee.ai/event-camera-evk4/) — Event camera specifications
+- [Isaac ROS Image Pipeline](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_image_pipeline) — GPU-accelerated processing packages
+- [ROS 2 camera_calibration](https://docs.ros.org/en/ros2_packages/jazzy/api/camera_calibration/) — Calibration package documentation
