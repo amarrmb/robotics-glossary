@@ -1,0 +1,270 @@
+---
+title: Transforms
+description: Coordinate transformations - the foundation of robotics math
+last_validated: 2026-01-21
+sidebar:
+  badge:
+    text: Practical
+    variant: success
+---
+
+import { Aside, Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+<span class="level-badge practical">Practical</span>
+
+**Transforms** are mathematical objects that describe the position and orientation of one coordinate frame relative to another. They are the foundation of robotics math, enabling robots to understand spatial relationships between the world, their body, sensors, and objects they interact with.
+
+<Aside type="tip">
+Every point in robotics exists in *some* coordinate frame. Transforms let you convert between frames — "where is this object relative to my gripper?" vs "where is it in the world?"
+</Aside>
+
+## Prerequisites
+
+<CardGrid>
+  <LinkCard
+    title="Degrees of Freedom"
+    description="How many independent ways a body can move"
+    href="/robotics-glossary/concepts/fundamentals/degrees-of-freedom/"
+  />
+  <LinkCard
+    title="Kinematics"
+    description="How robots move through space"
+    href="/robotics-glossary/concepts/fundamentals/kinematics/"
+  />
+</CardGrid>
+
+## Coordinate Frames
+
+A coordinate frame is a reference point with three axes (x, y, z). Every robot component has its own frame:
+
+```
+              z
+              ↑
+              |
+              |
+              +----→ y
+             /
+            /
+           ↙
+          x
+
+ROS Convention (REP-103):
+  x = forward
+  y = left
+  z = up
+```
+
+Standard frames in a robot system (REP-105):
+
+| Frame | Description |
+|-------|-------------|
+| `map` | Global world-fixed frame |
+| `odom` | Odometry frame (continuous but drifts) |
+| `base_link` | Robot body center |
+| `sensor_frame` | Individual sensor frames |
+
+## Homogeneous Transformation Matrices
+
+Transforms are represented as 4x4 matrices combining rotation and translation:
+
+```
+T = | R   p |     R = 3x3 rotation matrix
+    | 0   1 |     p = 3x1 translation vector
+
+    | r₁₁ r₁₂ r₁₃  px |
+T = | r₂₁ r₂₂ r₂₃  py |
+    | r₃₁ r₃₂ r₃₃  pz |
+    |  0   0   0    1 |
+```
+
+**Key properties:**
+- Composable: `T_world_gripper = T_world_base @ T_base_gripper`
+- Invertible: `T⁻¹` gives the reverse transform
+- Non-commutative: `T₁ × T₂ ≠ T₂ × T₁`
+
+<Aside type="caution">
+Transform naming convention matters! `T_A_B` means "transform that takes points in frame B and expresses them in frame A."
+</Aside>
+
+## Rotation Representations
+
+| Representation | Size | Pros | Cons |
+|---------------|------|------|------|
+| Rotation Matrix | 9 values | Fast composition | Redundant, numerical drift |
+| Euler Angles | 3 values | Human-readable | Gimbal lock, 24 conventions |
+| Quaternion | 4 values | Compact, no gimbal lock | Less intuitive |
+| Axis-Angle | 4 values | Intuitive single rotation | Composition harder |
+
+### Gimbal Lock
+
+When two rotation axes align, you lose a degree of freedom:
+
+```
+Normal:                  Gimbal Lock (pitch = 90°):
+  Roll ──┐                 Roll ─────┐
+         │                           │  (same axis!)
+  Pitch ─┤                 Pitch ────┘
+         │
+  Yaw ───┘                 Yaw (lost!)
+```
+
+**Solution:** Use quaternions internally, Euler angles only for display.
+
+## ROS 2 TF2 System
+
+TF2 maintains a tree of transforms between all frames:
+
+```
+map
+ └── odom
+      └── base_link
+           ├── camera_link
+           │    └── camera_optical
+           ├── lidar_link
+           └── arm_base
+                └── gripper
+```
+
+### Broadcasting Transforms
+
+```python
+import rclpy
+from rclpy.node import Node
+from tf2_ros import TransformBroadcaster
+from geometry_msgs.msg import TransformStamped
+import tf_transformations
+
+class TFBroadcaster(Node):
+    def __init__(self):
+        super().__init__('tf_broadcaster')
+        self.broadcaster = TransformBroadcaster(self)
+        self.timer = self.create_timer(0.1, self.broadcast)
+
+    def broadcast(self):
+        t = TransformStamped()
+        t.header.stamp = self.get_clock().now().to_msg()
+        t.header.frame_id = 'base_link'
+        t.child_frame_id = 'camera_link'
+
+        # Translation: 10cm forward, 20cm up
+        t.transform.translation.x = 0.1
+        t.transform.translation.y = 0.0
+        t.transform.translation.z = 0.2
+
+        # Rotation: quaternion (no rotation here)
+        t.transform.rotation.w = 1.0
+
+        self.broadcaster.sendTransform(t)
+```
+
+### Listening for Transforms
+
+```python
+from tf2_ros import Buffer, TransformListener
+from rclpy.duration import Duration
+
+class TFListener(Node):
+    def __init__(self):
+        super().__init__('tf_listener')
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self)
+
+    def get_transform(self):
+        try:
+            transform = self.tf_buffer.lookup_transform(
+                'base_link',      # target frame
+                'camera_link',    # source frame
+                rclpy.time.Time(),
+                timeout=Duration(seconds=1.0)
+            )
+            return transform
+        except Exception as e:
+            self.get_logger().error(f'Lookup failed: {e}')
+```
+
+## Python: SciPy Transforms
+
+```python
+import numpy as np
+from scipy.spatial.transform import Rotation
+
+# Create rotation (90° about Z-axis)
+rot = Rotation.from_euler('z', 90, degrees=True)
+
+# Apply to a point
+point = np.array([1.0, 0.0, 0.0])
+rotated = rot.apply(point)
+# Result: [0, 1, 0]
+
+# Convert between representations
+quat = rot.as_quat()        # [x, y, z, w]
+matrix = rot.as_matrix()    # 3x3
+euler = rot.as_euler('xyz', degrees=True)
+```
+
+## C++: Eigen Transforms
+
+```cpp
+#include <Eigen/Geometry>
+
+// Create rigid transform
+Eigen::Isometry3d T = Eigen::Isometry3d::Identity();
+
+// Set rotation (90° about Z)
+T.rotate(Eigen::AngleAxisd(M_PI_2, Eigen::Vector3d::UnitZ()));
+
+// Set translation
+T.pretranslate(Eigen::Vector3d(1.0, 0.0, 0.5));
+
+// Apply to point
+Eigen::Vector3d p(1.0, 0.0, 0.0);
+Eigen::Vector3d result = T * p;
+
+// Compose and invert
+Eigen::Isometry3d T_combined = T1 * T2;
+Eigen::Isometry3d T_inv = T.inverse();
+```
+
+## Debugging Tools
+
+```bash
+# Visualize TF tree as PDF
+ros2 run tf2_tools view_frames
+
+# Print live transform between frames
+ros2 run tf2_ros tf2_echo base_link camera_link
+
+# Publish a static transform
+ros2 run tf2_ros static_transform_publisher \
+    --x 0.1 --y 0 --z 0.2 \
+    --frame-id base_link --child-frame-id sensor
+```
+
+## Related Terms
+
+<CardGrid>
+  <LinkCard
+    title="Kinematics"
+    description="Motion through space using transforms"
+    href="/robotics-glossary/concepts/fundamentals/kinematics/"
+  />
+  <LinkCard
+    title="SLAM"
+    description="Localization via transform estimation"
+    href="/robotics-glossary/concepts/perception/slam/"
+  />
+</CardGrid>
+
+## Learn More
+
+- [ROS 2 TF2 Tutorial](https://docs.ros.org/en/rolling/Tutorials/Intermediate/Tf2/Introduction-To-Tf2.html) — Official introduction to TF2
+- [Modern Robotics Ch. 3](https://modernrobotics.northwestern.edu/nu-gm-book-resource/3-3-1-homogeneous-transformation-matrices/) — Homogeneous transformation theory
+- [Articulated Robotics TF Guide](https://articulatedrobotics.xyz/tutorials/ready-for-ros/tf/) — Practical TF2 walkthrough
+
+## Sources
+
+- [REP-103: Standard Units and Conventions](https://www.ros.org/reps/rep-0103.html) — ROS coordinate frame conventions
+- [REP-105: Coordinate Frames for Mobile Platforms](https://www.ros.org/reps/rep-0105.html) — Standard frame naming
+- [TF2 Concepts](https://docs.ros.org/en/humble/Concepts/Intermediate/About-Tf2.html) — ROS 2 Humble TF2 architecture
+- [SciPy Rotation API](https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.transform.Rotation.html) — Python rotation library
+- [Eigen Geometry Module](https://eigen.tuxfamily.org/dox/group__TutorialGeometry.html) — C++ transform library
