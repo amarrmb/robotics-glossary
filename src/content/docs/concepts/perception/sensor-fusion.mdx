@@ -1,0 +1,283 @@
+---
+title: Sensor Fusion
+description: Combining multiple sensor inputs for robust state estimation
+last_validated: 2026-01-21
+sidebar:
+  badge:
+    text: Practical
+    variant: success
+---
+
+import { Aside, Card, CardGrid, LinkCard, Tabs, TabItem } from '@astrojs/starlight/components';
+
+<span class="level-badge practical">Practical</span>
+
+**Sensor Fusion** is the process of combining data from multiple sensors to produce more accurate, reliable, and comprehensive information than any single sensor could provide alone. It is a cornerstone technology for autonomous robotics, enabling robust state estimation, localization, and perception.
+
+<Aside type="tip">
+No single sensor is perfect. Fusion exploits complementary strengths — IMUs are fast but drift, cameras provide rich detail but fail in darkness, GPS works outdoors but not inside.
+</Aside>
+
+## Prerequisites
+
+<CardGrid>
+  <LinkCard
+    title="Coordinate Frames"
+    description="Understanding sensor frame transforms"
+    href="/robotics-glossary/concepts/fundamentals/coordinate-frames/"
+  />
+  <LinkCard
+    title="Transforms"
+    description="Transform mathematics for sensor alignment"
+    href="/robotics-glossary/concepts/fundamentals/transforms/"
+  />
+</CardGrid>
+
+## Why Sensor Fusion?
+
+Each sensor has inherent limitations:
+
+| Sensor | Limitation |
+|--------|------------|
+| Camera | Sensitive to lighting, lacks scale (monocular) |
+| LiDAR | Expensive, struggles with glass/reflective surfaces |
+| IMU | Drifts over time, no absolute position |
+| Wheel encoders | Slip on rough terrain, no global reference |
+| GPS | Poor indoors, urban canyons, intermittent |
+
+Fusion provides **redundancy** (fault tolerance), **complementary information** (IMU bridges visual tracking gaps), and **higher accuracy** through combining independent measurements.
+
+## Fusion Architectures
+
+```
+Early Fusion:     Raw Data ──► Combined ──► Processing ──► Output
+
+Mid-Level Fusion: Raw Data ──► Features ──► Combined ──► Output
+
+Late Fusion:      Raw Data ──► Processing ──► Estimates ──► Combined ──► Output
+```
+
+<Tabs>
+  <TabItem label="Early (Low-Level)">
+    Combines raw sensor data before processing. Neural networks can learn optimal fusion from low-level correlations.
+
+    **Example:** Concatenating LiDAR point clouds with camera images.
+
+    **Trade-off:** Maximum data, but requires synchronized, aligned data.
+  </TabItem>
+  <TabItem label="Mid-Level">
+    Extracts features from each sensor, then fuses features.
+
+    **Example:** Fusing visual features with LiDAR geometric features.
+
+    **Trade-off:** Reduces dimensionality while preserving information.
+  </TabItem>
+  <TabItem label="Late (High-Level)">
+    Processes each sensor independently, combines estimates at the end.
+
+    **Example:** Kalman filter combining odometry from multiple sources.
+
+    **Trade-off:** Modular and fault-tolerant, but may lose cross-sensor correlations.
+  </TabItem>
+</Tabs>
+
+## Fusion Algorithms
+
+<Tabs>
+  <TabItem label="Extended Kalman Filter">
+    The **EKF** extends the Kalman filter to nonlinear systems by linearizing around the current estimate. It's the standard for robotics sensor fusion.
+
+    - Recursive predict → update cycle
+    - Weights measurements by uncertainty (covariance)
+    - Used by `robot_localization` package
+  </TabItem>
+  <TabItem label="Unscented Kalman Filter">
+    The **UKF** handles nonlinearity better than EKF using sigma points to capture the distribution.
+
+    - Slightly higher computational cost
+    - Also available in `robot_localization`
+  </TabItem>
+  <TabItem label="Particle Filter">
+    Non-parametric filter that handles multi-modal distributions without Gaussian assumptions.
+
+    - **Use case:** AMCL in Nav2 for global localization
+    - More computationally demanding than EKF
+  </TabItem>
+  <TabItem label="Factor Graphs">
+    Modern approach representing the problem as a graph of constraints, enabling global optimization over all states.
+
+    - **Examples:** GTSAM, Ceres Solver, g2o
+    - Used in state-of-the-art SLAM systems
+  </TabItem>
+</Tabs>
+
+## Sensor Fusion Architecture
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│                    Sensor Fusion with EKF                      │
+├────────────────────────────────────────────────────────────────┤
+│                                                                │
+│  ┌──────────────┐                                              │
+│  │    Wheel     │────┐                                         │
+│  │   Encoders   │    │                                         │
+│  └──────────────┘    │                                         │
+│                      │     ┌──────────────┐    ┌────────────┐  │
+│  ┌──────────────┐    ├────►│              │    │            │  │
+│  │     IMU      │────┤     │     EKF      │───►│   Fused    │  │
+│  │  (200+ Hz)   │    │     │              │    │  Odometry  │  │
+│  └──────────────┘    │     └──────────────┘    └────────────┘  │
+│                      │                                         │
+│  ┌──────────────┐    │                                         │
+│  │   Visual     │────┤                                         │
+│  │  Odometry    │    │                                         │
+│  └──────────────┘    │                                         │
+│                      │                                         │
+│  ┌──────────────┐    │                                         │
+│  │     GPS      │────┘                                         │
+│  │ (if avail.)  │                                              │
+│  └──────────────┘                                              │
+│                                                                │
+└────────────────────────────────────────────────────────────────┘
+```
+
+## Common Sensor Combinations
+
+| Combination | Use Case |
+|-------------|----------|
+| **Visual-Inertial (VIO)** | Drones, AR/VR — camera + IMU |
+| **LiDAR-Inertial (LIO)** | Autonomous vehicles — LiDAR + IMU |
+| **LiDAR-Camera-IMU** | State-of-the-art autonomous systems |
+| **Wheel Odometry + IMU** | Ground robots — basic but effective |
+
+## ROS 2: robot_localization
+
+The `robot_localization` package provides EKF and UKF nodes for fusing arbitrary sensor inputs.
+
+### Configuration
+
+```yaml
+# config/ekf.yaml
+ekf_filter_node:
+  ros__parameters:
+    frequency: 30.0
+    two_d_mode: true        # Set true for ground robots
+    publish_tf: true
+
+    map_frame: map
+    odom_frame: odom
+    base_link_frame: base_link
+    world_frame: odom
+
+    # Wheel odometry - use velocity, not position
+    odom0: /wheel/odometry
+    odom0_config: [false, false, false,   # x, y, z
+                   false, false, false,   # roll, pitch, yaw
+                   true,  true,  false,   # vx, vy, vz
+                   false, false, true,    # vroll, vpitch, vyaw
+                   false, false, false]   # ax, ay, az
+
+    # IMU - use orientation and angular velocity
+    imu0: /imu/data
+    imu0_config: [false, false, false,
+                  true,  true,  true,
+                  false, false, false,
+                  true,  true,  true,
+                  true,  true,  true]
+    imu0_differential: false
+    imu0_remove_gravitational_acceleration: true
+```
+
+### Launch File
+
+```python
+from launch import LaunchDescription
+from launch_ros.actions import Node
+import os
+from ament_index_python.packages import get_package_share_directory
+
+def generate_launch_description():
+    pkg_share = get_package_share_directory('my_robot')
+
+    return LaunchDescription([
+        Node(
+            package='robot_localization',
+            executable='ekf_node',
+            name='ekf_filter_node',
+            output='screen',
+            parameters=[
+                os.path.join(pkg_share, 'config', 'ekf.yaml'),
+                {'use_sim_time': False}
+            ]
+        ),
+    ])
+```
+
+### Output Topics
+
+| Topic | Type | Description |
+|-------|------|-------------|
+| `/odometry/filtered` | `nav_msgs/Odometry` | Fused odometry estimate |
+| `/tf` | Transform | `odom` → `base_link` |
+
+## Isaac ROS Visual SLAM with IMU Fusion
+
+Isaac ROS cuVSLAM supports visual-inertial fusion for improved tracking:
+
+```bash
+# Launch with IMU fusion enabled
+ros2 launch isaac_ros_visual_slam isaac_ros_visual_slam_realsense.launch.py \
+    enable_imu_fusion:=true
+
+# Verify fused output
+ros2 topic echo /visual_slam/tracking/odometry
+```
+
+<Aside>
+cuVSLAM automatically falls back to IMU when visual tracking fails, providing continuous odometry.
+</Aside>
+
+## Calibration Requirements
+
+Accurate fusion requires proper calibration:
+
+- **Extrinsic:** Rigid transformation between sensor frames (use Kalibr or NVIDIA MSA Calibration)
+- **Temporal:** Timestamp synchronization — hardware sync preferred on Jetson
+- **Intrinsic:** Camera distortion, IMU bias and scale factors
+
+<Aside type="caution">
+Small extrinsic calibration errors cause significant misalignment. Calibrate carefully before deploying.
+</Aside>
+
+## Related Terms
+
+<CardGrid>
+  <LinkCard
+    title="SLAM"
+    description="Uses sensor fusion for localization and mapping"
+    href="/robotics-glossary/concepts/perception/slam/"
+  />
+  <LinkCard
+    title="Visual Odometry"
+    description="Visual input for fusion pipelines"
+    href="/robotics-glossary/concepts/perception/visual-odometry/"
+  />
+  <LinkCard
+    title="Nav2"
+    description="Uses fused odometry for navigation"
+    href="/robotics-glossary/software/ros2/nav2/"
+  />
+  <LinkCard
+    title="TF2"
+    description="Transform system for sensor frames"
+    href="/robotics-glossary/software/ros2/tf2/"
+  />
+</CardGrid>
+
+## Sources
+
+- [robot_localization Package](https://index.ros.org/p/robot_localization/) — ROS 2 EKF/UKF fusion nodes
+- [Nav2 robot_localization Setup](https://docs.nav2.org/setup_guides/odom/setup_robot_localization.html) — Configuration guide
+- [Isaac ROS Visual SLAM](https://nvidia-isaac-ros.github.io/repositories_and_packages/isaac_ros_visual_slam/index.html) — GPU-accelerated VIO
+- [Isaac ROS nvblox](https://nvidia-isaac-ros.github.io/repositories_and_packages/isaac_ros_nvblox/index.html) — Multi-sensor 3D reconstruction
+- [Multi-Sensor Fusion SLAM Survey (2025)](https://link.springer.com/article/10.1007/s10462-025-11187-w) — Academic overview
