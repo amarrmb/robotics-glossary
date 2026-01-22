@@ -1,0 +1,308 @@
+---
+title: Visual Odometry
+description: Estimating motion from camera images
+last_validated: 2026-01-21
+sidebar:
+  badge:
+    text: Deep Dive
+    variant: tip
+---
+
+import { Aside, Card, CardGrid, LinkCard, Tabs, TabItem } from '@astrojs/starlight/components';
+
+<span class="level-badge deepdive">Deep Dive</span>
+
+**Visual Odometry (VO)** is the process of estimating a robot's egomotion (position and orientation) using only camera images. Unlike full SLAM, VO focuses solely on motion estimation without building a persistent map—it outputs incremental 6-DoF pose updates, similar to wheel encoders but using vision.
+
+<Aside>
+VO answers "how much did I move?" rather than "where am I on the map?" Typical relative position error is 0.1–2% of distance traveled.
+</Aside>
+
+## VO vs SLAM vs VIO
+
+| System | Map Building | IMU Fusion | Drift Correction |
+|--------|--------------|------------|------------------|
+| Visual Odometry | No | No | No |
+| Visual SLAM | Yes | Optional | Yes (loop closure) |
+| Visual-Inertial Odometry (VIO) | No | Yes | Partial (IMU helps) |
+
+```
+Visual Odometry:     Sensors → [VO] → Pose only
+Visual SLAM:         Sensors → [SLAM] → Pose + Map + Loop Closure
+```
+
+## Camera Configurations
+
+<Tabs>
+  <TabItem label="Monocular">
+    Single camera setup.
+
+    **Pros:** Minimal hardware, low cost, lightweight
+    **Cons:** Scale ambiguity (cannot determine absolute distances), requires motion for initialization
+
+    **Use case:** Drones where weight matters, simple robots
+
+    <Aside type="caution">
+    Monocular VO cannot determine if the robot moved 1 meter or 10 meters without external scale reference.
+    </Aside>
+  </TabItem>
+
+  <TabItem label="Stereo">
+    Two cameras with known baseline.
+
+    **Pros:** Metric scale from triangulation, more robust
+    **Cons:** Higher cost, calibration required, degrades to monocular at long distances
+
+    **Use case:** Ground robots, autonomous vehicles
+  </TabItem>
+
+  <TabItem label="RGB-D">
+    RGB camera + depth sensor.
+
+    **Pros:** Direct depth measurement, simplified algorithm
+    **Cons:** Limited range (~4m for structured light), affected by sunlight
+
+    **Use case:** Indoor robots, manipulation
+  </TabItem>
+</Tabs>
+
+## Algorithmic Approaches
+
+<Tabs>
+  <TabItem label="Feature-Based">
+    Extract and track distinctive keypoints across frames.
+
+    **Pipeline:**
+    1. Detect keypoints (ORB, FAST, SIFT)
+    2. Compute descriptors
+    3. Match features between frames
+    4. Estimate motion from correspondences
+
+    **Examples:** ORB-SLAM (odometry component), RTAB-Map
+
+    **Pros:** Robust to moderate lighting changes, efficient
+    **Cons:** Fails in textureless environments (blank walls)
+  </TabItem>
+
+  <TabItem label="Direct">
+    Use raw pixel intensities instead of features.
+
+    **Pipeline:**
+    1. Select pixels with high gradient
+    2. Minimize photometric error between frames
+    3. Joint optimization of pose and depth
+
+    **Examples:** LSD-SLAM, DSO (Direct Sparse Odometry)
+
+    **Pros:** Works in low-texture environments, can produce dense depth
+    **Cons:** Sensitive to lighting changes, exposure variations
+  </TabItem>
+</Tabs>
+
+### Feature Extractors Comparison
+
+| Extractor | Speed | Accuracy | Notes |
+|-----------|-------|----------|-------|
+| FAST | Fastest | Lower | No scale invariance |
+| ORB | Fast | Good | Best speed/accuracy tradeoff |
+| SURF | Medium | High | Scale/rotation invariant |
+| SIFT | Slow | Highest | Most robust, computationally expensive |
+
+## Processing Pipeline
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    Visual Odometry Pipeline                     │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  1. IMAGE ACQUISITION                                           │
+│  ┌──────────────┐   ┌──────────────┐                           │
+│  │   Camera     │──►│  Undistort   │                           │
+│  │   Frame(s)   │   │  + Rectify   │                           │
+│  └──────────────┘   └──────────────┘                           │
+│                            │                                    │
+│  2. FEATURE PROCESSING     ▼                                    │
+│  ┌──────────────┐   ┌──────────────┐   ┌──────────────┐        │
+│  │   Feature    │──►│   Feature    │──►│   Outlier    │        │
+│  │  Detection   │   │   Matching   │   │  Rejection   │        │
+│  │ (ORB, FAST)  │   │  (BF/FLANN)  │   │  (RANSAC)    │        │
+│  └──────────────┘   └──────────────┘   └──────────────┘        │
+│                                               │                 │
+│  3. MOTION ESTIMATION                         ▼                 │
+│  ┌──────────────┐   ┌──────────────┐   ┌──────────────┐        │
+│  │    Pose      │◄──│   Bundle     │◄──│   Essential/ │        │
+│  │   Output     │   │  Adjustment  │   │  Fundamental │        │
+│  │   (6-DoF)    │   │  (optional)  │   │    Matrix    │        │
+│  └──────────────┘   └──────────────┘   └──────────────┘        │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## Visual-Inertial Odometry (VIO)
+
+VIO fuses camera images with IMU measurements for more robust tracking.
+
+### Coupling Approaches
+
+| Approach | Description | Examples |
+|----------|-------------|----------|
+| **Loosely-coupled** | Independent visual and inertial estimates, fused via Kalman filter | ROVIO |
+| **Tightly-coupled** | Joint optimization over all states (state-of-the-art) | VINS-Mono, OpenVINS, MSCKF |
+
+### IMU Preintegration
+
+IMU measurements are summarized into single constraints between keyframes, reducing computational cost while maintaining accuracy. Essential for real-time operation.
+
+```
+┌────────────────┐
+│ Stereo Camera  │────┐
+└────────────────┘    │    ┌─────────────┐
+                      ├───►│  Tightly-   │───► Fused Pose
+┌────────────────┐    │    │  Coupled    │     (6-DoF)
+│      IMU       │────┘    │  Optimizer  │
+│  (200+ Hz)     │         └─────────────┘
+└────────────────┘
+```
+
+<Aside type="tip">
+VIO is particularly useful for drones and handheld devices where fast motion can cause motion blur, and IMU data helps bridge visual tracking gaps.
+</Aside>
+
+## Challenges
+
+<Aside type="caution" title="Common Failure Modes">
+- **Low texture:** Blank walls, uniform surfaces → insufficient features
+- **Dynamic objects:** Moving people/vehicles corrupt motion estimate
+- **Lighting changes:** Day/night transitions, flickering lights
+- **Motion blur:** Fast rotation or translation during exposure
+- **Pure rotation:** Scale ambiguity in monocular setups
+- **Rolling shutter:** Image distortion during fast motion
+</Aside>
+
+## Isaac ROS Visual SLAM (cuVSLAM)
+
+NVIDIA's GPU-accelerated solution supports both VO and full SLAM modes.
+
+### Key Features
+- Stereo visual-inertial odometry (SVIO)
+- Multi-camera support (up to 32 cameras / 16 stereo pairs)
+- Automatic IMU fallback when visual tracking fails
+- Sub-1% trajectory error on KITTI benchmark
+
+### Performance (Jetson Orin AGX)
+- Stereo mode: 2.7 ms per frame
+- Stereo-Inertial: 30 FPS camera, 200 Hz IMU
+
+### Launch Example
+
+```bash
+# Launch cuVSLAM with RealSense camera
+ros2 launch isaac_ros_visual_slam isaac_ros_visual_slam_realsense.launch.py
+
+# Check odometry output
+ros2 topic echo /visual_slam/tracking/odometry
+```
+
+**Output topics:**
+- `/visual_slam/tracking/odometry` — nav_msgs/Odometry (6-DoF pose)
+- `/visual_slam/vis/observations_cloud` — Feature point cloud
+- `/visual_slam/status` — Tracking status
+
+## ROS 2 Integration
+
+### RTAB-Map Visual Odometry
+
+```bash
+# Stereo odometry
+ros2 launch rtabmap_ros stereo_odometry.launch.py \
+    left_image_topic:=/stereo/left/image_rect \
+    right_image_topic:=/stereo/right/image_rect \
+    left_camera_info_topic:=/stereo/left/camera_info \
+    right_camera_info_topic:=/stereo/right/camera_info
+```
+
+### Sensor Fusion with robot_localization
+
+Combine VO with wheel odometry and IMU for robust state estimation:
+
+```
+┌────────────────┐
+│ Wheel Encoders │────┐
+└────────────────┘    │    ┌─────────────┐
+                      ├───►│   EKF /     │───► Fused Odometry
+┌────────────────┐    │    │   UKF       │
+│ Visual Odometry│────┤    └─────────────┘
+└────────────────┘    │
+                      │
+┌────────────────┐    │
+│      IMU       │────┘
+└────────────────┘
+```
+
+<Aside type="tip">
+When fusing VO with other odometry sources, use velocity (not position) from VO to avoid double-counting position information.
+</Aside>
+
+## Applications
+
+| Domain | Use Case | Why VO |
+|--------|----------|--------|
+| **Drones/UAVs** | Autonomous flight | GPS-denied environments |
+| **Ground robots** | Navigation, AGVs | Wheel slip compensation |
+| **Autonomous vehicles** | Self-driving | GPS complement, tunnels |
+| **AR/VR** | Head tracking | Low latency, 6-DoF |
+| **Underwater robots** | Inspection | GPS unavailable |
+
+## Prerequisites
+
+<CardGrid>
+  <LinkCard
+    title="Cameras"
+    description="Camera types and calibration fundamentals"
+    href="/robotics-glossary/hardware/sensors/cameras/"
+  />
+  <LinkCard
+    title="IMU"
+    description="Inertial measurement for VIO fusion"
+    href="/robotics-glossary/hardware/sensors/imu/"
+  />
+  <LinkCard
+    title="Coordinate Frames"
+    description="Understanding spatial transforms"
+    href="/robotics-glossary/concepts/fundamentals/coordinate-frames/"
+  />
+</CardGrid>
+
+## Related Terms
+
+<CardGrid>
+  <LinkCard
+    title="SLAM"
+    description="Full SLAM with mapping and loop closure"
+    href="/robotics-glossary/concepts/perception/slam/"
+  />
+  <LinkCard
+    title="Isaac ROS"
+    description="GPU-accelerated perception on Jetson"
+    href="/robotics-glossary/software/isaac/isaac-ros/"
+  />
+  <LinkCard
+    title="Nav2"
+    description="ROS 2 navigation using odometry"
+    href="/robotics-glossary/software/ros2/nav2/"
+  />
+  <LinkCard
+    title="TF2"
+    description="Transform broadcasting for robot frames"
+    href="/robotics-glossary/software/ros2/tf2/"
+  />
+</CardGrid>
+
+## Sources
+
+- [Isaac ROS Visual SLAM](https://nvidia-isaac-ros.github.io/repositories_and_packages/isaac_ros_visual_slam/index.html) — cuVSLAM documentation, multi-camera support, KITTI benchmarks
+- [cuVSLAM Concepts](https://nvidia-isaac-ros.github.io/concepts/visual_slam/cuvslam/index.html) — GPU-accelerated VO/SLAM architecture
+- [Visual Odometry Tutorial (Scaramuzza)](https://rpg.ifi.uzh.ch/docs/VO_Part_I_Scaramuzza.pdf) — Foundational VO theory and algorithms
+- [RTAB-Map ROS 2](https://github.com/introlab/rtabmap_ros) — Visual odometry strategies and ROS 2 integration
+- [OpenVINS](https://docs.openvins.com/) — Open-source VIO with active ROS 2 support
+- [robot_localization](https://index.ros.org/p/robot_localization/) — EKF/UKF sensor fusion for ROS 2
