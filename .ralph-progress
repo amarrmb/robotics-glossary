@@ -23,3 +23,4 @@ create:software/ros2/urdf-xacro.mdx
 create:software/nvidia/cumotion.mdx
 create:software/nvidia/nvblox.mdx
 create:software/nvidia/tensorrt.mdx
+create:software/nvidia/isaac-lab.mdx
