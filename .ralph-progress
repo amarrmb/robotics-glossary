@@ -28,3 +28,4 @@ create:concepts/perception/visual-odometry.mdx
 create:concepts/perception/sensor-fusion.mdx
 create:hardware/sensors/depth-cameras.mdx
 create:concepts/ai/vla.mdx
+create:software/embedded/yocto.mdx

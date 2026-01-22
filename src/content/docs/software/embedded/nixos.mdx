@@ -1,0 +1,355 @@
+---
+title: NixOS for Robotics
+description: Reproducible, declarative OS for robotics deployments
+last_validated: 2026-01-21
+sidebar:
+  badge:
+    text: Practical
+    variant: success
+---
+
+import { Aside, Card, CardGrid, LinkCard, Tabs, TabItem } from '@astrojs/starlight/components';
+
+<span class="level-badge advanced">Advanced</span>
+
+**NixOS** is a Linux distribution built around the Nix package manager that takes a fully declarative approach to system configuration. For robotics, NixOS enables reproducible, immutable deployments where entire robot configurations can be version-controlled and reliably deployed across fleets with identical behavior.
+
+<Aside type="caution">
+NixOS has a steep learning curve requiring familiarity with functional programming concepts and the Nix language. The reproducibility benefits pay off most for production fleets and team environments.
+</Aside>
+
+## Prerequisites
+
+<CardGrid>
+  <LinkCard
+    title="ROS 2"
+    description="Robot Operating System integrated via nix-ros-overlay"
+    href="/robotics-glossary/software/frameworks/ros2/"
+  />
+</CardGrid>
+
+<Aside type="note">
+This entry assumes familiarity with Linux command line, package management, and version control (Git).
+</Aside>
+
+## Why NixOS for Robotics?
+
+- **Reproducibility**: Identical system configuration across entire robot fleet
+- **Atomic updates**: System changes are all-or-nothing with instant rollback
+- **Declarative config**: Entire robot defined in version-controlled code
+- **No dependency conflicts**: Multiple package versions coexist cleanly
+- **Fleet management**: Push identical configurations to hundreds of robots
+
+## Nix vs NixOS
+
+Understanding the distinction is important:
+
+| Component | What It Is | Use Case |
+|-----------|-----------|----------|
+| **Nix** | Package manager | Runs on any Linux/macOS for isolated dev environments |
+| **NixOS** | Full Linux distro | Entire OS defined declaratively via Nix |
+
+You can use Nix for robotics development on Ubuntu, then deploy to NixOS for production.
+
+## Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    NixOS System Architecture                     │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │              /etc/nixos/configuration.nix                │    │
+│  │              (Declarative System Definition)             │    │
+│  └─────────────────────────────────────────────────────────┘    │
+│                              │                                   │
+│                              ▼                                   │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │                    nixos-rebuild                         │    │
+│  │         (Build & Activate System Configuration)          │    │
+│  └─────────────────────────────────────────────────────────┘    │
+│                              │                                   │
+│            ┌─────────────────┼─────────────────┐                │
+│            ▼                 ▼                 ▼                 │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐       │
+│  │ Generation 1 │  │ Generation 2 │  │ Generation N     │       │
+│  │ (rollback)   │  │ (previous)   │  │ (current/active) │       │
+│  └──────────────┘  └──────────────┘  └──────────────────┘       │
+│                              │                                   │
+│                              ▼                                   │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │                     /nix/store                           │    │
+│  │  (Immutable Package Store - Content-Addressed)           │    │
+│  │  /nix/store/abc123-ros-jazzy-nav2/                       │    │
+│  │  /nix/store/def456-python3-3.11/                         │    │
+│  └─────────────────────────────────────────────────────────┘    │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## Nix Flakes
+
+Flakes are the modern way to define reproducible Nix projects:
+
+- **flake.nix**: Project definition with inputs and outputs
+- **flake.lock**: Pinned dependency versions for reproducibility
+
+<Aside type="tip">
+Enable flakes in your NixOS config: `nix.settings.experimental-features = [ "nix-command" "flakes" ];`
+</Aside>
+
+## ROS 2 with nix-ros-overlay
+
+The [nix-ros-overlay](https://github.com/lopsided98/nix-ros-overlay) project provides ROS 2 packages for Nix.
+
+### Supported ROS 2 Distributions
+
+| ROS 2 Distro | nix-ros-overlay Branch | Status |
+|--------------|------------------------|--------|
+| Jazzy | master/develop | Primary support |
+| Humble | develop | Supported |
+| Rolling | develop | Development |
+
+<Aside type="note">
+ROS 1 and Gazebo Classic were removed from master after EOL (January/May 2025). Legacy support available in `ros1-25.05` branch until end of 2025.
+</Aside>
+
+### Quick Start
+
+```bash
+# Enter ROS 2 Jazzy development shell
+nix develop github:lopsided98/nix-ros-overlay/master#example-ros2-desktop-jazzy
+
+# Test ROS 2
+ros2 launch demo_nodes_cpp talker_listener_launch.xml
+```
+
+### Development Shell (flake.nix)
+
+<Tabs>
+  <TabItem label="flake.nix">
+```nix
+{
+  description = "Robot development environment";
+
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
+    nix-ros-overlay.url = "github:lopsided98/nix-ros-overlay/master";
+  };
+
+  outputs = { self, nixpkgs, nix-ros-overlay }:
+    let
+      system = "x86_64-linux";
+      pkgs = import nixpkgs {
+        inherit system;
+        overlays = [ nix-ros-overlay.overlays.default ];
+      };
+    in {
+      devShells.${system}.default = pkgs.mkShell {
+        name = "robot-dev";
+
+        buildInputs = with pkgs; [
+          colcon
+          (rosPackages.jazzy.buildEnv {
+            paths = with rosPackages.jazzy; [
+              ros-core
+              nav2-bringup
+              slam-toolbox
+              rviz2
+            ];
+          })
+        ];
+
+        shellHook = ''
+          echo "ROS 2 Jazzy development environment"
+        '';
+      };
+    };
+
+  nixConfig = {
+    extra-substituters = [ "https://ros.cachix.org" ];
+    extra-trusted-public-keys = [
+      "ros.cachix.org-1:dSyZxI8geDCJrwgvCOHDoAfOm5sV1wCPjBkKL+38Rvo="
+    ];
+  };
+}
+```
+  </TabItem>
+  <TabItem label="Usage">
+```bash
+# Enter development shell
+nix develop
+
+# Or run directly
+nix develop .#default
+
+# Build and enter shell
+nix develop --command bash
+```
+  </TabItem>
+</Tabs>
+
+<Aside type="tip">
+Use the Cachix binary cache (`cachix use ros`) to avoid building ROS packages from source.
+</Aside>
+
+## NVIDIA Jetson Support
+
+The [jetpack-nixos](https://github.com/anduril/jetpack-nixos) project (maintained by Anduril) enables NixOS on Jetson devices.
+
+### Supported Platforms
+
+| JetPack | Devices | Status |
+|---------|---------|--------|
+| JetPack 7 | AGX Thor | Supported (CUDA 13 pending nixpkgs 25.11) |
+| JetPack 6 | AGX Orin, Orin NX, Orin Nano | Full CUDA support |
+| JetPack 5 | AGX Orin, Orin NX, Orin Nano | Full CUDA support |
+
+<Aside type="caution">
+Jetson Nano, TX2, and TX1 are **not supported** (dropped in JetPack 5).
+</Aside>
+
+### Jetson Configuration
+
+```nix
+# flake.nix for Jetson Orin robot
+{
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
+    jetpack-nixos.url = "github:anduril/jetpack-nixos";
+    nix-ros-overlay.url = "github:lopsided98/nix-ros-overlay/master";
+  };
+
+  outputs = { self, nixpkgs, jetpack-nixos, nix-ros-overlay }:
+    let
+      system = "aarch64-linux";
+    in {
+      nixosConfigurations.robot-orin = nixpkgs.lib.nixosSystem {
+        inherit system;
+        modules = [
+          jetpack-nixos.nixosModules.default
+          ({ config, pkgs, ... }: {
+            nixpkgs.overlays = [ nix-ros-overlay.overlays.default ];
+
+            hardware.nvidia-jetpack = {
+              enable = true;
+              som = "orin-agx";
+              carrierBoard = "devkit";
+            };
+
+            # CUDA capability for Orin (mandatory)
+            config.cudaCapabilities = [ "8.7" ];
+
+            environment.systemPackages = with pkgs; [
+              (rosPackages.jazzy.buildEnv {
+                paths = with rosPackages.jazzy; [ ros-core ];
+              })
+            ];
+
+            system.stateVersion = "24.11";
+          })
+        ];
+      };
+    };
+}
+```
+
+## Fleet Deployment
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│              NixOS Fleet Deployment Flow                         │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌──────────────┐                                                │
+│  │  Git Repo    │◄── Developer pushes configuration changes      │
+│  │  (flake.nix) │                                                │
+│  └──────┬───────┘                                                │
+│         │                                                        │
+│         ▼                                                        │
+│  ┌──────────────┐    ┌────────────────┐                         │
+│  │   CI/CD      │───►│  Binary Cache  │                         │
+│  │  (Actions)   │    │  (Cachix/S3)   │                         │
+│  └──────────────┘    └───────┬────────┘                         │
+│                              │                                   │
+│         ┌────────────────────┼────────────────────┐              │
+│         ▼                    ▼                    ▼              │
+│  ┌────────────┐      ┌────────────┐      ┌────────────┐         │
+│  │  Robot 1   │      │  Robot 2   │      │  Robot N   │         │
+│  │  (pull &   │      │  (pull &   │      │  (pull &   │         │
+│  │  rebuild)  │      │  rebuild)  │      │  rebuild)  │         │
+│  └────────────┘      └────────────┘      └────────────┘         │
+│                                                                  │
+│  Deploy:   nixos-rebuild switch --flake github:org/repo          │
+│  Rollback: nixos-rebuild switch --rollback                       │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Fleet Management Tools
+
+- **Colmena**: Modern deployment tool with parallel rollouts
+- **deploy-rs**: Flake-native deployment with health checks
+- **Bento**: Simple sftp-based config distribution for small fleets
+
+## Cross-Compilation
+
+NixOS supports cross-compilation for ARM targets:
+
+```bash
+# Cross-compile for aarch64 (Jetson, Pi)
+nix-build '<nixpkgs>' -A pkgsCross.aarch64-multiplatform.hello
+
+# Enable binfmt emulation to run ARM binaries on x86
+boot.binfmt.emulatedSystems = [ "aarch64-linux" ];
+```
+
+## NixOS vs Yocto
+
+| Aspect | NixOS | Yocto |
+|--------|-------|-------|
+| **Approach** | Declarative OS + package manager | Build system for custom distros |
+| **Reproducibility** | Runtime & build-time | Build-time |
+| **Build time** | Fast (binary cache) | Slow (hours for initial build) |
+| **Flexibility** | High (any package combo) | Very high (BSP customization) |
+| **Best for** | Fleet management, development | Custom embedded images |
+
+<Aside type="note">
+Both tools solve reproducibility differently. Yocto excels at custom BSPs; NixOS excels at fleet management and development environments.
+</Aside>
+
+## Related Terms
+
+<CardGrid>
+  <LinkCard
+    title="Yocto"
+    description="Alternative embedded Linux approach for custom images"
+    href="/robotics-glossary/software/embedded/yocto/"
+  />
+  <LinkCard
+    title="ROS 2"
+    description="Robot Operating System integrated via nix-ros-overlay"
+    href="/robotics-glossary/software/frameworks/ros2/"
+  />
+  <LinkCard
+    title="Isaac ROS"
+    description="NVIDIA GPU-accelerated ROS packages"
+    href="/robotics-glossary/software/isaac/isaac-ros/"
+  />
+</CardGrid>
+
+## Learn More
+
+- [zero-to-nix](https://zero-to-nix.com/) — Beginner-friendly introduction
+- [NixOS & Flakes Book](https://nixos-and-flakes.thiscute.world/) — Comprehensive guide
+- [nix-ros-overlay GitHub](https://github.com/lopsided98/nix-ros-overlay) — ROS 2 packages for Nix
+- [jetpack-nixos GitHub](https://github.com/anduril/jetpack-nixos) — Jetson NixOS support
+
+## Sources
+
+- [NixOS Homepage](https://nixos.org/) — Official project page
+- [NixOS Wiki - Flakes](https://wiki.nixos.org/wiki/Flakes) — Flakes documentation
+- [nix-ros-overlay GitHub](https://github.com/lopsided98/nix-ros-overlay) — Primary ROS/ROS 2 overlay
+- [jetpack-nixos GitHub](https://github.com/anduril/jetpack-nixos) — Anduril's Jetson NixOS module
+- [NixOS Wiki - CUDA](https://wiki.nixos.org/wiki/CUDA) — CUDA configuration guide
+- [Nix vs Docker (DevZero)](https://www.devzero.io/blog/nix-vs-docker) — Comparison article
