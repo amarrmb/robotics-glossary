@@ -180,6 +180,7 @@ jetson-orin → yocto → isaac-ros → tensorrt → deployment-best-practices
 | `software/nvidia/tensorrt.mdx` | ✅ Complete | 2026-01-21 | P2 Inference optimization |
 | `software/nvidia/isaac-lab.mdx` | ✅ Complete | 2026-01-21 | P2 Sim-to-real training |
 | `concepts/perception/visual-odometry.mdx` | ✅ Complete | 2026-01-21 | P2 Bridges SLAM and cameras |
+| `concepts/perception/sensor-fusion.mdx` | ✅ Complete | 2026-01-21 | P2 Multi-sensor state estimation |
 
 ### Week 3-4: New Critical Content
 - [x] Write `transforms.mdx` and `coordinate-frames.mdx`
