@@ -12,7 +12,8 @@ import { Aside, Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
 
 <span class="level-badge conceptual">Conceptual</span>
 
-**Kinematics** is the branch of mechanics that describes the motion of points, bodies, and systems without considering the forces that cause them to move. In robotics, kinematics is fundamental to understanding how robot joints and links move through space.
+**Kinematics** is the branch of robotics that describes *how parts of a robot move in space* (the geometry of motion), *without considering the forces* (such as torque or inertia) that cause the motion. It provides the mathematical foundation for computing where an end-effector will be given joint angles (forward kinematics) and for determining what joint angles are needed to reach a desired pose (inverse kinematics).
+Simple way to understand it is, its a study of motion geometry without the forces that cause that motion.
 
 <Aside type="tip">
 Think of kinematics as the "geometry of motion" — it answers *where* things move, not *why* they move.
