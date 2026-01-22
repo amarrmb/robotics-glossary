@@ -1,81 +1,94 @@
 # Robotics Glossary Validation Audit
 
 **Date**: 2026-01-21
+**Auditor**: Claude Code (automated)
 
 ## Summary
 
 | Metric | Count |
 |--------|-------|
-| Total glossary entries | 28 |
-| Entries validated (existing) | 16 |
-| New entries created | 13 |
-| Build status | PASS |
+| Total glossary entries | 32 |
+| Validated entries | 16 |
+| New entries created | 16 |
+| Build status | **PASS** |
 
-## Entry Breakdown
+## File Inventory
 
 ### Validated Entries (16)
-- hardware/compute/jetson-orin.mdx
-- hardware/compute/jetson-thor.mdx
-- hardware/compute/dgx-spark.mdx
-- hardware/sensors/lidar.mdx
-- hardware/sensors/cameras.mdx
-- hardware/sensors/imu.mdx
-- software/isaac/isaac-ros.mdx
-- software/simulation/isaac-sim.mdx
-- software/frameworks/ros2.mdx
-- concepts/perception/slam.mdx
-- concepts/fundamentals/kinematics.mdx
-- concepts/fundamentals/degrees-of-freedom.mdx
-- concepts/control/motion-planning.mdx
-- concepts/control/pid.mdx
-- concepts/ai/neural-networks.mdx
-- concepts/ai/reinforcement-learning.mdx
+| Entry | Path |
+|-------|------|
+| Jetson Orin | hardware/compute/jetson-orin.mdx |
+| Jetson Thor | hardware/compute/jetson-thor.mdx |
+| DGX Spark | hardware/compute/dgx-spark.mdx |
+| Isaac ROS | software/isaac/isaac-ros.mdx |
+| Isaac Sim | software/simulation/isaac-sim.mdx |
+| ROS 2 | software/frameworks/ros2.mdx |
+| SLAM | concepts/perception/slam.mdx |
+| LiDAR | hardware/sensors/lidar.mdx |
+| Cameras | hardware/sensors/cameras.mdx |
+| IMU | hardware/sensors/imu.mdx |
+| Kinematics | concepts/fundamentals/kinematics.mdx |
+| Degrees of Freedom | concepts/fundamentals/degrees-of-freedom.mdx |
+| Motion Planning | concepts/control/motion-planning.mdx |
+| PID | concepts/control/pid.mdx |
+| Neural Networks | concepts/ai/neural-networks.mdx |
+| Reinforcement Learning | concepts/ai/reinforcement-learning.mdx |
 
-### New Entries Created (13)
-- concepts/fundamentals/transforms.mdx
-- concepts/fundamentals/coordinate-frames.mdx
-- concepts/perception/visual-odometry.mdx
-- concepts/perception/sensor-fusion.mdx
-- hardware/sensors/depth-cameras.mdx
-- software/ros2/tf2.mdx
-- software/ros2/nav2.mdx
-- software/ros2/moveit2.mdx
-- software/ros2/urdf-xacro.mdx
-- software/nvidia/cumotion.mdx
-- software/nvidia/nvblox.mdx
-- software/nvidia/tensorrt.mdx
-- software/nvidia/isaac-lab.mdx
+### New Entries Created (16)
+| Entry | Path |
+|-------|------|
+| Transforms | concepts/fundamentals/transforms.mdx |
+| Coordinate Frames | concepts/fundamentals/coordinate-frames.mdx |
+| TF2 | software/ros2/tf2.mdx |
+| Nav2 | software/ros2/nav2.mdx |
+| MoveIt 2 | software/ros2/moveit2.mdx |
+| URDF/Xacro | software/ros2/urdf-xacro.mdx |
+| cuMotion | software/nvidia/cumotion.mdx |
+| nvblox | software/nvidia/nvblox.mdx |
+| TensorRT | software/nvidia/tensorrt.mdx |
+| Isaac Lab | software/nvidia/isaac-lab.mdx |
+| Visual Odometry | concepts/perception/visual-odometry.mdx |
+| Sensor Fusion | concepts/perception/sensor-fusion.mdx |
+| Depth Cameras | hardware/sensors/depth-cameras.mdx |
+| VLA | concepts/ai/vla.mdx |
+| Yocto | software/embedded/yocto.mdx |
+| NixOS | software/embedded/nixos.mdx |
 
-## Quality Checks
+## Spot-Check Results
 
-### Spot Check Results (3 random files)
+Randomly selected 3 files for detailed validation:
 
-| File | last_validated | Sources Section |
-|------|----------------|-----------------|
-| hardware/sensors/depth-cameras.mdx | 2026-01-21 | Present (8 sources) |
-| software/nvidia/cumotion.mdx | 2026-01-21 | Present (5 sources) |
-| concepts/control/pid.mdx | 2026-01-21 | Present (3 sources) |
+| File | last_validated | Sources Section | Status |
+|------|----------------|-----------------|--------|
+| hardware/sensors/lidar.mdx | 2026-01-21 | Present (line 169) | **PASS** |
+| software/ros2/moveit2.mdx | 2026-01-21 | Present (line 296) | **PASS** |
+| concepts/ai/vla.mdx | 2026-01-21 | Present (line 275) | **PASS** |
 
-### Build Status
+## Build Results
 
-**PASS** - All 34 pages built successfully (33 indexed by Pagefind).
+```
+Build status: SUCCESS
+Pages built: 37
+Build time: 3.37s
+Indexed pages: 36
+Indexed words: 4786
+```
 
-### Issues Found and Fixed
+### Warnings
 
-1. **nvblox.mdx (line 230)**: MDX parsing error with `<7ms` being interpreted as JSX tag. Fixed by escaping to `&lt;7ms`.
+1. **Minor**: Language "bitbake" not found for syntax highlighting in yocto.mdx (falls back to plain text)
+
+## Issues Found
+
+None critical. All entries validated successfully.
 
 ## Recommendations for Next Iteration
 
-1. **Add more hardware entries**: Consider actuators (motors, servos), end effectors, and additional sensor types (force/torque sensors, encoders)
-
-2. **Expand software coverage**: Add entries for commonly used libraries like OpenCV, Open3D, PCL (Point Cloud Library)
-
-3. **Add real-world examples**: Consider adding case studies or example robot configurations that tie multiple concepts together
-
-4. **Cross-reference audit**: Verify all internal links between entries are valid and bidirectional where appropriate
-
-5. **Version tracking**: Consider adding version numbers to entries that reference specific software releases (Isaac ROS 3.2, etc.) for easier update tracking
-
-## Files Modified During Audit
-
-- `software/nvidia/nvblox.mdx` - Fixed MDX parsing error
+1. **Add bitbake syntax highlighting**: Consider adding the bitbake language to astro-expressive-code configuration
+2. **Expand coverage**: Consider adding entries for:
+   - Gazebo / gz-sim (ROS 2 simulation alternative)
+   - ros2_control (hardware abstraction layer)
+   - micro-ROS (embedded systems)
+   - Behavior trees (for task planning)
+3. **Cross-referencing**: Ensure all Related Terms links are bidirectional
+4. **Version tracking**: Consider adding a changelog for major content updates

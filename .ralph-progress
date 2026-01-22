@@ -29,3 +29,4 @@ create:concepts/perception/sensor-fusion.mdx
 create:hardware/sensors/depth-cameras.mdx
 create:concepts/ai/vla.mdx
 create:software/embedded/yocto.mdx
+create:software/embedded/nixos.mdx
