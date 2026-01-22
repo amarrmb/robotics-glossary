@@ -111,6 +111,13 @@ For each entry, verify:
 | `software/nvidia/tensorrt.mdx` | Inference optimization | P2 |
 | `hardware/sensors/depth-cameras.mdx` | Specific to stereo/ToF | P2 |
 
+#### Differentiating Content (Thought Leadership)
+| Entry | Why Important | Priority |
+|-------|--------------|----------|
+| `concepts/ai/vla.mdx` | VLA models (RT-2, GR00T, OpenVLA) - cutting edge robotics AI | P1 |
+| `software/embedded/yocto.mdx` | Production Jetson deployments use Yocto, not Ubuntu | P1 |
+| `software/embedded/nixos.mdx` | Reproducible robotics deployments - emerging best practice | P2 |
+
 ---
 
 ## Phase 3: Zero to Hero Learning Paths
@@ -128,6 +135,16 @@ ros2 → nav2 → isaac-ros → nitros → performance-tuning
 ### Path 3: "Robotics Beginner → First AMR"
 ```
 degrees-of-freedom → coordinate-frames → transforms → tf2 → urdf → nav2
+```
+
+### Path 4: "AI-First Robotics (VLA/Foundation Models)"
+```
+neural-networks → reinforcement-learning → vla → isaac-lab → groot
+```
+
+### Path 5: "Production Jetson Deployment"
+```
+jetson-orin → yocto → isaac-ros → tensorrt → deployment-best-practices
 ```
 
 **Implementation**: Add `learning_paths` frontmatter and create `/paths/` pages later.

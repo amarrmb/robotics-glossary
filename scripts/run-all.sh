@@ -51,6 +51,9 @@ CREATE_TASKS=(
     "concepts/perception/visual-odometry.mdx|Visual Odometry|Estimating motion from camera images"
     "concepts/perception/sensor-fusion.mdx|Sensor Fusion|Combining multiple sensor inputs"
     "hardware/sensors/depth-cameras.mdx|Depth Cameras|Stereo, ToF, and structured light cameras"
+    "concepts/ai/vla.mdx|Vision-Language-Action Models|VLA models for robot control - from RT-2 to GR00T"
+    "software/embedded/yocto.mdx|Yocto for Robotics|Custom Linux distributions for Jetson and embedded robotics"
+    "software/embedded/nixos.mdx|NixOS for Robotics|Reproducible, declarative OS for robotics deployments"
 )
 
 echo "=== Starting Ralph Wiggum Loop for $PROJECT ==="
@@ -71,6 +74,8 @@ mkdir -p "$PROJECT_DIR/research/concepts/control"
 mkdir -p "$PROJECT_DIR/research/concepts/ai"
 mkdir -p "$PROJECT_DIR/src/content/docs/software/ros2"
 mkdir -p "$PROJECT_DIR/src/content/docs/software/nvidia"
+mkdir -p "$PROJECT_DIR/src/content/docs/software/embedded"
+mkdir -p "$PROJECT_DIR/research/software/embedded"
 
 touch "$PROGRESS_FILE"
 

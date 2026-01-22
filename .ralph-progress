@@ -24,3 +24,4 @@ create:software/nvidia/cumotion.mdx
 create:software/nvidia/nvblox.mdx
 create:software/nvidia/tensorrt.mdx
 create:software/nvidia/isaac-lab.mdx
+create:concepts/perception/visual-odometry.mdx
