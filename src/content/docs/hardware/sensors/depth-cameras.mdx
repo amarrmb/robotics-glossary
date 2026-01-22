@@ -1,0 +1,278 @@
+---
+title: Depth Cameras
+description: Stereo, ToF, and structured light cameras
+last_validated: 2026-01-21
+sidebar:
+  badge:
+    text: Practical
+    variant: success
+---
+
+import { Aside, Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+<span class="level-badge practical">Practical</span>
+
+**Depth cameras** measure the distance from the sensor to every point in the scene, producing a 2.5D representation of the environment. They are essential for obstacle avoidance, manipulation, 3D mapping, and any task requiring spatial understanding beyond what 2D images provide.
+
+<Aside type="tip">
+Unlike regular cameras that capture color/intensity, depth cameras answer "how far away is each pixel?" — enabling robots to understand the 3D structure of their environment.
+</Aside>
+
+## Prerequisites
+
+<CardGrid>
+  <LinkCard
+    title="Cameras"
+    description="General camera concepts and integration"
+    href="/robotics-glossary/hardware/sensors/cameras/"
+  />
+  <LinkCard
+    title="Coordinate Frames"
+    description="Understanding 3D spatial relationships"
+    href="/robotics-glossary/concepts/fundamentals/coordinate-frames/"
+  />
+</CardGrid>
+
+## Three Depth Sensing Technologies
+
+### Stereo Vision
+
+Uses two cameras separated by a known baseline to calculate depth via triangulation.
+
+```
+[Left Cam]───baseline───[Right Cam]
+     │                       │
+     └─────────┬─────────────┘
+               │ Disparity Matching
+               ▼
+          [Depth Map]
+```
+
+**How it works**: The same point appears at different horizontal positions in each image. This difference (disparity) is inversely proportional to depth.
+
+**Pros**: Works outdoors, long range, passive operation possible
+**Cons**: Needs texture for matching, computationally intensive
+
+### Structured Light
+
+Projects a known IR pattern and analyzes its distortion on objects.
+
+```
+[IR Projector]───pattern──►[Object]
+                               │
+                          distortion
+                               │
+                     ◄────────[Camera]
+                               │
+                          triangulation
+                               ▼
+                          [Depth Map]
+```
+
+**How it works**: Known patterns (dots, stripes, or coded patterns) deform when hitting surfaces at different depths. A camera captures this distortion and computes depth via triangulation.
+
+**Pros**: High accuracy at short range, works on textureless surfaces
+**Cons**: IR pattern washed out in sunlight, limited range
+
+### Time-of-Flight (ToF)
+
+Measures the time for IR light to travel to an object and back.
+
+```
+[Emitter]────IR pulse────►[Object]
+    │                         │
+    │                    reflection
+    │                         │
+    └◄────────────────────────┘
+    │
+    ▼ measure time/phase
+[Depth Map]
+```
+
+**How it works**: Emits modulated IR light and measures either phase shift (continuous wave) or direct time delay (pulsed) to calculate distance.
+
+**Pros**: Fast capture, works in low light, texture-independent
+**Cons**: Multipath interference, limited outdoor range
+
+## Technology Comparison
+
+| Aspect | Stereo | Structured Light | ToF |
+|--------|--------|------------------|-----|
+| **Range** | 0.5–20m | 0.3–5m | 0.2–8m |
+| **Accuracy** | Medium | High (short range) | Medium |
+| **Speed** | Medium | Medium | Fast |
+| **Outdoor** | Good | Poor | Moderate |
+| **Texture needed** | Yes | No | No |
+| **Cost** | Low–Medium | Medium | Medium–High |
+
+## Popular Depth Cameras
+
+### Intel RealSense (Active Stereo)
+
+| Model | Baseline | Range | Features |
+|-------|----------|-------|----------|
+| D455 | 95mm | 0.4–6m | 86° FoV, up to 90fps |
+| D456 | 95mm | 0.4–6m | IP65-rated outdoor |
+| D405 | — | 0.1–0.5m | Short-range manipulation |
+| D435i | 50mm | 0.3–3m | Built-in IMU, compact |
+
+### Stereolabs ZED (Stereo + Neural Depth)
+
+| Model | Features |
+|-------|----------|
+| ZED 2i | IP66, 12cm baseline, 0.2–20m, neural depth |
+| ZED SDK 5.1 | Isaac ROS NITROS support, 10x lower latency |
+
+### Orbbec
+
+| Model | Technology | Features |
+|-------|------------|----------|
+| Femto Bolt | ToF | Azure Kinect replacement, 120° FoV |
+| Femto Mega | ToF | Built-in compute, PoE support |
+| Gemini 335Lg | Active Stereo | Mobile robot optimized, indoor/outdoor |
+
+## ROS 2 Integration
+
+### Standard Topics
+
+```
+/camera/depth/image_raw      # Depth image (32FC1 meters or 16UC1 mm)
+/camera/depth/camera_info    # Calibration parameters
+/camera/depth_registered/points  # Colored point cloud
+/camera/color/image_raw      # RGB image
+```
+
+### Launch Examples
+
+```bash
+# Intel RealSense with point cloud
+ros2 launch realsense2_camera rs_launch.py \
+    enable_depth:=true \
+    depth_module.profile:=640x480x30 \
+    pointcloud.enable:=true
+
+# ZED camera
+ros2 launch zed_wrapper zed_camera.launch.py \
+    camera_model:=zed2i
+
+# Orbbec Femto Bolt
+ros2 launch orbbec_camera femto_bolt.launch.py
+```
+
+### Depth Subscriber Example
+
+```python
+import rclpy
+from rclpy.node import Node
+from sensor_msgs.msg import Image
+from cv_bridge import CvBridge
+
+class DepthSubscriber(Node):
+    def __init__(self):
+        super().__init__('depth_subscriber')
+        self.subscription = self.create_subscription(
+            Image, '/camera/depth/image_raw',
+            self.depth_callback, 10)
+        self.bridge = CvBridge()
+
+    def depth_callback(self, msg):
+        # Convert to numpy array (meters, 32-bit float)
+        depth_image = self.bridge.imgmsg_to_cv2(
+            msg, desired_encoding='32FC1')
+
+        # Get depth at center pixel
+        h, w = depth_image.shape
+        center_depth = depth_image[h // 2, w // 2]
+        self.get_logger().info(f'Center depth: {center_depth:.3f}m')
+
+def main():
+    rclpy.init()
+    node = DepthSubscriber()
+    rclpy.spin(node)
+    rclpy.shutdown()
+```
+
+## Isaac ROS GPU Acceleration
+
+Isaac ROS 3.2 provides GPU-accelerated depth processing:
+
+| Package | Purpose |
+|---------|---------|
+| `isaac_ros_stereo_image_proc` | Disparity computation |
+| `isaac_ros_depth_image_proc` | Depth to point cloud |
+| `isaac_ros_dnn_stereo_depth` | DNN-based depth estimation |
+
+### DNN Stereo Models
+
+**ESS (Efficient Semi-Supervised)**:
+- Fast inference for real-time applications
+- Outputs disparity + confidence map
+- Robust to unseen environments
+
+**FoundationStereo** (new in Isaac ROS 3.2):
+- Transformer-based foundation model
+- Zero-shot generalization across scenes
+- Uses Depth Anything V2 as feature extractor
+- Best Paper Nomination at CVPR 2025
+
+## Depth Processing Pipeline
+
+```
+┌─────────────┐    ┌──────────────┐    ┌───────────────┐
+│   Depth     │ →  │  Undistort   │ →  │   Register    │
+│   Sensor    │    │  (calibrate) │    │   to RGB      │
+└─────────────┘    └──────────────┘    └───────────────┘
+                                              │
+                                              ▼
+┌─────────────┐    ┌──────────────┐    ┌───────────────┐
+│  Obstacle   │ ←  │ Point Cloud  │ ←  │   Depth to    │
+│  Detection  │    │ (PCL2)       │    │   3D Points   │
+└─────────────┘    └──────────────┘    └───────────────┘
+```
+
+## Choosing the Right Technology
+
+| Use Case | Recommended |
+|----------|-------------|
+| Outdoor navigation | Stereo (passive or active) |
+| Indoor manipulation | Structured light or ToF |
+| AMR obstacle avoidance | ToF (fast, compact) |
+| 3D scanning | Structured light (high accuracy) |
+| Low-light environments | ToF |
+| Long-range perception | Stereo |
+
+## Related Terms
+
+<CardGrid>
+  <LinkCard
+    title="Cameras"
+    description="General vision sensors and RGB imaging"
+    href="/robotics-glossary/hardware/sensors/cameras/"
+  />
+  <LinkCard
+    title="LiDAR"
+    description="Alternative 3D sensing via laser scanning"
+    href="/robotics-glossary/hardware/sensors/lidar/"
+  />
+  <LinkCard
+    title="SLAM"
+    description="Uses depth for simultaneous mapping and localization"
+    href="/robotics-glossary/concepts/perception/slam/"
+  />
+  <LinkCard
+    title="Sensor Fusion"
+    description="Combining depth with other sensor modalities"
+    href="/robotics-glossary/concepts/perception/sensor-fusion/"
+  />
+</CardGrid>
+
+## Sources
+
+- [Intel RealSense D455](https://www.intel.com/content/www/us/en/products/sku/205847/intel-realsense-depth-camera-d455/specifications.html) — D400 series specifications
+- [Intel RealSense ROS2](https://github.com/IntelRealSense/realsense-ros) — Official ROS 2 wrapper
+- [Stereolabs ZED SDK 5.1](https://www.stereolabs.com/blog/introducing-zed-sdk-51-pushing-robotics-multi-camera-perception-further-than-ever) — SDK features and NITROS integration
+- [Orbbec Femto Bolt](https://www.orbbec.com/products/tof-camera/femto-bolt/) — ToF camera specifications
+- [OrbbecSDK ROS2](https://github.com/orbbec/OrbbecSDK_ROS2) — Orbbec ROS 2 wrapper
+- [Isaac ROS DNN Stereo Depth](https://nvidia-isaac-ros.github.io/repositories_and_packages/isaac_ros_dnn_stereo_depth/index.html) — GPU-accelerated depth estimation
+- [Isaac ROS FoundationStereo](https://nvidia-isaac-ros.github.io/concepts/stereo_depth/foundationstereo/index.html) — Foundation model for stereo depth
+- [LIPS 3D Depth Camera Principles](https://www.lips-hci.com/post/how-3d-depth-cameras-work) — Technology comparison
