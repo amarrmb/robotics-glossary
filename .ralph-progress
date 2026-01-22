@@ -27,3 +27,4 @@ create:software/nvidia/isaac-lab.mdx
 create:concepts/perception/visual-odometry.mdx
 create:concepts/perception/sensor-fusion.mdx
 create:hardware/sensors/depth-cameras.mdx
+create:concepts/ai/vla.mdx
