@@ -182,6 +182,7 @@ jetson-orin → yocto → isaac-ros → tensorrt → deployment-best-practices
 | `concepts/perception/visual-odometry.mdx` | ✅ Complete | 2026-01-21 | P2 Bridges SLAM and cameras |
 | `concepts/perception/sensor-fusion.mdx` | ✅ Complete | 2026-01-21 | P2 Multi-sensor state estimation |
 | `hardware/sensors/depth-cameras.mdx` | ✅ Complete | 2026-01-21 | P2 Stereo, ToF, structured light depth sensing |
+| `concepts/ai/vla.mdx` | ✅ Complete | 2026-01-21 | P1 VLA models (RT-2, GR00T, OpenVLA) - cutting edge robotics AI |
 
 ### Week 3-4: New Critical Content
 - [x] Write `transforms.mdx` and `coordinate-frames.mdx`
