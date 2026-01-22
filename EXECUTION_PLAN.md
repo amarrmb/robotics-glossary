@@ -184,6 +184,7 @@ jetson-orin → yocto → isaac-ros → tensorrt → deployment-best-practices
 | `hardware/sensors/depth-cameras.mdx` | ✅ Complete | 2026-01-21 | P2 Stereo, ToF, structured light depth sensing |
 | `concepts/ai/vla.mdx` | ✅ Complete | 2026-01-21 | P1 VLA models (RT-2, GR00T, OpenVLA) - cutting edge robotics AI |
 | `software/embedded/yocto.mdx` | ✅ Complete | 2026-01-21 | P1 Production Yocto/Jetson custom Linux distros |
+| `software/embedded/nixos.mdx` | ✅ Complete | 2026-01-21 | P2 Reproducible robotics deployments with NixOS |
 
 ### Week 3-4: New Critical Content
 - [x] Write `transforms.mdx` and `coordinate-frames.mdx`
