@@ -162,6 +162,7 @@ degrees-of-freedom → coordinate-frames → transforms → tf2 → urdf → nav
 | `software/nvidia/nvblox.mdx` | ✅ Complete | 2026-01-21 | P1 Real-time 3D reconstruction |
 | `software/nvidia/tensorrt.mdx` | ✅ Complete | 2026-01-21 | P2 Inference optimization |
 | `software/nvidia/isaac-lab.mdx` | ✅ Complete | 2026-01-21 | P2 Sim-to-real training |
+| `concepts/perception/visual-odometry.mdx` | ✅ Complete | 2026-01-21 | P2 Bridges SLAM and cameras |
 
 ### Week 3-4: New Critical Content
 - [x] Write `transforms.mdx` and `coordinate-frames.mdx`
