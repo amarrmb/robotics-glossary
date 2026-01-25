@@ -1,4 +1,4 @@
-# robotics-glossary
+# Robotics Glossary
 An open, community-maintained glossary of robotics concepts, hardware, software, and ecosystems — inspired by the Modal GPU Glossary, with extended coverage of the NVIDIA robotics ecosystem.
 
 # Why this exists?
@@ -10,26 +10,22 @@ As a result:
 
 This glossary is meant to be a navigation layer, not a replacement for textbooks, papers, or standards.
 
-## What this project is?
-- A curated glossary of robotics terms
-- Focused on clarity, context, and cross-linking
-- Open-source and community-editable
-- Practical: includes concepts, algorithms, and commonly used tools/platforms
-
-## What this project is not?
-- Not an official standard (IEEE, ISO, NIST, etc.)
-- Not a full tutorial or textbook. (Although you could use it as a starting point)
-- Not a replacement for Wikipedia or academic references
-- Think of it as an index and map to robotics knowledge.
+## Covers                                                                                                                                                                                                        
+                                                                                                                                                                                                                   
+  - **Concepts** — kinematics, coordinate frames, SLAM, sensor fusion                                                                                                                                              
+  - **Hardware** — LiDAR, IMUs, Jetson platforms, compute modules                                                                                                                                                  
+  - **Software** — ROS 2, Isaac Sim, MoveIt2, Nav2                                                                                                                                                                 
+                                                                                                                                                                                                                   
+  Heavy focus on the NVIDIA robotics stack since that's what I work with most.
 
 ## Contributing
-Contributions are welcome and encouraged. You can help by:
-- Adding missing terms
-- Improving definitions
-- Fixing inaccuracies
-- Adding references or links between concepts
-
-Please see CONTRIBUTING.md for guidelines.
+Spot an error? Want to add a term? Open a PR or start a discussion.
 
 If you’re unsure whether a term belongs here, open an issue and start a discussion.
+
 # Acknowledgements
+The best knowledge is gained from the actual sources:
+1) NVIDIA documentation: https://docs.nvidia.com/
+2) ROS2 documentation (check the specifics for your ROS2 distro): https://docs.ros.org/
+3) Carlos Argueta's course specialized on ROS2 & NVIDIA: https://cm.s1s2.ai/
+4) IEEE Robots Guide (fantastic resource to catch up on latest + interviews of stalwards): https://robotsguide.com/learn 
