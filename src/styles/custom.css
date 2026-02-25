@@ -206,6 +206,16 @@ mark {
   color: white;
 }
 
+/* Joint animation wrappers */
+.joint-animation {
+  margin: 1.5rem 0;
+  text-align: center;
+}
+
+.joint-animation svg {
+  border: 1px solid var(--sl-color-gray-5);
+}
+
 /* Print styles */
 @media print {
   .sidebar,

@@ -1,0 +1,354 @@
+---
+title: Joints & Links
+description: The building blocks of every robot — rigid links connected by movable joints that define how a machine moves
+sidebar:
+  badge:
+    text: Conceptual
+    variant: note
+---
+
+import { Aside, Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+<span class="level-badge conceptual">Conceptual</span>
+
+**Joints** and **links** are the fundamental building blocks of all robotic mechanisms. Links are the rigid structural members (the "bones"), and joints are the movable connections between them (the "elbows" and "shoulders"). Together, they form **kinematic chains** that define how a robot moves through space.
+
+<Aside type="tip">
+Think of links as LEGO beams and joints as the connectors between them. The type and arrangement of joints determines everything a robot can — and can't — do.
+</Aside>
+
+## Prerequisites
+
+<CardGrid>
+  <LinkCard
+    title="Degrees of Freedom"
+    description="How many independent ways a body can move"
+    href="/robotics-glossary/concepts/fundamentals/degrees-of-freedom/"
+  />
+  <LinkCard
+    title="Kinematics"
+    description="How joints create end-effector motion"
+    href="/robotics-glossary/concepts/fundamentals/kinematics/"
+  />
+</CardGrid>
+
+## The Kinematic Chain
+
+Every robot is a chain of alternating links and joints:
+
+```
+Base (Link₀) ─── Joint₁ ─── Link₁ ─── Joint₂ ─── Link₂ ─── ... ─── End-Effector
+     ↑              ↑           ↑          ↑          ↑
+   Fixed      Adds 1 DOF    Rigid     Adds 1 DOF   Rigid
+   ground     (rotation     body      (rotation     body
+              or slide)               or slide)
+```
+
+- **Links** carry loads and define the robot's geometry
+- **Joints** allow motion and define the robot's [degrees of freedom](/robotics-glossary/concepts/fundamentals/degrees-of-freedom/)
+- The number of joints = number of independently controllable axes
+
+## Joint Types
+
+### Revolute Joint (Rotary)
+
+The workhorse of robotics — rotates around a single axis. Roughly 90% of all industrial robot joints are revolute.
+
+<div class="joint-animation">
+  <svg viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg" style="max-width: 300px; margin: 1rem auto; display: block; background: var(--sl-color-gray-6); border-radius: 8px;">
+    {/* Fixed link */}
+    <rect x="50" y="90" width="80" height="20" rx="4" fill="#4b5563" stroke="#9ca3af" strokeWidth="1.5"/>
+    {/* Joint pivot */}
+    <circle cx="130" cy="100" r="12" fill="#1e293b" stroke="#76b900" strokeWidth="2.5"/>
+    <circle cx="130" cy="100" r="4" fill="#76b900"/>
+    {/* Rotating link */}
+    <g transform-origin="130 100">
+      <animateTransform attributeName="transform" type="rotate" from="-30 130 100" to="30 130 100" dur="2s" repeatCount="indefinite" calcMode="spline" keySplines="0.45 0 0.55 1; 0.45 0 0.55 1" keyTimes="0; 0.5; 1" values="-30 130 100; 30 130 100; -30 130 100"/>
+      <rect x="130" y="90" width="100" height="20" rx="4" fill="#374151" stroke="#76b900" strokeWidth="1.5"/>
+    </g>
+    {/* Arc showing rotation */}
+    <path d="M 160 70 A 30 30 0 0 1 160 130" fill="none" stroke="#76b900" strokeWidth="1" strokeDasharray="4 2" opacity="0.5"/>
+    <polygon points="157,128 163,128 160,135" fill="#76b900" opacity="0.5"/>
+    {/* Labels */}
+    <text x="75" y="85" fill="#9ca3af" fontSize="11" fontFamily="sans-serif">Fixed</text>
+    <text x="175" y="85" fill="#76b900" fontSize="11" fontFamily="sans-serif">Rotates</text>
+    <text x="105" y="165" fill="#76b900" fontSize="12" fontFamily="sans-serif" fontWeight="bold">Revolute (1 DOF)</text>
+    <text x="118" y="180" fill="#9ca3af" fontSize="10" fontFamily="sans-serif">θ rotation</text>
+  </svg>
+</div>
+
+- **DOF**: 1 (rotation angle θ)
+- **Motion**: Rotation about a fixed axis
+- **Examples**: Elbow joint, shoulder rotation, wrist twist
+- **Use**: Industrial arms, humanoid limbs, pan-tilt heads
+
+### Prismatic Joint (Linear/Sliding)
+
+Translates along a single axis. Essential for linear motion systems.
+
+<div class="joint-animation">
+  <svg viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg" style="max-width: 300px; margin: 1rem auto; display: block; background: var(--sl-color-gray-6); border-radius: 8px;">
+    {/* Rail/guide */}
+    <rect x="40" y="88" width="220" height="6" rx="2" fill="#4b5563"/>
+    <rect x="40" y="106" width="220" height="6" rx="2" fill="#4b5563"/>
+    {/* Fixed base */}
+    <rect x="40" y="80" width="30" height="40" rx="4" fill="#4b5563" stroke="#9ca3af" strokeWidth="1.5"/>
+    {/* Sliding block */}
+    <g>
+      <animateTransform attributeName="transform" type="translate" from="-30 0" to="60 0" dur="2.5s" repeatCount="indefinite" calcMode="spline" keySplines="0.45 0 0.55 1; 0.45 0 0.55 1" keyTimes="0; 0.5; 1" values="-30 0; 60 0; -30 0"/>
+      <rect x="120" y="78" width="50" height="44" rx="6" fill="#374151" stroke="#3b82f6" strokeWidth="2"/>
+      <line x1="133" y1="95" x2="157" y2="95" stroke="#3b82f6" strokeWidth="2"/>
+      <line x1="133" y1="105" x2="157" y2="105" stroke="#3b82f6" strokeWidth="2"/>
+    </g>
+    {/* Arrow showing translation */}
+    <line x1="90" y1="140" x2="200" y2="140" stroke="#3b82f6" strokeWidth="1.5" strokeDasharray="4 2" opacity="0.6"/>
+    <polygon points="197,137 203,140 197,143" fill="#3b82f6" opacity="0.6"/>
+    <polygon points="93,137 87,140 93,143" fill="#3b82f6" opacity="0.6"/>
+    {/* Labels */}
+    <text x="42" y="75" fill="#9ca3af" fontSize="11" fontFamily="sans-serif">Base</text>
+    <text x="105" y="165" fill="#3b82f6" fontSize="12" fontFamily="sans-serif" fontWeight="bold">Prismatic (1 DOF)</text>
+    <text x="118" y="180" fill="#9ca3af" fontSize="10" fontFamily="sans-serif">d translation</text>
+  </svg>
+</div>
+
+- **DOF**: 1 (displacement d)
+- **Motion**: Linear sliding along an axis
+- **Examples**: Elevator mechanism, telescoping arm, 3D printer axes
+- **Use**: CNC machines, gantry robots, linear actuators
+
+### Cylindrical Joint
+
+Combines rotation and translation along the same axis — two motions in one joint.
+
+<div class="joint-animation">
+  <svg viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg" style="max-width: 300px; margin: 1rem auto; display: block; background: var(--sl-color-gray-6); border-radius: 8px;">
+    {/* Central axis */}
+    <line x1="150" y1="30" x2="150" y2="170" stroke="#4b5563" strokeWidth="8" strokeLinecap="round"/>
+    {/* Cylinder */}
+    <g>
+      <animateTransform attributeName="transform" type="translate" from="0 -20" to="0 20" dur="3s" repeatCount="indefinite" calcMode="spline" keySplines="0.45 0 0.55 1; 0.45 0 0.55 1" keyTimes="0; 0.5; 1" values="0 -20; 0 20; 0 -20"/>
+      <ellipse cx="150" cy="80" rx="35" ry="10" fill="#374151" stroke="#a855f7" strokeWidth="2"/>
+      <rect x="115" y="80" width="70" height="40" fill="#374151" stroke="#a855f7" strokeWidth="2"/>
+      <ellipse cx="150" cy="120" rx="35" ry="10" fill="#374151" stroke="#a855f7" strokeWidth="2"/>
+      {/* Rotation arrow */}
+      <path d="M 195 100 A 45 12 0 0 1 195 100" fill="none" stroke="#a855f7" strokeWidth="1.5">
+        <animateTransform attributeName="transform" type="rotate" from="0 150 100" to="360 150 100" dur="3s" repeatCount="indefinite"/>
+      </path>
+    </g>
+    {/* Up-down arrow */}
+    <line x1="210" y1="60" x2="210" y2="140" stroke="#a855f7" strokeWidth="1.5" strokeDasharray="4 2" opacity="0.5"/>
+    <polygon points="207,63 213,63 210,55" fill="#a855f7" opacity="0.5"/>
+    <polygon points="207,137 213,137 210,145" fill="#a855f7" opacity="0.5"/>
+    {/* Labels */}
+    <text x="215" y="105" fill="#a855f7" fontSize="10" fontFamily="sans-serif">slide</text>
+    {/* Rotation arc */}
+    <path d="M 115 45 A 35 10 0 0 1 185 45" fill="none" stroke="#a855f7" strokeWidth="1.5" strokeDasharray="4 2" opacity="0.5"/>
+    <polygon points="183,42 188,48 182,49" fill="#a855f7" opacity="0.5"/>
+    <text x="130" y="38" fill="#a855f7" fontSize="10" fontFamily="sans-serif">rotate</text>
+    <text x="95" y="185" fill="#a855f7" fontSize="12" fontFamily="sans-serif" fontWeight="bold">Cylindrical (2 DOF)</text>
+  </svg>
+</div>
+
+- **DOF**: 2 (rotation θ + translation d)
+- **Motion**: Rotate and slide along the same axis
+- **Examples**: Cylindrical robot base, hydraulic actuators with rotation
+
+### Spherical Joint (Ball-and-Socket)
+
+Allows rotation about three axes from a fixed center point — the most flexible single-joint type.
+
+<div class="joint-animation">
+  <svg viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg" style="max-width: 300px; margin: 1rem auto; display: block; background: var(--sl-color-gray-6); border-radius: 8px;">
+    {/* Socket */}
+    <path d="M 115 110 A 40 40 0 0 1 185 110" fill="#4b5563" stroke="#9ca3af" strokeWidth="1.5"/>
+    {/* Ball */}
+    <circle cx="150" cy="100" r="25" fill="#374151" stroke="#ef4444" strokeWidth="2">
+      <animate attributeName="cx" from="142" to="158" dur="2s" repeatCount="indefinite" calcMode="spline" keySplines="0.45 0 0.55 1; 0.45 0 0.55 1" keyTimes="0; 0.5; 1" values="142; 158; 142"/>
+    </circle>
+    {/* Ball cross lines to show rotation */}
+    <ellipse cx="150" cy="100" rx="25" ry="8" fill="none" stroke="#ef4444" strokeWidth="1" opacity="0.4">
+      <animate attributeName="cx" from="142" to="158" dur="2s" repeatCount="indefinite" calcMode="spline" keySplines="0.45 0 0.55 1; 0.45 0 0.55 1" keyTimes="0; 0.5; 1" values="142; 158; 142"/>
+    </ellipse>
+    <ellipse cx="150" cy="100" rx="8" ry="25" fill="none" stroke="#ef4444" strokeWidth="1" opacity="0.4">
+      <animate attributeName="cx" from="142" to="158" dur="2s" repeatCount="indefinite" calcMode="spline" keySplines="0.45 0 0.55 1; 0.45 0 0.55 1" keyTimes="0; 0.5; 1" values="142; 158; 142"/>
+    </ellipse>
+    {/* Arm connected to ball */}
+    <g>
+      <animate attributeName="transform" type="rotate" from="-15 150 100" to="15 150 100" dur="2s" repeatCount="indefinite" calcMode="spline" keySplines="0.45 0 0.55 1; 0.45 0 0.55 1" keyTimes="0; 0.5; 1" values="-15; 15; -15"/>
+      <line x1="150" y1="75" x2="150" y2="30" stroke="#374151" strokeWidth="10" strokeLinecap="round"/>
+    </g>
+    {/* Base */}
+    <rect x="110" y="115" width="80" height="20" rx="4" fill="#4b5563" stroke="#9ca3af" strokeWidth="1.5"/>
+    {/* Axis arrows */}
+    <text x="195" y="85" fill="#ef4444" fontSize="10" fontFamily="sans-serif">roll</text>
+    <text x="195" y="100" fill="#ef4444" fontSize="10" fontFamily="sans-serif">pitch</text>
+    <text x="195" y="115" fill="#ef4444" fontSize="10" fontFamily="sans-serif">yaw</text>
+    {/* Labels */}
+    <text x="100" y="165" fill="#ef4444" fontSize="12" fontFamily="sans-serif" fontWeight="bold">Spherical (3 DOF)</text>
+    <text x="102" y="180" fill="#9ca3af" fontSize="10" fontFamily="sans-serif">roll + pitch + yaw</text>
+  </svg>
+</div>
+
+- **DOF**: 3 (roll, pitch, yaw)
+- **Motion**: Rotation about any axis through center
+- **Examples**: Human shoulder, wrist orientation, camera gimbals
+
+### Planar Joint
+
+Allows movement in a 2D plane — two translations plus one rotation.
+
+- **DOF**: 3 (x translation, y translation, rotation)
+- **Motion**: Free movement within a single plane
+- **Examples**: XY tables, planar mobile robots on a flat surface
+
+### Fixed Joint (Weld)
+
+No motion — rigidly connects two links. Used for structural purposes.
+
+- **DOF**: 0
+- **Use**: Mounting sensors, combining sub-assemblies in URDF models
+
+## Joint Comparison
+
+| Joint Type | DOF | Motion | Symbol | Common Use |
+|-----------|-----|--------|--------|------------|
+| Revolute | 1 | Rotation | R | Robot arms, hinges |
+| Prismatic | 1 | Translation | P | Linear actuators, elevators |
+| Cylindrical | 2 | Rotation + Translation | C | Hydraulic cylinders |
+| Spherical | 3 | 3-axis rotation | S | Wrists, camera mounts |
+| Planar | 3 | 2D translation + rotation | E | XY tables |
+| Fixed | 0 | None | — | Structural connections |
+
+## Links
+
+Links are the rigid bodies between joints. Each link has three important properties:
+
+- **Geometry**: Shape and size — critical for collision detection and visualization
+- **Mass & inertia**: Affect dynamics and the torques required to move the robot
+- **Material**: Aluminum (strong, light), carbon fiber (very light), 3D-printed plastic (cheap, fast to iterate)
+
+### Link Parameters
+
+In the Denavit-Hartenberg convention, each link is described by two parameters:
+
+```
+Link i:
+  length (aᵢ) ─── distance between joint axes along x
+  twist  (αᵢ) ─── angle between joint axes about x
+```
+
+<Aside>
+DH parameters provide a standardized way to attach coordinate frames to each link. Combined with joint variables (θ for revolute, d for prismatic), they let you compute forward kinematics as a chain of 4×4 transformation matrices.
+</Aside>
+
+## Common Robot Configurations
+
+Different joint combinations create different robot types:
+
+```
+SCARA Robot          6-DOF Arm             Cartesian/Gantry
+(RRPR)               (RRRRRR)              (PPP)
+
+    R──R              R                     P──P
+   /    \            / \                    │
+  R      P          R   R                   P
+  │               / \                     │
+ Base            R   R                   Tool
+                  \
+                   R
+```
+
+| Configuration | Joints | Workspace Shape | Use Case |
+|--------------|--------|-----------------|----------|
+| Cartesian (PPP) | 3 prismatic | Rectangular box | CNC, 3D printing |
+| Cylindrical (RPP) | 1 revolute + 2 prismatic | Cylinder | Assembly |
+| SCARA (RRP) | 2 revolute + 1 prismatic | Cylindrical | Pick-and-place |
+| Articulated (RRR...) | All revolute | Complex sphere | General manipulation |
+
+## URDF Representation
+
+In ROS, robots are described using URDF (Unified Robot Description Format). Each link specifies its visual appearance, collision geometry, and physical properties (mass + inertia tensor):
+
+```xml
+<!-- Link definition -->
+<link name="upper_arm">
+  <visual>
+    <geometry>
+      <cylinder radius="0.05" length="0.4"/>
+    </geometry>
+  </visual>
+  <collision>
+    <geometry>
+      <cylinder radius="0.05" length="0.4"/>
+    </geometry>
+  </collision>
+  <inertial>
+    <mass value="2.0"/>
+    <!-- Inertia tensor: ixx/iyy/izz = rotational resistance about each axis -->
+    <inertia ixx="0.03" ixy="0" ixz="0"
+             iyy="0.03" iyz="0" izz="0.001"/>
+  </inertial>
+</link>
+
+<!-- Joint definition -->
+<joint name="elbow" type="revolute">
+  <parent link="upper_arm"/>
+  <child link="forearm"/>
+  <origin xyz="0 0 0.4" rpy="0 0 0"/>
+  <axis xyz="0 1 0"/>
+  <limit lower="-2.35" upper="2.35"
+         velocity="3.14" effort="100"/>
+</joint>
+```
+
+### Joint Types in URDF
+
+| URDF Type | Description |
+|-----------|-------------|
+| `revolute` | Rotation with limits |
+| `continuous` | Rotation without limits (wheels) |
+| `prismatic` | Linear sliding with limits |
+| `fixed` | No motion (rigid connection) |
+| `floating` | 6-DOF (used for mobile bases) |
+| `planar` | 2D motion in a plane |
+
+## Practical Tips
+
+<Aside type="tip">
+When designing a robot arm, use **revolute joints** wherever possible — they're simpler, cheaper, and more reliable than prismatic joints. Most 6-DOF and 7-DOF arms are all-revolute.
+</Aside>
+
+<Aside type="caution">
+Joint limits matter! Always specify position, velocity, and effort limits in your URDF. Motion planners like MoveIt depend on these to generate safe trajectories — missing limits can cause dangerous motions.
+</Aside>
+
+## Related Terms
+
+<CardGrid>
+  <LinkCard
+    title="Kinematics"
+    description="How joints create end-effector motion"
+    href="/robotics-glossary/concepts/fundamentals/kinematics/"
+  />
+  <LinkCard
+    title="Degrees of Freedom"
+    description="How joints determine robot capability"
+    href="/robotics-glossary/concepts/fundamentals/degrees-of-freedom/"
+  />
+  <LinkCard
+    title="Motion Planning"
+    description="Finding collision-free joint trajectories"
+    href="/robotics-glossary/concepts/control/motion-planning/"
+  />
+  <LinkCard
+    title="ROS 2"
+    description="URDF and robot descriptions in practice"
+    href="/robotics-glossary/software/frameworks/ros2/"
+  />
+</CardGrid>
+
+## Learn More
+
+- [URDF Tutorials (ROS Wiki)](http://wiki.ros.org/urdf/Tutorials) — Step-by-step guide to building robot descriptions
+- [Modern Robotics, Ch. 2 (Northwestern)](http://hades.mech.northwestern.edu/index.php/Modern_Robotics) — Free textbook covering configuration space and joint types
+- [MoveIt Setup Assistant](https://moveit.picknik.ai/main/doc/examples/setup_assistant/setup_assistant_tutorial.html) — Practical tool for configuring joint limits and collision geometry

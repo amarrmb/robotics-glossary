@@ -1,0 +1,405 @@
+---
+title: Vision-Language-Action Models
+description: Foundation models that see, understand language, and directly generate robot actions — the "GPT moment" for robotics
+sidebar:
+  badge:
+    text: Deep Dive
+    variant: tip
+---
+
+import { Aside, Card, CardGrid, LinkCard, Tabs, TabItem } from '@astrojs/starlight/components';
+
+<span class="level-badge deepdive">Deep Dive</span>
+
+**Vision-Language-Action (VLA) models** are foundation models that take visual observations and language instructions as input and directly output robot actions. They represent a paradigm shift from hand-engineered perception-planning-control pipelines to end-to-end learned policies that can generalize across tasks, environments, and even robot embodiments.
+
+<Aside type="tip">
+VLAs are the robotics equivalent of what GPT was for text — a single model that can handle diverse tasks by learning from large-scale data rather than being programmed for each one.
+</Aside>
+
+## Prerequisites
+
+<CardGrid>
+  <LinkCard
+    title="Neural Networks"
+    description="Architecture foundations that VLAs build upon"
+    href="/robotics-glossary/concepts/ai/neural-networks/"
+  />
+  <LinkCard
+    title="Reinforcement Learning"
+    description="How models learn from interaction and reward"
+    href="/robotics-glossary/concepts/ai/reinforcement-learning/"
+  />
+</CardGrid>
+
+## How VLAs Work
+
+```
+┌──────────────────────────────────────────────────────────┐
+│                    VLA Model                              │
+│                                                          │
+│   Camera Images ─────┐                                   │
+│                      ├──► Vision     ┌─────────────┐     │
+│   Depth (optional) ──┘    Encoder    │             │     │
+│                             │        │   Action    │     │
+│                             ▼        │   Decoder   │──► Joint Commands
+│   "Pick up the           Language    │             │    Gripper Actions
+│    red cup"  ──────────► Encoder     │  (diffusion │    Velocities
+│                             │        │   or auto-  │     │
+│   Joint Positions ────► Proprio-     │   regressive│     │
+│   Gripper State         ception      │   or flow)  │     │
+│                             │        └─────────────┘     │
+│                             ▼                            │
+│                        Fused Representation              │
+└──────────────────────────────────────────────────────────┘
+```
+
+The key insight: instead of decomposing robotics into separate perception, planning, and control modules, VLAs learn the entire mapping end-to-end from raw sensory data to motor commands.
+
+## The VLA Landscape (2023–2026)
+
+```
+2023          2024              2025               2026
+  │             │                 │                  │
+  RT-2         ACT              π₀               π*₀.₆
+  │          Octo             π₀.₅             SmolVLA
+  │         OpenVLA          GR00T N1          Scaling
+  │                          RT-H               ↓
+  │                                          Production
+  │                                          Deployments
+```
+
+## Key Models
+
+### ACT (Action Chunking with Transformers)
+
+The lightweight pioneer that showed predicting **chunks** of future actions (not just one step) dramatically improves imitation learning.
+
+| Aspect | Detail |
+|--------|--------|
+| Parameters | ~80M |
+| Architecture | CVAE encoder-decoder with Transformer |
+| Input | RGB images + proprioception |
+| Output | Action chunks (k future timesteps) |
+| Training | Imitation learning from demonstrations |
+| Benchmark | Bimanual tasks: ~90% success on ALOHA benchmarks |
+| Open source | Yes, via [LeRobot](https://github.com/huggingface/lerobot) |
+
+**How action chunking works:**
+
+```
+Standard policy:     t₁ → a₁,  t₂ → a₂,  t₃ → a₃  ...
+                     (each step can compound errors)
+
+ACT (chunk size 4):  t₁ → [a₁, a₂, a₃, a₄]
+                     (predict sequence, reduce horizon by 4x)
+```
+
+ACT also uses **temporal ensembling** — querying the policy faster than the chunk duration and averaging overlapping predictions for smoother execution.
+
+**Best for:** Fine-grained manipulation, bimanual tasks, low-cost hardware (ALOHA), getting started with imitation learning.
+
+```python
+# Training ACT with LeRobot
+from lerobot.common.policies.act.configuration_act import ACTConfig
+from lerobot.common.policies.act.modeling_act import ACTPolicy
+
+config = ACTConfig(
+    chunk_size=100,          # Predict 100 future steps
+    n_action_steps=100,
+    input_shapes={"observation.image": [3, 480, 640]},
+    output_shapes={"action": [14]},  # 14-DOF bimanual
+)
+policy = ACTPolicy(config)
+```
+
+---
+
+### π₀ (Pi Zero) — Physical Intelligence
+
+The model that proved VLAs can handle truly dexterous tasks. π₀ uses **flow matching** (a diffusion variant) instead of autoregressive decoding, enabling high-frequency (50 Hz) continuous action generation.
+
+| Aspect | Detail |
+|--------|--------|
+| Parameters | 3.3B |
+| Architecture | VLM backbone (PaliGemma) + flow matching action head |
+| Input | RGB images + language + proprioception |
+| Output | Continuous action trajectories via flow matching |
+| Training | Pre-trained on web data, fine-tuned on robot data |
+| Benchmark | Outperforms Octo and OpenVLA on dexterous manipulation |
+| Open source | π₀-FAST variant available |
+
+**Why flow matching?**
+
+Autoregressive models predict one token at a time — too slow and jerky for dexterous manipulation. Flow matching generates entire trajectories as continuous flows, producing smooth 50 Hz actions naturally.
+
+```
+Autoregressive:  [token₁] → [token₂] → [token₃] → ... (discrete, slow)
+
+Flow matching:   noise ═══smooth flow═══► action trajectory (continuous, fast)
+```
+
+---
+
+### π₀.₅ — Open-World Generalization
+
+Builds on π₀ with **co-training** on heterogeneous data: multiple robot types, human videos, synthetic data, and web knowledge.
+
+| Aspect | Detail |
+|--------|--------|
+| Parameters | 3.3B |
+| Key advance | Cross-embodiment generalization via co-training |
+| Training stages | Pre-training (diverse tasks) → Post-training (specialization) |
+| Benchmark | Multi-step mobile manipulation: 60–80% success in novel homes |
+| Open source | Yes, model weights available |
+
+**Two-stage training:**
+
+```
+Stage 1 (Pre-training):        Stage 2 (Post-training):
+  Multiple robot types            Specific embodiment
+  + Human videos                  + Target tasks
+  + Web knowledge                 + Domain-specific data
+  + Synthetic data
+          ↓                              ↓
+  General robot                  Specialized mobile
+  understanding                  manipulation policy
+```
+
+---
+
+### π*₀.₆ — Learning from Experience
+
+The latest from Physical Intelligence. The asterisk (π**\***₀.₆) denotes a "self-improving" variant — the first VLA that gets better through real-world deployment. Introduces **RECAP** (RL with Experience and Corrections via Advantage-conditioned Policies).
+
+<Aside>
+Why the asterisk? Physical Intelligence uses * to mark models that incorporate reinforcement learning from real-world experience, distinguishing them from the purely imitation-learned base models (π₀, π₀.₅).
+</Aside>
+
+| Aspect | Detail |
+|--------|--------|
+| Parameters | 3.3B |
+| Key advance | Self-improvement via RL from real-world experience |
+| Method | RECAP — combines demonstrations + on-policy data + expert corrections |
+| Benchmark | 40–80% improvement over π₀.₅ on complex household tasks |
+| Significance | First VLA that improves from deployment experience |
+
+**Why RECAP matters:**
+
+Most VLAs are static after training — they can only be as good as their demonstration data. π*₀.₆ can improve from its own mistakes in the real world:
+
+```
+┌─────────┐    ┌──────────┐    ┌──────────────┐    ┌──────────┐
+│ Deploy  │ →  │ Collect  │ →  │ Expert       │ →  │ Retrain  │
+│ policy  │    │ on-policy│    │ corrections  │    │ with     │
+│         │    │ data     │    │ when stuck   │    │ RECAP    │
+└─────────┘    └──────────┘    └──────────────┘    └──────────┘
+      ↑                                                  │
+      └──────────── Improved policy ◄────────────────────┘
+```
+
+Results: folds laundry in real homes, assembles boxes, makes espresso — tasks that pure imitation learning struggles with.
+
+---
+
+### GR00T N1 — NVIDIA
+
+NVIDIA's open foundation model for humanoid robots, announced at GTC 2025. Uses a **dual-system architecture** inspired by human cognition.
+
+| Aspect | Detail |
+|--------|--------|
+| Parameters | 2B |
+| Architecture | Dual-system: VLM (System 2) + Diffusion Transformer (System 1) |
+| Input | Multi-camera RGB + language instructions + proprioception |
+| Output | Whole-body humanoid actions |
+| Training | Real robot data + human videos + synthetic data (50K H100 GPU hours) |
+| Benchmark | State-of-the-art on humanoid manipulation and locomotion |
+| Open source | Yes, weights on [Hugging Face](https://huggingface.co/nvidia/GR00T-N1-2B) |
+
+**Dual-system design:**
+
+```
+System 2 (Slow Thinking):              System 1 (Fast Acting):
+  Vision-Language Model                   Diffusion Transformer
+  "What do I see?"                        "How do I move?"
+  "What should I do?"                     Continuous motor commands
+  Deliberate reasoning                    Fluid real-time actions
+           │                                       │
+           └───── Coupled & jointly trained ───────┘
+```
+
+**Adopters:** 1X, Agility Robotics, Boston Dynamics, Mentee Robotics, NEURA Robotics.
+
+---
+
+### SmolVLA — Hugging Face
+
+A compact, community-driven VLA that proves you don't need billions of parameters.
+
+| Aspect | Detail |
+|--------|--------|
+| Parameters | 450M |
+| Architecture | Trimmed SmolVLM-2 + Transformer action expert |
+| Training data | 10M frames from 487 open-source community datasets |
+| Benchmark | 87.3% on LIBERO (matches models 7× its size) |
+| Hardware | Trains on 1 GPU, runs on a MacBook |
+| Open source | Yes, via [LeRobot](https://huggingface.co/lerobot/smolvla_base) |
+
+**Why SmolVLA matters for the community:**
+
+```
+                  Performance
+                      ▲
+  π₀ (3.3B) ─────── ●│
+                      │
+  SmolVLA (0.45B) ── ●│  ← Close performance at 1/7 the size
+                      │
+  ACT (0.08B) ────── ●│  ← Still strong for specific tasks
+                      │
+                      └──────────────► Parameters
+```
+
+## Architecture Comparison
+
+| Model | Params | Action Decoder | Language | Open Source | Best For |
+|-------|--------|---------------|----------|-------------|----------|
+| ACT | 80M | CVAE + chunking | No | Yes | Fine-grained manipulation |
+| π₀ | 3.3B | Flow matching | Yes | Partial | Dexterous tasks |
+| π₀.₅ | 3.3B | Flow matching | Yes | Yes | Open-world mobile manip |
+| π*₀.₆ | 3.3B | Flow matching + RL | Yes | No | Self-improving deployment |
+| GR00T N1 | 2B | Diffusion Transformer | Yes | Yes | Humanoid robots |
+| SmolVLA | 450M | Transformer expert | Yes | Yes | Low-cost, community |
+| Octo | 93M | Diffusion | Yes | Yes | Cross-embodiment research |
+| OpenVLA | 7B | Autoregressive | Yes | Yes | General manipulation |
+| RT-2 | 55B | Autoregressive | Yes | No | Google's large-scale VLA |
+
+## Action Representations
+
+How VLAs output actions varies significantly:
+
+<Tabs>
+  <TabItem label="Autoregressive">
+    Predict action tokens one at a time (like GPT generates text).
+
+    **Models:** RT-2, OpenVLA
+
+    **Pros:** Simple, leverages LLM pre-training
+
+    **Cons:** Slow inference, discrete actions, hard to do high-frequency control
+
+    ```
+    [img] [text] → [a₁] → [a₂] → [a₃] → ... (sequential)
+    ```
+  </TabItem>
+  <TabItem label="Diffusion/Flow">
+    Generate action trajectories by denoising from random noise.
+
+    **Models:** π₀, GR00T N1, Octo
+
+    **Pros:** Smooth continuous actions, handles multimodality
+
+    **Cons:** Multiple denoising steps needed, more complex training
+
+    ```
+    noise ═══ denoise ═══ denoise ═══► action trajectory
+    ```
+  </TabItem>
+  <TabItem label="Chunking (CVAE)">
+    Predict a chunk of future actions in one forward pass.
+
+    **Models:** ACT
+
+    **Pros:** Fast, simple, effective with small data
+
+    **Cons:** No language conditioning, limited generalization
+
+    ```
+    [observation] → [a₁, a₂, ..., aₖ] (one-shot chunk)
+    ```
+  </TabItem>
+</Tabs>
+
+## Getting Started
+
+### Easiest Path: LeRobot + ACT or SmolVLA
+
+```bash
+# Install LeRobot
+pip install lerobot
+
+# Fine-tune SmolVLA on your data
+python lerobot/scripts/train.py \
+  --policy.type=smolvla \
+  --dataset.repo_id=your_username/your_dataset \
+  --output_dir=outputs/smolvla_finetuned \
+  --steps=20000
+```
+
+### For Humanoid Robots: GR00T N1
+
+```python
+# Download from Hugging Face
+from transformers import AutoModel
+
+model = AutoModel.from_pretrained("nvidia/GR00T-N1-2B")
+
+# Fine-tune for your embodiment
+# See: https://developer.nvidia.com/isaac-gr00t
+```
+
+### Hardware Requirements
+
+| Model | Training | Inference |
+|-------|----------|-----------|
+| ACT | 1× consumer GPU | Jetson Orin Nano |
+| SmolVLA | 1× A100 (4 hrs) | Jetson Orin NX / MacBook |
+| GR00T N1 | Multi-GPU cluster | Jetson Thor |
+| π₀ | Large cluster | Jetson Thor / high-end GPU |
+
+<Aside type="caution">
+VLA inference latency matters for real-time control. At 50 Hz, you have 20 ms per action. Flow-matching models (π₀, GR00T N1) are designed for this; autoregressive models (OpenVLA, RT-2) typically run at 3–10 Hz and need action chunking to compensate.
+</Aside>
+
+## What's Next for VLAs?
+
+The field is moving fast. Key trends for 2026+:
+
+- **Self-improvement**: Models that get better from deployment (π*₀.₆ / RECAP)
+- **Smaller, faster**: Efficient models for edge deployment (SmolVLA direction)
+- **Sim-to-real**: Better transfer from simulated training ([Isaac Lab](/robotics-glossary/software/simulation/isaac-sim/))
+- **Multi-embodiment**: One model, many robots (π₀.₅ direction)
+- **Safety**: Constrained policies that avoid dangerous actions
+
+## Related Terms
+
+<CardGrid>
+  <LinkCard
+    title="Neural Networks"
+    description="Architecture foundations for VLAs"
+    href="/robotics-glossary/concepts/ai/neural-networks/"
+  />
+  <LinkCard
+    title="Reinforcement Learning"
+    description="How VLAs improve from experience"
+    href="/robotics-glossary/concepts/ai/reinforcement-learning/"
+  />
+  <LinkCard
+    title="Jetson Thor"
+    description="Hardware for deploying large VLAs"
+    href="/robotics-glossary/hardware/compute/jetson-thor/"
+  />
+  <LinkCard
+    title="Isaac Sim"
+    description="Generate training data for VLAs"
+    href="/robotics-glossary/software/simulation/isaac-sim/"
+  />
+</CardGrid>
+
+## Learn More
+
+- [Physical Intelligence](https://www.physicalintelligence.company/) — π₀, π₀.₅, π*₀.₆
+- [LeRobot (Hugging Face)](https://github.com/huggingface/lerobot) — ACT, SmolVLA, open-source VLA training
+- [GR00T N1 Paper](https://arxiv.org/abs/2503.14734) — NVIDIA's humanoid foundation model
+- [SmolVLA Paper](https://arxiv.org/abs/2506.01844) — Efficient VLA for community robotics
+- [π₀ Paper](https://arxiv.org/abs/2410.24164) — Flow matching for robot control
+- [π*₀.₆ Paper](https://arxiv.org/abs/2511.14759) — Self-improving VLAs with RECAP
