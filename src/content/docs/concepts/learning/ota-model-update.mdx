@@ -1,0 +1,127 @@
+---
+title: OTA Model Update
+description: Pushing new model weights to deployed robots over-the-air without manual intervention
+sidebar:
+  badge:
+    text: Practical
+    variant: success
+last_validated: 2026-03-02
+---
+
+import { Aside, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+<span class="level-badge practical">Practical</span>
+
+**OTA (Over-the-Air) Model Update** is the practice of pushing new neural network weights to a deployed robot remotely — without physical access or manual file transfer. When a training run completes and produces a better checkpoint, OTA infrastructure delivers it to every robot in the fleet automatically. This is what makes continuous improvement practical at fleet scale.
+
+## Why It Matters
+
+Without OTA, updating a robot model looks like this:
+
+1. Training completes — checkpoint ready on the training server
+2. Copy checkpoint to a USB drive
+3. Walk to the robot (or SSH in individually)
+4. Stop the running policy
+5. Replace the checkpoint directory
+6. Restart the policy
+7. Verify it loaded correctly
+
+Multiply that by 10 robots and you have a full day's work just delivering a model update. OTA collapses this to a single operation:
+
+> Training completes → push to fleet → robots hot-swap automatically
+
+The improvement loop — record failures, retrain, redeploy — only closes if deployment is fast and cheap. OTA is what makes that loop practical.
+
+## Hot-Swapping
+
+The most important property of a production OTA system is that robots do not stop moving during an update. This requires hot-swapping: loading new weights into memory and switching the active model without halting the control loop.
+
+```
+Training service pushes checkpoint
+  (safetensors + stats.json)
+          │
+          ▼
+Robot receives MODEL_UPDATE via WebSocket
+          │
+          ▼
+Downloads checkpoint + verifies SHA256 hash
+          │
+          ▼
+Loads new weights into memory (thread-safe)
+          │
+          ▼
+Control loop uses new model on next inference cycle
+          │
+          ▼
+Old weights garbage collected
+```
+
+The transition happens between inference cycles — typically at a chunk boundary — so there is no interruption to robot motion. The robot completes its current action chunk, then begins predicting with the updated model.
+
+<Aside>
+Thread safety matters here. The inference thread must not read model weights while the loader thread is writing them. A simple lock around the model reference — not the entire forward pass — is sufficient.
+</Aside>
+
+## Rollback
+
+Deploying a bad model to a production robot is a real risk. OTA systems need three things to handle it safely:
+
+- **Retain N recent checkpoints** on the robot — so rollback does not require another download
+- **A success metric** that can be evaluated autonomously — task completion rate, anomaly score, or a simple watchdog that detects the robot has entered an unexpected state
+- **A remote rollback command** — the same channel used to push new models should be able to instruct a robot to revert to the previous checkpoint
+
+Without automated rollback, a bad deployment requires the same manual intervention OTA was meant to eliminate.
+
+## Fleet Deployment
+
+For fleets larger than a handful of robots, staged rollouts reduce the blast radius of a bad update:
+
+```
+Training completes → new checkpoint available
+          │
+          ▼
+Deploy to 1 robot (canary)
+          │
+          ▼
+Evaluate for 24 hours
+          │
+    ┌─────┴─────┐
+    │           │
+Success     Failure
+rate OK?    rate high?
+    │           │
+    ▼           ▼
+Deploy to    Rollback canary
+full fleet   Investigate
+```
+
+The canary period catches regressions before they affect the whole fleet. The evaluation window depends on task frequency — a robot that runs a task 100 times per hour generates signal faster than one that runs it 5 times per day.
+
+## Related Terms
+
+<CardGrid>
+  <LinkCard
+    title="Model Checkpoint"
+    description="The saved weights and configuration that OTA delivers to robots"
+    href="/robotics-glossary/concepts/learning/model-checkpoint/"
+  />
+  <LinkCard
+    title="Imitation Learning"
+    description="The training paradigm that produces the checkpoints being deployed"
+    href="/robotics-glossary/concepts/learning/imitation-learning/"
+  />
+  <LinkCard
+    title="Sim-to-Real"
+    description="Validating a new checkpoint in simulation before OTA deployment"
+    href="/robotics-glossary/concepts/learning/sim-to-real/"
+  />
+</CardGrid>
+
+<Aside title="In Practice">
+DeviceNexus uses this pattern — the training service pushes a new checkpoint to Aether (the connectivity hub), which broadcasts a MODEL_UPDATE message. Each robot-agent downloads and hot-swaps the model without stopping its control loop. [Learn more at devicenexus.ai](https://devicenexus.ai)
+</Aside>
+
+## Sources
+
+- [AWS IoT Greengrass OTA Updates](https://docs.aws.amazon.com/greengrass/v2/developerguide/update-greengrass-core-v2.html) — AWS's documentation on over-the-air deployment patterns for edge devices, covering delta updates, rollback, and staged rollouts
+- [NVIDIA Isaac ROS](https://nvidia-isaac-ros.github.io) — NVIDIA's ROS 2 packages for robot autonomy; the broader Isaac platform includes OTA update infrastructure for Jetson-based robots
