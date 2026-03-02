@@ -1,0 +1,118 @@
+---
+title: Teleoperation
+description: Controlling a robot remotely to record training demonstrations
+sidebar:
+  badge:
+    text: Practical
+    variant: success
+last_validated: 2026-03-02
+---
+
+import { Aside, Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+<span class="level-badge practical">Practical</span>
+
+**Teleoperation** is the control of a robot from a distance — in the context of imitation learning, it means a human operator physically manipulates a **leader arm** while a **follower robot** mirrors those movements in real time, recording every joint angle and camera frame as a training demonstration. The goal is not task completion for its own sake: it is capturing high-quality, consistent human behavior that a policy can later learn to imitate.
+
+<Aside type="tip">
+Teleoperation is how you turn human skill into machine-readable data. Every episode you record is a labeled example for the learning algorithm — quality matters far more than quantity.
+</Aside>
+
+## Leader-Follower Setup
+
+The most common physical setup for imitation learning uses mechanically identical arms in a leader-follower configuration:
+
+```
+Human grips leader arm
+         │
+         ▼
+  Joint angles sampled
+  at 30Hz via serial bus
+         │
+         ▼
+  Follower arm mirrors
+  movements in real time   ──────────► Cameras record scene
+         │
+         ▼
+  All data written to
+  training dataset (Parquet + video)
+```
+
+**Why physically coupled over a joystick?**
+
+A joystick or spacemouse requires the operator to mentally translate "move joystick left" into "rotate wrist joint 3." A leader arm eliminates that translation layer entirely — the human moves naturally and the follower copies exactly. This produces demonstrations with the same dynamic profile (velocities, accelerations, gripper force timing) that the policy will need to reproduce. Joystick control introduces an operator-specific encoding step that the model also has to learn to undo.
+
+## What Gets Recorded
+
+Each frame in a demonstration captures four streams simultaneously:
+
+| Field | Contents | Size per frame |
+|-------|----------|---------------|
+| `observation.state` | Joint positions — 6 floats in radians (shoulder_pan, shoulder_lift, elbow_flex, wrist_flex, wrist_roll, gripper) | ~48 bytes |
+| `action` | Target joint positions — same 6 floats, representing what the leader arm commanded | ~48 bytes |
+| `observation.images.overhead` | 640×480 RGB frame from overhead camera | ~900 KB uncompressed |
+| `observation.images.side` | 640×480 RGB frame from side camera (optional but strongly recommended) | ~900 KB uncompressed |
+
+**Storage estimate**: One 10-second demonstration at 30fps = 300 frames = approximately 540 MB of uncompressed video plus about 14 KB of joint data. In practice, video is encoded to H.264 or AV1 at recording time, shrinking to 5–15 MB per episode.
+
+<Aside type="caution">
+State key ordering is critical. The policy network sees joint values as a fixed-length vector — if you record `[shoulder_pan, shoulder_lift, ...]` at training time but serve `[gripper, shoulder_pan, ...]` at inference time, the model will produce chaotic, dangerous joint commands. Hard-code the order in both the recorder and the inference client and never change it.
+</Aside>
+
+## Data Collection Rules
+
+These rules are not suggestions. Each one was learned by recording a batch of episodes, training on them, watching the model fail at evaluation, and tracing the failure back to a recording mistake.
+
+1. **Watch the camera feeds, not the robot.** The model sees what the cameras see. If your eye is on the physical arm instead of the monitor, your demonstrations will not match the camera perspective the model will use at inference time.
+
+2. **Start moving before pressing record.** Idle frames at the start of an episode teach the model that the correct initial action is to hold still. This creates a "frozen moment" bias where the deployed policy hesitates before starting a task. Begin the motion, then trigger recording.
+
+3. **Stop recording immediately when the task is complete.** Idle frames at the end are equally damaging — the model learns that a correct completion involves holding position. Stop the recording the instant the gripper releases or the task goal is met.
+
+4. **Vary the object position across spatial zones.** A model trained on 50 episodes where the target object is always in the center of the workspace will fail the moment the object moves to the left edge. Divide the workspace into a grid (near/far × left/center/right = 6 zones) and target at least 8 episodes per zone.
+
+5. **Complete the full task on every episode.** A demonstration that shows the robot reaching for an object but not grasping it teaches the policy that reaching is the goal. Every episode must include the complete sequence: approach, grasp, transport, and release (or whatever the full task is). Discard any episode that stops short.
+
+## Hardware Options
+
+| Method | Example hardware | Cost | Demonstration quality |
+|--------|-----------------|------|-----------------------|
+| Leader-follower arms | SO-101, ALOHA, Koch | $300–$20K | Best — natural human dynamics, no translation lag |
+| VR controllers | Meta Quest 3, HTC Vive | $300–$1K | Good for bimanual tasks; some latency and drift |
+| Joystick / SpaceMouse | 3Dconnexion SpaceMouse | $150–$400 | Easiest setup; lower quality due to operator encoding overhead |
+| Kinesthetic teaching | No extra hardware | $0 | Requires gravity compensation on the robot; good for slow, precise tasks |
+
+<Aside title="In Practice">
+We teleoped 56 demonstrations using SO-101 leader/follower arms connected via USB to a Jetson Orin. Idle frames at start and end were the single biggest data quality issue — they cost us one entire 100K-step training run before we identified the cause. The fix was strict protocol: motion before record, stop immediately on completion, then validate every batch with an automated script. [Full story →](/robotics-glossary/guides/act-training-lessons/)
+</Aside>
+
+## Related Terms
+
+<CardGrid>
+  <LinkCard
+    title="Imitation Learning"
+    description="Training policies from human demonstrations"
+    href="/robotics-glossary/concepts/learning/imitation-learning/"
+  />
+  <LinkCard
+    title="Robot Training Dataset"
+    description="Structured collections of demonstrations used for policy learning"
+    href="/robotics-glossary/concepts/learning/robot-training-dataset/"
+  />
+  <LinkCard
+    title="End Effector"
+    description="The business end of a robot arm — gripper, tool, or sensor"
+    href="/robotics-glossary/concepts/fundamentals/end-effector/"
+  />
+  <LinkCard
+    title="Kinematics"
+    description="How robots move through space — the geometry of motion"
+    href="/robotics-glossary/concepts/fundamentals/kinematics/"
+  />
+</CardGrid>
+
+## Sources
+
+- [LeRobot Teleoperation Guide](https://github.com/huggingface/lerobot/blob/main/examples/10_use_so100.md) — Practical setup and recording workflow for SO-100/SO-101 arms
+- [ACT: Action Chunking with Transformers](https://arxiv.org/abs/2304.13705) — Zhao et al., 2023 — the paper that popularized leader-follower teleoperation for imitation learning at low cost
+- [ALOHA: A Low-cost Open-source Hardware System](https://mobile-aloha.github.io/) — Stanford reference hardware for bimanual teleoperation
