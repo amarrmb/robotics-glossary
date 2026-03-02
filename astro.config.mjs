@@ -79,6 +79,10 @@ export default defineConfig({
               autogenerate: { directory: 'concepts/control' },
             },
             {
+              label: 'Learning from Demonstration',
+              autogenerate: { directory: 'concepts/learning' },
+            },
+            {
               label: 'AI & Learning',
               autogenerate: { directory: 'concepts/ai' },
             },
@@ -120,6 +124,16 @@ export default defineConfig({
                 { label: 'Isaac Sim', slug: 'software/simulation/isaac-sim' },
               ],
             },
+          ],
+        },
+        {
+          label: 'Guides',
+          collapsed: false,
+          badge: { text: 'DeviceNexus', variant: 'caution' },
+          items: [
+            { label: 'Overview', slug: 'guides' },
+            { label: 'Teaching a Robot to Pick Up a Candy Bar', slug: 'guides/act-training-lessons' },
+            { label: '3 Numbers That Tell You How to Optimize', slug: 'guides/latency-floor-model' },
           ],
         },
         {

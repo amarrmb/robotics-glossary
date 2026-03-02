@@ -1,0 +1,23 @@
+---
+title: Guides
+description: Engineering stories from building DeviceNexus — how we applied robotics concepts to real problems
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+These are first-person accounts of building with physical AI — the failures, the fixes, and what we learned. Each guide links back to the glossary concepts it applies.
+
+They're companion pieces to the reference entries in [Concepts](/robotics-glossary/concepts/fundamentals/kinematics/). Read the concept for theory; read the guide for how it plays out in practice.
+
+<CardGrid>
+  <LinkCard
+    title="Teaching a Robot to Pick Up a Candy Bar"
+    description="56 episodes, 3 training runs, one candy bar. What we learned training an SO-101 arm with ACT."
+    href="/robotics-glossary/guides/act-training-lessons/"
+  />
+  <LinkCard
+    title="3 Numbers That Tell You How to Optimize"
+    description="Before you try quantization: compute R1, R2, R3 first. The latency floor model from 30 hours of failed optimization."
+    href="/robotics-glossary/guides/latency-floor-model/"
+  />
+</CardGrid>
