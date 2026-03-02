@@ -1,0 +1,117 @@
+---
+title: Point Cloud
+description: A set of 3D points representing the geometry of a surface or environment — the primary format for spatial perception
+sidebar:
+  badge:
+    text: Conceptual
+    variant: note
+last_validated: 2026-03-02
+---
+
+import { Aside, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+<span class="level-badge conceptual">Conceptual</span>
+
+A **point cloud** is a collection of 3D points — each one a location (x, y, z) in space representing a position on a surface or object. Often each point also carries additional channels: color (r, g, b), return intensity, or a surface normal vector. Point clouds are the native output of LiDAR sensors and depth cameras, and the primary format for 3D spatial understanding in robotics.
+
+Where a camera image tells you *what* the scene looks like, a point cloud tells you *where* things are in three dimensions.
+
+## How Point Clouds Are Generated
+
+| Source | Method | Typical density |
+|--------|--------|----------------|
+| **LiDAR** | Laser time-of-flight | Sparse (64–128 beams), long range (100m+) |
+| **RGB-D camera** | Structured light or time-of-flight | Dense (~300K points/frame), short range (5m) |
+| **Stereo camera** | Disparity from two images | Dense, no active illumination, outdoor use |
+| **Photogrammetry** | Multiple RGB images + Structure from Motion | Dense, offline, no depth sensor needed |
+
+LiDAR produces sparse but long-range and highly accurate measurements, making it the sensor of choice for outdoor navigation. RGB-D cameras produce dense but shorter-range clouds, better suited for indoor manipulation where you need fine geometry near the robot.
+
+## Point Cloud Data Structure
+
+Each point is a small record of floating-point and integer fields:
+
+```
+Each point:
+  x, y, z        (float32) — 3D position in meters
+  intensity       (float32) — LiDAR return strength (optional)
+  r, g, b        (uint8)   — color from RGB-D (optional)
+  nx, ny, nz     (float32) — surface normal vector (optional)
+
+Stored as: PCL PointCloud<PointXYZI>, ROS sensor_msgs/PointCloud2, .pcd files
+```
+
+The `sensor_msgs/PointCloud2` ROS message is the standard interchange format — it stores the binary point data with a field schema describing which channels are present and their types.
+
+## Key Operations
+
+Point clouds are rarely used raw. A standard processing pipeline applies several operations before the data is useful:
+
+- **Downsampling (voxel grid)**: divide space into a 3D grid, keep one point per voxel. Reduces cloud density by 10–100x for faster downstream processing, typically 10–50ms on CPU.
+- **Filtering**: remove statistical outliers (single noisy returns far from neighbors), crop to a region of interest (e.g. 5m radius around robot), or pass-through filter by height to remove the floor.
+- **Normal estimation**: compute a surface normal vector at each point by fitting a plane to nearby neighbors. Surface normals are required for grasp pose planning — they tell the gripper which direction to approach.
+- **Registration (ICP — Iterative Closest Point)**: align two point clouds by minimizing point-to-point distance. Used in LiDAR SLAM to register each new scan against the accumulated map.
+- **Object segmentation**: separate foreground objects from the dominant background plane (e.g. table surface) using RANSAC plane fitting followed by Euclidean cluster extraction.
+
+<Aside>
+Voxel downsampling is almost always the first step. A raw 300K-point RGB-D frame at 30Hz is 9M points/sec — far too much to process each downstream stage. Downsampling to 10K–30K points is typical.
+</Aside>
+
+## In SLAM
+
+LiDAR SLAM algorithms (LOAM, LIO-SAM) build the environment map as a point cloud, registering each new scan against the accumulated map using ICP-variant algorithms. The output is a globally consistent 3D map that the robot can localize against.
+
+For camera-based depth, [nvblox](https://nvidia-isaac-ros.github.io/repositories_and_packages/isaac_ros_nvblox/index.html) converts RGB-D frames into a TSDF (Truncated Signed Distance Field) — a volumetric representation built by fusing point cloud data over time. The TSDF supports both mesh generation (for visualization) and occupancy grid extraction (for Nav2 path planning).
+
+## In Manipulation
+
+Point clouds are central to robotic grasping:
+
+1. Detect the target object in the point cloud (by color, shape, or learned features)
+2. Estimate surface normals at candidate grasp locations
+3. Score grasp poses based on normal alignment, contact area, and collision clearance
+4. Plan the gripper approach trajectory
+
+Libraries for point cloud manipulation:
+- **PCL (Point Cloud Library)**: C++ library with filters, segmentation, registration, and feature estimation. The standard for ROS-based robotics.
+- **Open3D**: Python/C++ library with similar capabilities plus mesh processing and neural point cloud methods. Easier to prototype with.
+
+<Aside type="tip">
+For NVIDIA Jetson deployments, Isaac ROS includes CUDA-accelerated point cloud processing nodes — downsampling and obstacle detection that run on GPU rather than CPU.
+</Aside>
+
+## Related Terms
+
+<CardGrid>
+  <LinkCard
+    title="SLAM"
+    description="Building maps and localizing — often using LiDAR point clouds"
+    href="/robotics-glossary/concepts/perception/slam/"
+  />
+  <LinkCard
+    title="Computer Vision"
+    description="2D image understanding that complements 3D point cloud data"
+    href="/robotics-glossary/concepts/perception/computer-vision/"
+  />
+  <LinkCard
+    title="Sensor Fusion"
+    description="Combining point clouds with camera, IMU, and other sensor data"
+    href="/robotics-glossary/concepts/perception/sensor-fusion/"
+  />
+  <LinkCard
+    title="LiDAR"
+    description="The primary hardware source for sparse, long-range point clouds"
+    href="/robotics-glossary/hardware/sensors/lidar/"
+  />
+  <LinkCard
+    title="Depth Cameras"
+    description="RGB-D cameras that produce dense short-range point clouds"
+    href="/robotics-glossary/hardware/sensors/depth-cameras/"
+  />
+</CardGrid>
+
+## Sources
+
+- [Point Cloud Library (PCL)](https://pointclouds.org/) — Reference documentation for filters, segmentation, registration, and feature estimation
+- [Open3D](https://www.open3d.org/) — Python and C++ point cloud and mesh processing library with tutorials
+- [Isaac ROS nvblox](https://nvidia-isaac-ros.github.io/repositories_and_packages/isaac_ros_nvblox/index.html) — GPU-accelerated TSDF fusion from depth camera point clouds on Jetson

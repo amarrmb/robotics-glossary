@@ -1,0 +1,113 @@
+---
+title: Computer Vision
+description: How robots interpret camera images — from raw pixels to objects, depth, and spatial understanding
+sidebar:
+  badge:
+    text: Conceptual
+    variant: note
+last_validated: 2026-03-02
+---
+
+import { Aside, Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+<span class="level-badge conceptual">Conceptual</span>
+
+**Computer vision** is the set of algorithms and techniques that extract useful information from images and video. For robots, it answers the questions that make autonomous operation possible: where are objects? how far away are they? what is this thing in front of me?
+
+Cameras are cheap and information-dense — a single RGB frame contains millions of data points about the environment. But raw pixels mean nothing without processing. Computer vision is the translation layer between sensor data and robot understanding.
+
+## The Vision Pipeline
+
+```
+Raw image (pixels)
+  └─ Preprocessing (resize, normalize, denoise)
+      └─ Feature extraction (edges, keypoints, semantic regions)
+          └─ Interpretation (depth, object detection, segmentation)
+              └─ Robot action (grasp pose, navigation waypoint, avoidance)
+```
+
+Each stage reduces noise and increases abstraction. The robot never reasons about pixels directly — it reasons about objects, distances, and spatial relationships derived from them.
+
+## Key Tasks in Robotics Vision
+
+| Task | What it does | Common use |
+|------|-------------|-----------|
+| **Depth estimation** | Per-pixel distance from camera | Obstacle avoidance, grasp planning |
+| **Object detection** | Bounding boxes around known classes | "Find the cup" |
+| **Semantic segmentation** | Per-pixel class labels | Floor vs. obstacle vs. table |
+| **Keypoint detection** | Specific points on objects or humans | Pose estimation, manipulation |
+| **Optical flow** | Pixel motion between frames | Visual odometry, tracking |
+| **Feature matching** | Same point across frames | SLAM, relocalization |
+
+No single task is sufficient on its own. A manipulation robot typically needs detection (find the object), depth estimation (how far), and keypoint detection (where to grasp) working together.
+
+## Depth from Cameras
+
+Two approaches dominate in robotics:
+
+**Stereo cameras** use two cameras at a known horizontal offset. Matching the same point in both images gives a disparity value; disparity converts directly to depth via the camera baseline. No active illumination, works well outdoors, effective range up to 20–40m depending on baseline width.
+
+**RGB-D cameras** (Intel RealSense, Microsoft Azure Kinect) emit structured light or measure time-of-flight to produce a dense depth map alongside the color image. They work well indoors at ranges up to ~5m, require no stereo matching computation, but are sensitive to sunlight interference.
+
+<Aside>
+For LiDAR-based depth — sparse but long-range 3D measurements — see [Point Cloud](/robotics-glossary/concepts/perception/point-cloud/).
+</Aside>
+
+## Deep Learning for Vision
+
+Modern robotics vision is dominated by two neural network architectures:
+
+**Convolutional Neural Networks (CNNs)** are the standard architecture for image classification and object detection. Stacked convolutional layers detect increasingly abstract features: early layers find edges and textures, deeper layers find object parts and whole objects. CNNs are computationally efficient and well-suited to local spatial patterns.
+
+**Vision Transformers (ViTs)** treat an image as a sequence of fixed-size patches and apply self-attention across them. ViTs are better than CNNs at capturing global context — relationships between distant regions of an image. They are the backbone of modern Vision-Language-Action (VLA) models, where visual understanding must integrate with language and motor control.
+
+<Aside type="tip">
+Most production robotics systems use CNNs for real-time detection (YOLO, RTMDet) and ViT-based models for tasks requiring richer scene understanding or language grounding.
+</Aside>
+
+## NVIDIA Acceleration
+
+Isaac ROS includes GPU-accelerated vision packages that run as CUDA-accelerated ROS 2 nodes on Jetson:
+
+- **RTMDet**: Real-time object detection and instance segmentation
+- **Pose estimation**: 6-DoF object pose from a single RGB image
+- **ESS (Efficient Stereo Depth)**: Deep learning stereo depth using DNN rather than classical disparity matching
+- **AprilTag detection**: Fiducial marker detection for localization and camera calibration
+
+All packages expose standard ROS 2 interfaces, making them composable with SLAM, navigation, and manipulation pipelines.
+
+## Related Terms
+
+<CardGrid>
+  <LinkCard
+    title="SLAM"
+    description="Building maps and localizing using vision and other sensors"
+    href="/robotics-glossary/concepts/perception/slam/"
+  />
+  <LinkCard
+    title="Point Cloud"
+    description="3D spatial data from LiDAR and depth cameras"
+    href="/robotics-glossary/concepts/perception/point-cloud/"
+  />
+  <LinkCard
+    title="Sensor Fusion"
+    description="Combining camera data with IMU, LiDAR, and other sensors"
+    href="/robotics-glossary/concepts/perception/sensor-fusion/"
+  />
+  <LinkCard
+    title="VLA Models"
+    description="Vision-Language-Action models that act on visual input"
+    href="/robotics-glossary/concepts/ai/vla-models/"
+  />
+  <LinkCard
+    title="Isaac ROS"
+    description="GPU-accelerated vision and perception on Jetson"
+    href="/robotics-glossary/software/isaac/isaac-ros/"
+  />
+</CardGrid>
+
+## Sources
+
+- [Isaac ROS Object Detection](https://nvidia-isaac-ros.github.io/repositories_and_packages/isaac_ros_object_detection/index.html) — RTMDet and YOLO integration for GPU-accelerated detection on Jetson
+- [OpenCV Documentation](https://docs.opencv.org/) — Reference for classical computer vision: feature matching, stereo, optical flow, and more
+- [An Image is Worth 16x16 Words (ViT)](https://arxiv.org/abs/2010.11929) — Original Vision Transformer paper introducing patch-based attention for image recognition
