@@ -1,0 +1,101 @@
+---
+title: Imitation Learning
+description: Teaching robots by recording human demonstrations, not writing rules
+sidebar:
+  badge:
+    text: Conceptual
+    variant: note
+last_validated: 2026-03-02
+---
+
+import { Aside, Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+<span class="level-badge conceptual">Conceptual</span>
+
+**Imitation Learning** (also called **Learning from Demonstration** or **Behavioral Cloning**) is a paradigm for teaching robots by recording human demonstrations rather than writing explicit rules. Instead of programming every motion by hand, a human performs the task — typically via teleoperation — while the robot records what it observed and what actions were taken. A policy model then trains on those recordings to reproduce the behavior autonomously.
+
+<Aside>
+The key insight: humans are good at doing tasks but bad at writing down how. Imitation learning sidesteps the need to articulate the rules by learning directly from examples.
+</Aside>
+
+## How It Works
+
+```
+1. Human demonstrates the task
+   → teleoperation records camera + joint positions at 30fps
+
+2. Demonstrations become a dataset
+   → each run = one "episode", need 50–200 episodes
+
+3. Policy model trains on dataset
+   → input: image + joint positions  →  output: next actions
+
+4. Trained policy runs autonomously
+   → observe → predict → execute → repeat at 30fps
+```
+
+The result is a model that has learned a mapping from sensory observations to motor actions — entirely from watching a human do it.
+
+## Imitation Learning vs Alternatives
+
+| Approach | How it works | Robotics reality today |
+|---|---|---|
+| **Imitation Learning** | Record human demos; train policy to reproduce them | Works well for physical manipulation today; data collection is the main bottleneck |
+| **Reinforcement Learning** | Agent explores and is rewarded for correct behavior | Gets more academic attention, but requires simulation or a real robot taking millions of trial-and-error actions — impractical for most manipulation tasks |
+| **Hand-coded rules** | Engineer writes explicit if/then motion logic | Works for highly constrained factory settings; brittle when conditions vary at all |
+| **Classical planning** | Symbolic planner sequences pre-defined primitives | Reliable and auditable, but requires complete world models and fails on contact-rich tasks where physics matters |
+
+RL gets significantly more academic attention than imitation learning, but imitation learning consistently outperforms it in practice for physical manipulation tasks where resets are expensive and the reward signal is hard to define.
+
+## The Data Collection Problem
+
+Imitation learning is only as good as its demonstrations. Common failure modes:
+
+- **Too few episodes** — minimum 50 for even a simple pick-and-place task; 150+ for reliable generalization
+- **No spatial diversity** — if all demos place the object in the same spot, the policy overfits to that position and fails everywhere else; aim for at least 6 spatial zones
+- **Idle frames at the start or end** — recording before you start moving (or after you finish) trains the model that "doing nothing" is correct behavior at those timesteps
+- **Inconsistent technique** — if the human varies their approach across episodes, the model receives contradictory supervision; pick one strategy and stick to it
+- **Incomplete episodes** — an episode that reaches toward an object but never grasps it teaches the model to reach but not grasp; discard or re-record
+
+## Modern Architectures
+
+**ACT (Action Chunking with Transformers)** — predicts a chunk of N future actions at once rather than one action at a time, which smooths out jitter and handles contact-rich tasks well. The current practical default for 6-DOF manipulation. Published by Chi et al., 2023.
+
+**Diffusion Policy** — frames action prediction as a denoising process (the same principle as image diffusion models). Handles multimodal action distributions naturally — useful when there are several equally valid ways to complete a task.
+
+**VLA Models (Vision-Language-Action)** — large pretrained models (e.g. GR00T N1.6, pi0, OpenVLA) that combine vision and language understanding with action prediction. Can generalize to new tasks with far fewer demonstrations by leveraging pretraining, but require more compute at inference time.
+
+## Related Terms
+
+<CardGrid>
+  <LinkCard
+    title="Teleoperation"
+    description="How human demonstrations are physically recorded"
+    href="/robotics-glossary/concepts/learning/teleoperation/"
+  />
+  <LinkCard
+    title="Robot Training Dataset"
+    description="Structure and format of recorded demonstration data"
+    href="/robotics-glossary/concepts/learning/robot-training-dataset/"
+  />
+  <LinkCard
+    title="VLA Models"
+    description="Large pretrained models that combine vision, language, and action"
+    href="/robotics-glossary/concepts/ai/vla-models/"
+  />
+  <LinkCard
+    title="Action Chunking"
+    description="Predicting sequences of future actions to smooth robot motion"
+    href="/robotics-glossary/concepts/learning/action-chunking/"
+  />
+</CardGrid>
+
+<Aside title="In Practice">
+We used imitation learning to train a 6-DOF robot arm to pick up a candy bar — 56 demonstrations, 100K training steps. Every failure mode above appeared at least once. [Read the full account →](/robotics-glossary/guides/act-training-lessons/)
+</Aside>
+
+## Sources
+
+- [ACT: Action Chunking with Transformers](https://arxiv.org/abs/2304.13705) — original paper introducing action chunking and the ACT architecture for imitation learning
+- [LeRobot](https://github.com/huggingface/lerobot) — HuggingFace's open-source library for imitation learning on real robots; supports ACT, Diffusion Policy, and more
+- [Diffusion Policy](https://diffusion-policy.cs.columbia.edu) — Chi et al., visuomotor policy learning using denoising diffusion probabilistic models
