@@ -1,0 +1,88 @@
+---
+title: Sim-to-Real Transfer
+description: Training or validating robot policies in simulation before deploying to physical hardware
+sidebar:
+  badge:
+    text: Conceptual
+    variant: note
+last_validated: 2026-03-02
+---
+
+import { Aside, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+<span class="level-badge conceptual">Conceptual</span>
+
+**Sim-to-Real Transfer** is the process of training or validating a robot policy in a physics simulation and then deploying that policy on physical hardware. The core challenge is the **sim-to-real gap** — simulations are never perfectly accurate representations of the real world, and a policy that works in simulation may fail when it encounters the friction, lighting variation, and mechanical slop of a real robot.
+
+## Why Simulate?
+
+Running experiments directly on physical hardware is slow, expensive, and occasionally destructive. Simulation offers four practical advantages:
+
+- **Speed** — a single training run can collect 1,000 simulated episodes in the time it takes to physically record 10 real demonstrations; GPU-parallelized simulators can run hundreds of environments simultaneously
+- **Safety** — failure modes can be explored without risking damage to hardware, the environment, or bystanders; a sim robot can crash into walls indefinitely
+- **Instant reset** — when an episode ends (successfully or not), the simulation resets in milliseconds; resetting a physical robot requires a human to reposition objects and return the arm to its home pose
+- **Validation gate** — a trained checkpoint can be evaluated in simulation before any physical deployment, catching regressions without touching real hardware
+
+## The Sim-to-Real Gap
+
+No simulation perfectly captures physical reality. The discrepancies that matter most depend on the task:
+
+| Source of gap | Example in simulation | Example in reality |
+|---|---|---|
+| **Visual realism** | Perfect lighting, textureless objects, no shadows or lens blur | Ambient light variation, specular reflections, camera focus blur, dust |
+| **Contact physics** | Objects slide frictionlessly on idealized surfaces | Friction coefficients vary by material, temperature, and surface wear |
+| **Actuator dynamics** | Joints respond instantly to commanded positions | Servo lag, gear backlash, thermal drift, current limits |
+| **Sensor noise** | Cameras return exact pixel values; IMUs report exact angular rates | Image exposure variation, rolling shutter, IMU integration drift |
+
+<Aside>
+The gap is smaller for proprioceptive tasks (joint angles, end-effector position) where the physics are easier to model accurately. It is larger for contact-rich manipulation tasks that depend on friction, deformation, or precise force control — precisely the tasks most useful for robot learning.
+</Aside>
+
+## Approaches
+
+**Domain Randomization** — Rather than trying to build one perfect simulation, randomize the simulation parameters (object mass, friction coefficients, lighting, camera position, visual textures) across training episodes. The policy learns a distribution over possible environments rather than a single idealized one. At deployment time, the real world is just one more sample from that distribution. Pioneered by OpenAI for dexterous in-hand manipulation.
+
+**Domain Adaptation** — Train a model (often adversarially) to map simulated observations into a representation that looks like real observations, or vice versa. The policy then operates on the shared representation rather than raw pixels. More complex to train than domain randomization but can close larger visual gaps.
+
+**Sim as Validation Gate** — Do not train in simulation at all. Instead, use simulation only to evaluate a checkpoint trained on real demonstrations before deploying it to the fleet. Lower ambition, but higher practical value: a sim validation gate catches regressions cheaply and provides a reproducible benchmark even when the sim-to-real transfer rate is not perfect.
+
+## Tools
+
+| Tool | Description | Notes |
+|---|---|---|
+| **Isaac Sim** | NVIDIA's photorealistic physics simulator, USD-based scene format | GPU-accelerated; tight integration with Isaac Lab for RL training; see [Isaac Sim](/robotics-glossary/software/simulation/isaac-sim/) |
+| **Isaac Lab** | Reinforcement learning training framework built on Isaac Sim | Handles parallelized environment management, reward shaping, and curriculum; successor to OmniIsaacGymEnvs |
+| **MuJoCo** | Fast rigid-body physics engine, widely used in academic RL | Lower visual fidelity than Isaac Sim; very fast simulation; standard benchmark environment for most RL papers |
+| **Gazebo** | ROS-native simulator, long-time standard in the ROS ecosystem | Deep ROS integration; lower visual fidelity; being superseded by Gazebo Harmonic (formerly Ignition) |
+| **PyBullet** | Lightweight Python-native physics simulator | Easy to script; slower than MuJoCo; useful for quick prototyping and teaching |
+
+## Related Terms
+
+<CardGrid>
+  <LinkCard
+    title="Robot Training Dataset"
+    description="Structure and format of recorded demonstration data"
+    href="/robotics-glossary/concepts/learning/robot-training-dataset/"
+  />
+  <LinkCard
+    title="Model Checkpoint"
+    description="A saved snapshot of a trained policy at a point in training"
+    href="/robotics-glossary/concepts/learning/model-checkpoint/"
+  />
+  <LinkCard
+    title="Isaac Sim"
+    description="NVIDIA's photorealistic robot simulation environment"
+    href="/robotics-glossary/software/simulation/isaac-sim/"
+  />
+  <LinkCard
+    title="Imitation Learning"
+    description="Teaching robots by recording human demonstrations"
+    href="/robotics-glossary/concepts/learning/imitation-learning/"
+  />
+</CardGrid>
+
+## Sources
+
+- [Isaac Lab documentation](https://isaac-sim.github.io/IsaacLab) — NVIDIA's RL training framework on Isaac Sim; covers domain randomization, curriculum learning, and sim-to-real workflows
+- [Learning Dexterous In-Hand Manipulation](https://openai.com/research/learning-dexterous-in-hand-manipulation) — OpenAI's foundational domain randomization paper; trained a policy in simulation that transferred to a physical Dexterous hand with no real-world training data
+- [RoboAgent](https://robopen.github.io) — semantic augmentation and efficient real-world learning; demonstrates sim-to-real in a manipulation context with limited real demonstrations
