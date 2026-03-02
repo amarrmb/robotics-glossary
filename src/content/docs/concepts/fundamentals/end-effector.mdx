@@ -1,0 +1,112 @@
+---
+title: End Effector
+description: The tool at the tip of a robot arm that interacts with the world
+last_validated: 2026-03-02
+sidebar:
+  badge:
+    text: Conceptual
+    variant: note
+---
+
+import { Aside, Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+<span class="level-badge conceptual">Conceptual</span>
+
+An **end effector** is the device mounted at the tip of a robot arm that physically interacts with the environment. It is the last element in the kinematic chain — the part that actually does the work. Examples include grippers, welding torches, suction cups, spray nozzles, and sensors.
+
+> "The arm gets the end effector to a position. The end effector does the work."
+
+The term covers anything that terminates the arm: a two-fingered gripper on a pick-and-place robot, a MIG torch on a welding robot, a vacuum cup on a palletizer, or a force-torque sensor used to detect contact during assembly. The choice of end effector is a design decision as consequential as the choice of robot arm itself.
+
+<Aside type="tip">
+End effectors are sometimes called **tools** or **tooling**, especially in manufacturing contexts. The point where the tool attaches to the robot arm is called the **flange**.
+</Aside>
+
+## Types of End Effectors
+
+| Type | Actuation | Primary Application |
+|------|-----------|---------------------|
+| **Parallel gripper** | Two fingers, single actuator | General-purpose manipulation |
+| **Multi-finger hand** | 3–5 actuated fingers | Dexterous manipulation |
+| **Suction cup** | Vacuum pump | Flat objects, boxes, warehousing |
+| **Magnetic** | Electromagnet | Metal parts, automotive |
+| **Tool changer** | Mounts interchangeable tools | Flexible manufacturing |
+| **Force-torque sensor** | Measures contact forces | Assembly, grinding, insertion |
+| **Camera** | Mounted for visual inspection | Quality control, bin picking |
+
+<Aside>
+A **tool changer** is itself an end effector — one that can be swapped mid-task for a different tool. Industrial cells commonly use a tool changer rack so a single robot arm can weld, drill, and inspect in sequence without human intervention.
+</Aside>
+
+## The Gripper Coordinate Frame
+
+Motion planning and inverse kinematics do not reason about the robot flange — they reason about the **Tool Center Point (TCP)**, a coordinate frame you define that represents the functional tip of the end effector.
+
+For a parallel gripper the TCP is typically placed between the fingertips at the midpoint of the grasp. For a welding torch it is placed at the tip of the electrode. You tell the robot "move to this pose" and the robot computes the joint angles required to put the TCP there.
+
+The full coordinate frame hierarchy is:
+
+```
+World frame (fixed)
+  └─ Base frame (robot base)
+       └─ Joint frames (one per joint)
+            └─ Flange frame (last joint)
+                 └─ Tool frame = End Effector position
+```
+
+Each frame is related to its parent by a rigid transformation (rotation + translation). The chain of transformations from the world frame to the tool frame is exactly what forward kinematics computes.
+
+> "When you command a robot to 'move to (0.5, 0.3, 0.2)', you're commanding the tool frame to that position."
+
+<Aside type="caution">
+If the TCP is defined incorrectly — offset or rotated from the true grasp point — every pick will miss by a consistent amount. TCP calibration is a required step when mounting a new gripper.
+</Aside>
+
+## Relevance to Robot Learning
+
+In imitation learning datasets, `observation.state` contains joint positions for each joint in the arm. The end effector contributes an **additional channel** that does not map to a joint angle in the usual sense.
+
+For a simple parallel gripper this is typically a single float:
+
+```
+0.0  →  fully closed (grasping)
+1.0  →  fully open
+```
+
+This float appears alongside the arm joint positions in the state vector and in the action vector (the policy must learn when to open and close the gripper, not just where to move the arm).
+
+The **gripper cycle** — open, move to object, close around object, lift — is the critical success criterion for a pick task. An imitation learning dataset that contains demonstrations where the gripper never closes on the object (incomplete demonstrations) will train a policy that reaches toward objects but never grasps them. Validating that every episode contains at least one full open-to-close cycle is a mandatory data quality check before training.
+
+<Aside type="tip">
+In the SO-101 robot setup used in this platform, the gripper state appears as the `gripper` key in `observation.state`. Its value is in motor position units (radians), not normalized 0–1, but it plays the same role: a scalar channel encoding how open or closed the end effector is.
+</Aside>
+
+## Related Terms
+
+<CardGrid>
+  <LinkCard
+    title="Kinematics"
+    description="How robots move through space — forward and inverse kinematics"
+    href="/robotics-glossary/concepts/fundamentals/kinematics/"
+  />
+  <LinkCard
+    title="Joints and Links"
+    description="The rigid bodies and articulated connections that make up a robot arm"
+    href="/robotics-glossary/concepts/fundamentals/joints-and-links/"
+  />
+  <LinkCard
+    title="Teleoperation"
+    description="Human-guided robot control used to collect demonstration data"
+    href="/robotics-glossary/concepts/learning/teleoperation/"
+  />
+  <LinkCard
+    title="Degrees of Freedom"
+    description="How many independent ways a body can move"
+    href="/robotics-glossary/concepts/fundamentals/degrees-of-freedom/"
+  />
+</CardGrid>
+
+## Sources
+
+- [Siciliano et al., *Robotics: Modelling, Planning and Control*](https://link.springer.com/book/10.1007/978-1-84628-642-1) — Standard graduate textbook; Chapter 2 covers the kinematic chain and tool frames
+- [ROS 2 TF2 — Working with Sensor Data](https://docs.ros.org/en/jazzy/Tutorials/Intermediate/Tf2/Introduction-To-Tf2.html) — Practical guide to coordinate frame transforms including the tool frame
