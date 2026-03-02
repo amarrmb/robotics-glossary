@@ -1,6 +1,296 @@
 ---
-title: 3 Numbers That Tell You How to Optimize
-description: Before you try quantization — compute R1, R2, R3 first. The latency floor model from 30 hours of failed optimization.
+title: "3 Numbers That Tell You Exactly How to Optimize Your AI Model"
+description: "Before you spend a week trying FP4 quantization, compute these first."
+sidebar:
+  badge:
+    text: Guide
+    variant: caution
+last_updated: 2026-02-01
 ---
 
-*Coming soon.*
+import { Aside, Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+*Before you spend a week trying FP4 quantization, compute these first.*
+
+---
+
+We spent 30 hours trying optimization techniques on a real-time speech AI model. Eight of them failed. Every single failure was predictable from three numbers we could have computed in five minutes.
+
+This post shares the framework we built after that experience. It works for any model on any hardware. You need a calculator and your model's spec sheet.
+
+## The Problem: Optimization by Vibes
+
+Here's how most teams optimize AI inference:
+
+1. Model is too slow
+2. Try quantization (because everyone says to)
+3. Try TensorRT (because NVIDIA says to)
+4. Try kernel fusion, operator rewriting, graph optimization
+5. Some things help, most don't, nobody knows why
+
+The issue isn't effort — it's that nobody asks *why* the model is slow before trying to make it fast. Is it bottlenecked on memory bandwidth? Compute? Python overhead? The answer determines everything.
+
+Quantization helps a bandwidth-bottlenecked model. It does nothing — or worse, *hurts* — an overhead-bottlenecked one. TensorRT helps a compute-bottlenecked model. It's irrelevant at batch size 1 when memory bandwidth is the constraint.
+
+You can figure out which one you're dealing with before touching a line of code.
+
+## The Three Numbers
+
+Every inference step on a GPU has three physical constraints. Think of them as speed limits — your model literally cannot run faster than the slowest one.
+
+### $R_1$: The Weight-Read Floor
+
+Every inference step streams the entire model's weights from memory to the GPU compute units. At batch size 1, each weight is read exactly once (the model is too large to cache between layers). The time to read all those weights at maximum bandwidth is:
+
+$$R_1 = \frac{P \cdot b}{B_w}$$
+
+where $P$ is the parameter count, $b$ is bytes per weight, and $B_w$ is memory bandwidth.
+
+**Example:** A 7B parameter model in bf16 (2 bytes per weight) on a Jetson Thor (200 GB/s bandwidth):
+
+$$R_1 = \frac{7 \times 10^9 \times 2}{200 \times 10^9} = 70 \text{ ms}$$
+
+That's it. No matter how clever your kernels are, you cannot read 14 GB of weights in less than 70 ms at 200 GB/s. This is physics.
+
+**Key insight:** $R_1$ scales linearly with bytes per weight. FP8 (1 byte) cuts $R_1$ in half. FP4 (0.5 bytes) cuts it in half again. This is why quantization is the first thing to try on a bandwidth-bound model.
+
+### $R_2$: The KV-Cache Floor
+
+For autoregressive models (LLMs, speech transformers), each token generation step also reads the stored key-value attention cache for all previous tokens:
+
+$$R_2 = \frac{L \cdot 2 \cdot H \cdot T \cdot d_h \cdot b_{kv}}{B_w}$$
+
+For short contexts, $R_2$ is small compared to $R_1$ (weights dominate). For long contexts, $R_2$ can exceed $R_1$.
+
+**Non-autoregressive models** (vision encoders, diffusion models, action policies): $R_2 = 0$. Skip this.
+
+### $R_3$: The Compute Floor
+
+The minimum time to perform all the arithmetic:
+
+$$R_3 = \frac{F}{C_{peak}}$$
+
+For batch-1 transformer inference, total FLOPs $\approx 2 \times$ parameter count (one multiply-add per parameter).
+
+**On current hardware at batch size 1, $R_3$ is almost always much smaller than $R_1$.** GPUs have way more compute than bandwidth. This is why most single-sample inference is bandwidth-bound, not compute-bound.
+
+## The Diagnostic: One Ratio Tells You Everything
+
+Measure your actual inference latency ($\tau$), then compute the **overhead ratio**:
+
+$$\text{overhead ratio} = \frac{\tau}{R_1 + R_2}$$
+
+This single number classifies your workload:
+
+| Ratio | Regime | What It Means | What To Do |
+|-------|--------|---------------|------------|
+| $\approx 1.0\text{–}1.5\times$ | Bandwidth-bound | Memory bandwidth is the bottleneck | Quantize weights, reduce KV cache |
+| $> 2.0\times$ | Overhead-bound | System overhead dominates | CUDA graphs, torch.compile, C++ runtime |
+| $\tau/R_3 \approx 1.0\text{–}1.5\times$ | Compute-bound | Arithmetic is the bottleneck | TensorRT, batching, pruning |
+
+That's the whole framework. Three numbers, one ratio, one lookup table.
+
+## Real Example: Getting a 7B Speech Model Under 80 ms
+
+Let's walk through a real optimization. PersonaPlex is an 8.37B parameter speech-to-speech transformer (based on Moshi) that must produce one audio frame every 80 ms for real-time conversation. We deployed it on NVIDIA Jetson Thor.
+
+### Step 1: Compute the floors
+
+```
+Hardware: Jetson Thor, 200 GB/s bandwidth, ~2000 TOPS (FP8)
+
+R1 (bf16) = 8.37B × 2 / 200 GB/s = 83.7 ms    ← weight reads
+R2 (3000 context) = 7.5 ms                       ← KV cache reads
+R3 = ~8.4 ms                                      ← compute
+R1 + R2 = 91.2 ms
+```
+
+### Step 2: Measure and classify
+
+```
+Measured τ = 114 ms (lm_step)
+Overhead ratio = 114 / 91.2 = 1.25×  →  BANDWIDTH-BOUND
+```
+
+At 1.25× the bandwidth floor, this model is running efficiently — it spends most of its time just reading weights from memory. The optimization path is clear: **reduce the bytes we need to read.**
+
+### Step 3: Predict the impact
+
+FP8 quantization converts most weights from 2 bytes to 1 byte, roughly halving $R_1$:
+
+```
+Predicted: R1 drops from 83.7 to ~33 ms → τ should drop ~40 ms
+Measured:  τ dropped from 114 to 74 ms  → exactly 40 ms reduction
+```
+
+Prediction accuracy: within 5%. Not a coincidence — this is what happens when you understand the bottleneck before optimizing.
+
+### Step 4: Check the ratio again
+
+Here's where it gets interesting:
+
+```
+After FP8:
+R1 + R2 = 33 + 7.5 = 40.5 ms
+Measured τ = 74 ms
+Overhead ratio = 74 / 40.5 = 1.83×  →  TRANSITIONING
+```
+
+The ratio jumped from 1.25× to 1.83×. We reduced the bandwidth floor, but the non-bandwidth overhead (kernel dispatch, CPU-GPU sync, Python framework) stayed constant. The model is shifting from bandwidth-bound toward overhead-bound.
+
+This is the most important insight in the entire framework.
+
+## The Trap: When Quantization Stops Helping
+
+After FP8, the intuitive next step is "keep quantizing — try FP4!" Here's what the framework predicts:
+
+```
+FP4 prediction:
+R1 + R2 = ~16.5 + 7.5 = ~23.2 ms
+But τ ≈ 74 ms (overhead won't shrink)
+Predicted overhead ratio = 74 / 23.2 = 3.19×  →  OVERHEAD-BOUND
+```
+
+Further quantization shrinks $R_1$ (the bandwidth floor), but $\tau$ doesn't follow because the bottleneck has shifted to overhead — kernel dispatch, CUDA graph replay, CPU-GPU synchronization. You're optimizing the wrong thing.
+
+**We confirmed this the hard way.** NVFP4 quantization on this model was **5.8–10.6× slower**, not faster. The FP4 dequantization overhead vastly exceeded the bandwidth savings.
+
+We also confirmed it cross-platform. On DGX Spark (273 GB/s — 36% more bandwidth than Jetson Thor), the `lm_step` at FP8 was... 70.0 ms. Virtually identical to Thor's 70.2 ms. If the model were still bandwidth-bound, more bandwidth should have helped. It didn't. The bottleneck is overhead.
+
+### The full scorecard
+
+Here are all the optimization techniques we tried, and what the framework would have told us in advance:
+
+| Technique | Framework Prediction | Actual Result | Hours Spent |
+|-----------|---------------------|---------------|-------------|
+| FP8 quantization | $R_1$ halved → large improvement | 40 ms faster | Did this first |
+| NVFP4 quantization | Overhead-bound; dequant adds overhead | 5.8–10.6× slower | ~8 hours wasted |
+| TensorRT FP16 | FP16 doubles $R_1$ vs FP8 at batch=1 | 16% slower | ~4 hours wasted |
+| Static activation scaling | CUDA graphs already hide launch overhead | 0 ms improvement | ~3 hours wasted |
+| FP8 KV cache | $R_2$ is only 10% of $\tau$; SDPA rejects FP8 | Not implementable | ~3 hours wasted |
+| FP8 depformer | Small matrices: overhead > BW savings | 0 ms improvement | ~4 hours wasted |
+| bitsandbytes NF4 | F.linear bypasses module hooks | Doesn't activate | ~2 hours wasted |
+| torchao INT4 | Packed tensor incompatible | Crash | ~2 hours wasted |
+
+**Eight failed techniques. ~30 hours wasted. All predictable from three numbers.**
+
+The framework told us to stop quantizing after FP8 and focus on overhead reduction (CUDA graphs, torch.compile, eliminating unnecessary compute). The optimizations that actually worked after FP8:
+
+- **torch.compile on mimi codec**: 2.5 ms (kernel fusion — overhead reduction)
+- **Skip redundant mimi decoder**: 9.6 ms (dead compute elimination)
+- **MAXN power mode + locked clocks**: 9 ms (hardware un-throttling)
+- **Pinned memory for DtoH transfers**: 0.7 ms (transfer optimization)
+
+Final result: **141 ms → 78.3 ms** (44% reduction). 1.7 ms under the 80 ms budget.
+
+## It Gets More Interesting with Pipelines
+
+Real systems don't run one model — they chain several. We deploy a voice+vision assistant on Jetson Thor with three sequential models:
+
+| Stage | Model | $R_1$ Floor | Measured | Ratio | Regime |
+|-------|-------|----------|---------|-------|--------|
+| STT | Nemotron 0.6B (bf16) | 6.0 ms | 76 ms | 12.7× | Overhead-bound |
+| VLM | Qwen2.5-VL 7B (NVFP4 via vLLM) | ~21 ms/tok | ~34.2 ms/tok | 1.62× | Transitioning |
+| TTS | Kokoro 82M (CPU) | — | 59 ms | — | CPU-bound |
+| **Total** | | | **~899 ms** | | **Mixed (28% over budget)** |
+
+Three models. Three completely different regimes. *In the same pipeline.*
+
+The STT model is so small (0.6B params → $R_1$ = 6 ms) that NeMo API overhead and Python dispatch dominate — the GPU forward pass takes ~6 ms but the full `transcribe()` call takes 76 ms. Quantizing it would save fractions of a millisecond. The fix is bypassing the batch API (our fast path saves 20 ms) or TensorRT/CUDA graphs.
+
+The VLM is at **1.62× its theoretical bandwidth floor** — in the transition zone between bandwidth-bound and overhead-bound. About ~13 ms/token of the 34.2 ms/token is overhead from vLLM's HTTP API, JSON serialization, and scheduler. Per-token quantization won't help much. The practical optimization is reducing how many tokens you generate (shorter responses, tighter prompts) and reducing API overhead.
+
+The TTS runs on CPU and takes only 59 ms for a typical 44-character response (~0.5 ms/char). GPU optimizations are irrelevant.
+
+**No single optimization technique addresses all three stages.** End-to-end profiling would show you the total is 899 ms. The framework tells you *why* and *where to focus*.
+
+## How to Use This for Your Model
+
+### Quick-start recipe
+
+1. **Look up your hardware specs**: memory bandwidth (GB/s) and peak compute (TOPS/TFLOPS)
+2. **Count your model's parameters** and note the precision (bf16 = 2 bytes, FP8 = 1 byte, FP4 = 0.5 bytes)
+3. **Compute $R_1$** = params × bytes_per_weight / bandwidth
+4. **Compute $R_2$** (if autoregressive) = layers × 2 × heads × context × head_dim × bytes_per_kv / bandwidth
+5. **Measure $\tau$** with proper CUDA synchronization (`torch.cuda.synchronize()` before and after)
+6. **Compute the ratio** = $\tau / (R_1 + R_2)$
+7. **Follow the decision tree:**
+
+```
+                    Measure τ, Compute R1, R2, R3
+                              │
+              ┌───────────────┼───────────────┐
+              │               │               │
+        ratio < 1.5     ratio > 2.0     τ/R3 < 1.5
+              │               │               │
+       BANDWIDTH-BOUND   OVERHEAD-BOUND   COMPUTE-BOUND
+              │               │               │
+         ┌────┴────┐     ┌────┴────┐     ┌────┴────┐
+    R1 >> R2   R2 >> R1  CUDA    torch   TensorRT  Batching
+         │         │     graphs  compile
+    Quantize   Shrink KV
+    weights    context
+              │
+    After quantizing: re-measure ratio
+    If ratio > 2.0 → STOP QUANTIZING
+    Switch to overhead reduction
+```
+
+### Common hardware specs
+
+| Platform | Memory Bandwidth | Compute (FP8) |
+|----------|-----------------|---------------|
+| Jetson Orin NX 16GB | 102 GB/s | ~100 TOPS |
+| Jetson Orin AGX 64GB | 205 GB/s | ~275 TOPS |
+| Jetson Thor 128GB | ~200 GB/s | ~2000 TOPS |
+| DGX Spark 128GB | ~273 GB/s | — |
+| RTX 4090 | 1008 GB/s | 660 TOPS |
+| A100 80GB | 2039 GB/s | 624 TOPS |
+| H100 SXM | 3350 GB/s | 1979 TOPS |
+
+### Rules of thumb
+
+- **Batch size 1 is almost always bandwidth-bound.** Compute matters at larger batches.
+- **FP8 is usually the sweet spot.** After FP8, most models shift from bandwidth-bound to overhead-bound on current hardware. FP4/INT4 rarely helps at batch=1.
+- **Small models (< 1B params) are often overhead-bound regardless of precision.** $R_1$ is so low that dispatch overhead dominates. Skip quantization, go straight to TensorRT/CUDA graphs.
+- **$R_2$ only matters at long contexts.** At 1K tokens, $R_2$ is typically < 10% of $R_1$. At 100K tokens, $R_2$ can dominate.
+- **Re-check the ratio after every optimization.** The regime can shift — what was bandwidth-bound at bf16 may be overhead-bound at FP8.
+
+## Try It Yourself
+
+We built an interactive calculator that computes $R_1$, $R_2$, $R_3$, classifies your regime, and shows the optimization decision tree for any model-hardware combination. It includes presets for common configurations (GPT-2, LLaMA-7B, PersonaPlex, multi-stage pipelines) with our measured validation data.
+
+**[Open the Latency Floor Calculator →](https://calculator.devicenexus.ai)**
+
+---
+
+<CardGrid>
+  <LinkCard
+    title="Read the Full Paper"
+    description="The complete technical paper with proofs, cross-platform validation, and profiling breakdowns."
+    href="https://arxiv.org/abs/XXXX.XXXXX"
+  />
+  <LinkCard
+    title="DeviceNexus.ai"
+    description="Infrastructure for physical AI — from training to fleet deployment."
+    href="https://devicenexus.ai"
+  />
+</CardGrid>
+
+*The framework and all measured data come from deploying real-time AI models on NVIDIA Jetson hardware for [DeviceNexus.ai](https://devicenexus.ai) — infrastructure for physical AI.*
+
+*— Amar Balutkar, DeviceNexus.ai*
+
+---
+
+## Key Concepts in This Guide
+
+<CardGrid>
+  <LinkCard title="Inference Latency" description="R1, R2, R3 — the three latency floors" href="/robotics-glossary/concepts/ai/inference-latency/" />
+  <LinkCard title="Jetson Thor" description="The hardware used in this optimization" href="/robotics-glossary/hardware/compute/jetson-thor/" />
+  <LinkCard title="TensorRT" description="NVIDIA's inference optimization toolkit" href="/robotics-glossary/software/nvidia/tensorrt/" />
+</CardGrid>
+
+<Aside title="Built with DeviceNexus">
+  Deploying optimized models to robot fleets is what DeviceNexus handles. [Learn more at devicenexus.ai](https://devicenexus.ai)
+</Aside>

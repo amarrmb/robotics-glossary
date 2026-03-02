@@ -1,6 +1,552 @@
 ---
-title: Teaching a Robot to Pick Up a Candy Bar
-description: 56 episodes, 3 training runs, one candy bar. What we learned training an SO-101 arm with ACT.
+title: "Teaching a Robot to Pick Up a Candy Bar"
+description: "Everything we learned training an SO-101 arm with ACT — the bugs, the failures, and the data collection protocol that finally worked."
+sidebar:
+  badge:
+    text: Guide
+    variant: caution
+last_updated: 2026-02-07
 ---
 
-*Coming soon.*
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+*Everything we learned training an SO-101 arm to grasp a Twix bar — the bugs, the failures, and the data collection protocol that finally worked.*
+
+---
+
+## What Are We Doing?
+
+We're teaching a robot arm to pick up a candy bar from a table. That's the whole task. One arm, one object, one table.
+
+The robot is an [SO-101](https://github.com/TheRobotStudio/SO-ARM100), a 6-DOF 3D-printed arm with STS3215 servos. The training framework is [LeRobot](https://github.com/huggingface/lerobot), HuggingFace's open-source robotics library. The policy architecture is ACT (Action Chunking with Transformers), which takes camera images and joint positions as input and predicts sequences of future joint actions.
+
+The workflow is straightforward in theory: a human teleoperates the robot through the task several times, the demonstrations get recorded as a dataset, a model trains on that dataset, and the trained model controls the robot autonomously. In practice, every step has failure modes that aren't documented.
+
+---
+
+## Why Are We Doing It?
+
+We're building [DeviceNexus.ai](https://devicenexus.ai) — infrastructure for the teach-train-validate-deploy-improve loop in physical AI. Before we can build tools for other teams, we need to go through the loop ourselves and understand where it breaks.
+
+The candy bar task is our test case. It's simple enough to attempt with commodity hardware, but hard enough to expose real problems in data collection, training, evaluation, and deployment. Every issue we hit — and how we solve it — feeds directly into what we're building.
+
+This isn't a research project chasing state-of-the-art. It's an engineering project: take existing tools (LeRobot, Isaac Sim, a $300 robot arm, a consumer GPU) and make them work together end-to-end.
+
+**Hardware:**
+- **Jetson Orin** — edge device for data collection and inference. SO-101 leader and follower arms connected via USB.
+- **Desktop PC with RTX 4060 (8GB VRAM)** — training.
+- Both machines on the same local network for data transfer and model deployment.
+
+---
+
+## What Did We Do?
+
+### Round 1: Single Overhead Camera
+
+We started with a single USB camera mounted overhead (640x480, 30fps) and 30 teleoperation episodes of picking up a Twix bar. Each episode is a human teleoperating the arm through the full pick sequence via a leader arm.
+
+**Training run v1** used LeRobot's ACT defaults — which turned out to have a chunk size of 100 and action steps of 100, meaning the robot executes 3.3 seconds of open-loop actions before re-observing. Trained for 50K steps on 30 episodes (39,816 frames). Final loss: 0.067.
+
+```
+v1 config:
+  chunk_size: 100       n_action_steps: 100
+  dim_model: 512        n_heads: 8
+  dim_feedforward: 3200 n_encoder_layers: 4
+  n_decoder_layers: 1   use_vae: true
+  latent_dim: 32        kl_weight: 10.0
+  lr: 1e-5              steps: 50K
+  image_transforms: off
+  dataset: 30 episodes, 39,816 frames
+  params: 52M           final loss: 0.067
+```
+
+Deployed to the Jetson, loaded the checkpoint, ran inference. The arm moved — it reached in the general direction of where candy bars had been during training. But it couldn't grasp. The arm would approach the table, hover, and never close the gripper at the right moment. Movement was jerky, with abrupt transitions between action chunks.
+
+**Training run v3** changed several things at once: halved the chunk size to 50, reduced KL weight from 10 to 1, increased learning rate to 1e-4, enabled image augmentation, and trimmed idle frames from the dataset. The trimming cut leading/trailing dead time (robot sitting still while operator prepares) from 39,816 down to 31,416 frames. Trained for 100K steps.
+
+```
+v3 config:
+  chunk_size: 50        n_action_steps: 50
+  dim_model: 512        n_heads: 8
+  dim_feedforward: 3200 n_encoder_layers: 4
+  n_decoder_layers: 1   use_vae: true
+  latent_dim: 32        kl_weight: 1.0
+  lr: 1e-4              steps: 100K
+  image_transforms: on
+  dataset: 30 episodes, 31,416 frames (trimmed)
+  params: 52M           final loss: 0.061
+```
+
+On the real robot, v3 moved more purposefully — reaching toward the candy, adjusting in the workspace. Still jerky at chunk boundaries (50 actions, then a snap to a new trajectory), and still no reliable grasp.
+
+### The Temporal Ensembling Rabbit Hole
+
+The jerkiness comes from chunk boundaries: 50 smooth actions, then the model re-observes and produces a new trajectory that doesn't perfectly continue the previous one. ACT's standard fix is temporal ensembling — overlapping action chunks with exponential smoothing.
+
+We tried it:
+
+| Config | Result |
+|--------|--------|
+| `n_action_steps=1, ensemble_coeff=0.01` | Butter-smooth movement... straight to home position and stayed there |
+| `ensemble_coeff=0.5` | Still stuck upright, slight oscillation |
+| `n_action_steps=10, no ensemble` | Moved around, no better than original |
+
+**What happened:** With maximum overlap, every new prediction gets blended with all previous ones. For a pick-and-place task, the arm passes through the upright home pose in every episode (start and end). The ensemble converges to the dataset mean — "stand upright."
+
+We reverted to `n_action_steps=50`, no ensemble. Jerky-but-purposeful was better than smooth-but-frozen.
+
+### Trying to Evaluate Without Breaking Things
+
+After multiple training runs with reaching but no grasping, we needed better evaluation.
+
+**Inference without motors:** Ran the policy with real camera input but zero joint state. Output: near-zero actions. Appeared completely broken. But this was misleading — ACT is heavily state-conditioned. Zero joint state is outside the training distribution. On the real robot with actual joint feedback, the same checkpoint moved purposefully. Lesson: don't test closed-loop policies with fake inputs.
+
+**Data analysis:** We wrote scripts to inspect the training data — action distributions, joint ranges, gripper actuation, action-state correlation, timestamp jitter. Everything checked out: 0.99 action-state correlation, full workspace coverage, gripper open/close cycles in most episodes. The data quality wasn't the problem.
+
+**Simulation (Isaac Lab Arena):** Set up the SO-101 in NVIDIA's Isaac Lab Arena to run the policy against rendered camera views. This involved converting the URDF to a physics-enabled USD (the original conversion had no articulation data — see the Isaac Sim section below). Simulation confirmed the same behavior: arm reaches, doesn't grasp.
+
+### The Overhead Camera Blind Spot
+
+Watching episode recordings revealed the actual problem: **the overhead camera can't see the gripper during grasping.** When the arm reaches down toward the table, the arm itself occludes the camera's view of the gripper and the object. The model is trying to close the gripper at the right moment based on an image where the gripper isn't visible.
+
+For a pick task, a camera needs to provide:
+- **Spatial layout** — where is the object on the table? Overhead camera is good at this.
+- **Depth and contact** — is the gripper at the right height? Is it touching the object? Overhead camera is terrible at this.
+
+We needed a second camera with a side view.
+
+---
+
+### Adding an RTSP Camera: Patching LeRobot
+
+We had a Tapo IP camera on the local network streaming RTSP. Adding it to LeRobot required patching two bugs in the OpenCV camera driver.
+
+**Bug 1: RTSP URLs get mangled by Path conversion.** LeRobot's `OpenCVCameraConfig` declares `index_or_path: int | Path`. When you pass an RTSP URL like `rtsp://user:pass@192.168.0.46:554/stream2`, Python's `Path()` constructor collapses the double slash to a single slash. OpenCV can't connect to `rtsp:/user:pass@...`.
+
+Fix: Changed the type to `int | str | Path`. Strings containing `://` are preserved as-is.
+
+**Bug 2: Resolution validation fails for network streams.** LeRobot validates resolution by calling `cv2.VideoCapture.set(CAP_PROP_FRAME_WIDTH, ...)`. USB cameras accept this to negotiate resolution. RTSP streams have fixed resolution set by the camera hardware — the `set()` call fails, LeRobot throws a RuntimeError.
+
+Fix: Added `_is_url_stream` detection. For URL streams, the driver reads the actual stream resolution instead of trying to set it, and logs a warning if it differs from the requested value.
+
+Both patches are minimal and backward-compatible.
+
+---
+
+### Round 2: Two Cameras — 30 New Episodes
+
+With the RTSP patches applied, we collected 30 new episodes with both cameras:
+- **Overhead:** USB camera, 640x480, 30fps — sees the table layout
+- **Side:** Tapo RTSP camera, 640x360, 30fps — sees gripper height, object contact, grasp moment
+
+We also added blue tape to the gripper fingers for visual contrast. The white arm on a white table was making it harder to track the gripper.
+
+```bash
+lerobot-record \
+  --robot.cameras='{
+    "overhead": {"type": "opencv", "index_or_path": 1,
+                 "width": 640, "height": 480, "fps": 30},
+    "side":     {"type": "opencv",
+                 "index_or_path": "rtsp://user:pass@192.168.0.46:554/stream2",
+                 "width": 640, "height": 360, "fps": 30}}'
+```
+
+**Data quality validation** before training:
+
+| Metric | Value |
+|--------|-------|
+| Episodes | 30 |
+| Total frames | 24,252 |
+| Duration per episode | 13–46s (mean 27s) |
+| Joint coverage | Full workspace |
+| Gripper open+close cycles | 21/30 episodes |
+| Action-state correlation | 0.99 |
+| FPS consistency | 30fps, zero jitter |
+| Flagged episodes | 0 |
+| Leading/trailing idle | ~16% of frames |
+
+**Training the 2-camera model** (on the dirty 30-episode dataset — this matters later):
+
+```
+2-camera v1 config:
+  chunk_size: 50        n_action_steps: 50
+  dim_model: 512        n_heads: 8
+  dim_feedforward: 3200 n_encoder_layers: 4
+  n_decoder_layers: 1   use_vae: true
+  latent_dim: 32        kl_weight: 1.0
+  lr: 1e-4              steps: 100K
+  image_transforms: on
+  dataset: 30 episodes, 24,252 frames, 2 cameras
+  params: 52M           loss @ 13K steps: 0.101
+```
+
+The second camera adds another ResNet18 backbone to the model. It still fits on the RTX 4060 at 4.7GB/8.2GB VRAM with batch_size=8. Training runs at 0.28s/step — roughly 8 hours for 100K steps.
+
+Loss trajectory compared to single-camera v3:
+
+| Steps | v3 (1 cam) | 2-cam v1 |
+|-------|-----------|----------|
+| 1K    | —         | 0.598    |
+| 5K    | —         | 0.183    |
+| 10K   | 0.193     | 0.116    |
+| 13K   | —         | 0.101    |
+| 20K   | 0.104     | —        |
+| 50K   | 0.078     | —        |
+| 100K  | 0.061     | —        |
+
+The 2-camera model is converging faster than v3 did. At 10K steps, the 2-camera loss (0.116) is already lower than where v3 was at the same point (0.193). This makes sense — the side camera provides a much less ambiguous training signal for the grasp phase.
+
+---
+
+### Isaac Lab Arena: Simulation Validation
+
+#### What
+
+We're building a simulation environment where we can load a trained ACT checkpoint, render camera views of a virtual SO-101 and Twix bar, run the policy in closed loop, and observe whether it reaches, grasps, or fails — without touching the physical robot.
+
+#### Why
+
+Every time we test a checkpoint on the real robot, we risk the hardware. A bad policy can slam the arm into the table or drive servos past their limits. We had three checkpoints (v1, v3, 2-camera) and dozens of hyperparameter variants to compare. Running each one physically means: walk to the robot, load the model, position the candy bar, run inference, watch what happens, repeat. It's slow and you can only test one configuration at a time.
+
+Simulation lets us run policies in parallel, at faster-than-realtime, with zero hardware risk. We can test a checkpoint in 30 seconds instead of 5 minutes, and we can test configurations we'd never risk on the real robot (high learning rates, untrimmed data, aggressive ensembling).
+
+The broader reason: simulation validation is a core stage in our teach-train-**validate**-deploy-improve pipeline. If we can't validate in sim, every model ships blind to the real robot. For production robotics — where you might have a fleet of arms — that doesn't scale.
+
+#### What We Did
+
+We used NVIDIA's [Isaac Lab Arena](https://isaac-sim.github.io/IsaacLab-Arena/), a framework for running embodied AI policies in Isaac Sim. It provides an environment/embodiment/policy abstraction. But there's no SO-101 embodiment, no ACT policy support, and the container doesn't have LeRobot installed. We had to build all of it.
+
+#### The USD Problem
+
+The SO-101 has a URDF from [TheRobotStudio](https://github.com/TheRobotStudio/SO-ARM100) with proper link/joint structure, inertia, and mass definitions. We converted it to USD using a standalone script, but the resulting file was useless for physics simulation — it contained only flat meshes with no physics APIs whatsoever:
+
+| Property | Broken USD | What Isaac Sim needs |
+|----------|-----------|---------------------|
+| ArticulationRootAPI | missing | required — defines the root of the kinematic chain |
+| RigidBodyAPI | missing | required on every link — enables physics simulation |
+| Joint definitions | missing | required — `body0`/`body1` references connecting links |
+| Joint drives | missing | required — stiffness/damping for position control |
+| Collision meshes | missing | required — enables contact detection |
+
+When we tried to load this USD, Isaac Sim's PhysX gave us `CreateJoint - no bodies defined at body0 and body1` — it couldn't find any articulated body to simulate.
+
+**The fix:** Isaac Lab ships a URDF converter that uses `AppLauncher` to bootstrap the full Kit runtime with all necessary extensions, then calls `UrdfConverter` which properly generates physics APIs:
+
+```bash
+/isaac-sim/python.sh convert_urdf.py \
+  /tmp/robots/so101/so101.urdf \
+  /tmp/robots/so101/so101_physics.usd \
+  --fix-base --headless
+```
+
+The converted USD has the correct structure — verified with the standalone `usd-core` pip package:
+
+```
+Articulation Roots (1):
+  /so101_new_calib/root_joint
+
+Rigid Bodies (8):
+  base_link, shoulder_link, upper_arm_link, lower_arm_link,
+  wrist_link, gripper_link, moving_jaw_so101_v1_link, gripper_frame_link
+
+Joints (8):
+  shoulder_pan  (Revolute)  base_link → shoulder_link
+  shoulder_lift (Revolute)  shoulder_link → upper_arm_link
+  elbow_flex    (Revolute)  upper_arm_link → lower_arm_link
+  wrist_flex    (Revolute)  lower_arm_link → wrist_link
+  wrist_roll    (Revolute)  wrist_link → gripper_link
+  gripper       (Revolute)  gripper_link → moving_jaw_so101_v1_link
+  gripper_frame (Fixed)     gripper_link → gripper_frame_link
+  root_joint    (Fixed)     world → base_link
+
+Drives (6): position control, stiffness=100°, damping=1°
+Collision meshes: 47
+```
+
+#### SO-101 Embodiment
+
+We wrote an Arena embodiment for the SO-101 that defines the robot, observations, actions, and camera:
+
+```python
+# Articulation with implicit actuators
+actuators = {
+    "arm": ImplicitActuatorCfg(
+        joint_names_expr=["shoulder_pan", "shoulder_lift", "elbow_flex",
+                          "wrist_flex", "wrist_roll"],
+        stiffness=400.0, damping=40.0,
+    ),
+    "gripper": ImplicitActuatorCfg(
+        joint_names_expr=["gripper"],
+        stiffness=200.0, damping=10.0,
+    ),
+}
+
+# Overhead camera at 480x640 matching training data
+overhead_cam: TiledCameraCfg = TiledCameraCfg(
+    height=480, width=640,
+    data_types=["rgb"],
+    offset=TiledCameraCfg.OffsetCfg(
+        pos=(0.5, 0.0, 0.4),  # 50cm forward, 40cm up
+        rot=(0.6424, 0.2955, 0.2955, 0.6424),  # looking down at workspace
+    ),
+)
+```
+
+Observations: joint positions + joint velocities. Actions: 6-DOF joint position targets (5 arm + 1 gripper).
+
+#### ACT Closed-Loop Policy Adapter
+
+The core challenge: Isaac Sim works in radians, but LeRobot's ACT policy was trained on data in RANGE_M100_100 format (a normalized [-100, 100] range where ±π maps to ±100). The adapter handles the full conversion pipeline:
+
+```
+Sim observation (radians) → normalize to RANGE_M100_100
+Sim camera (H,W,3 uint8) → (3,H,W) float32 [0,1]
+        ↓
+ACT policy.select_action()
+  ├── preprocessor (dataset-specific normalization)
+  ├── transformer inference
+  └── postprocessor (unnormalize)
+        ↓
+Action in RANGE_M100_100 → convert back to radians → sim.step()
+```
+
+#### Installing LeRobot in the Isaac Sim Container
+
+The Isaac Sim container (42GB, Python 3.11) has torch 2.5.1, numpy, safetensors, transformers — most LeRobot dependencies. But `pip install lerobot` pulls torch 2.7 and numpy 2.4, breaking the container's carefully pinned versions.
+
+We tried a minimal shim approach (copying just the 22 files ACT needs) but LeRobot's import chain pulls in the full package. The solution: `pip install lerobot --no-deps`. This installs the package without touching any dependencies. The ACT model loads, CUDA inference works, and the container's torch/numpy stay intact.
+
+---
+
+## The State Ordering Bug
+
+The 2-camera model completed training at 100K steps. Deployed to the Jetson. The robot moved aggressively — 120° jumps instead of the expected smooth trajectory. Something was very wrong.
+
+**Root cause:** The inference script built the state array using Python's `sorted()` on the joint names:
+
+```python
+# WRONG - alphabetically sorted
+state_keys = sorted([k for k in robot.observation_features if '.pos' in k])
+# ['elbow_flex.pos', 'gripper.pos', 'shoulder_lift.pos', 'shoulder_pan.pos', ...]
+```
+
+But the training data used a specific order:
+
+```python
+# CORRECT - training data order
+['shoulder_pan.pos', 'shoulder_lift.pos', 'elbow_flex.pos',
+ 'wrist_flex.pos', 'wrist_roll.pos', 'gripper.pos']
+```
+
+The model was receiving scrambled joint values. It saw `elbow_flex` where it expected `shoulder_pan`. Every joint was in the wrong slot.
+
+**The fix:** Hard-code the state key order to match training data exactly.
+
+After fixing, the robot moved smoothly with small, sensible deltas (~2° per frame instead of 120°). Progress.
+
+---
+
+## The "Hold Still at Rest" Problem
+
+With the state ordering fixed, we ran a 60-second inference test. The robot:
+
+1. **First 5 seconds:** Moved from rest position (-90° shoulder_lift) toward... rest position
+2. **Remaining 55 seconds:** Held perfectly still at rest
+
+The model had learned: "when at rest position, stay at rest position."
+
+**Root cause: Idle frames at episode starts.** Our training data had 15-20% idle frames — the robot sitting at rest while the operator prepared. The model learned a strong association: `rest_position + candy_visible → hold_still`.
+
+**Diagnosis test:** We manually moved the arm partway toward the candy, then started inference. The robot **immediately tried to grab** — it continued the trajectory, reached for the candy, closed the gripper. It was spatially off (grabbed air), but the intent was correct.
+
+This confirmed: the model learned the pick motion, but can't *start* it from rest position. The idle frames poisoned the "start from rest" behavior.
+
+---
+
+## Research: SO-101 Training Best Practices
+
+Before collecting more data, we researched what actually works for SO-101 ACT training. Key findings from HuggingFace blogs, GitHub issues, and successful deployments:
+
+| Parameter | Our Current | Recommended |
+|-----------|-------------|-------------|
+| Episodes | 29 | 50 minimum, 150+ optimal |
+| Spatial coverage | Unknown | 6-7 zones, 25+ episodes each |
+| Orientation variety | Limited | -45° to +45° rotation |
+| Idle frames | 15-20% | &lt;5% |
+| Camera positions | Not marked | Must be IDENTICAL train/eval |
+
+**Critical protocol changes:**
+
+1. **Watch camera feeds ONLY** — don't look at the robot during teleoperation. The robot only sees what the camera sees.
+2. **Start moving BEFORE recording** — no idle frames at start
+3. **Stop recording IMMEDIATELY** when task complete — no idle at end
+4. **Grasp at object CENTER**, not top
+5. **Mark camera positions with tape** — any drift between training and eval breaks the model
+6. **Stratified spatial sampling** — move the candy to different positions across the workspace
+
+The 90%→75% success drop (in-distribution→out-of-distribution) in real deployments comes from insufficient spatial coverage, not model capacity.
+
+---
+
+## Camera Setup Evaluation
+
+We evaluated multiple camera angles:
+
+| Position | Pros | Cons |
+|----------|------|------|
+| Overhead | Excellent spatial coverage, clean background | Can't see gripper during grasp |
+| Pure side | Clean background, sees vertical motion | Perpendicular to grasp, may miss gripper |
+| Angled side | Sees gripper approach and grasp | Some background clutter |
+| Front-facing | Best grasp visibility | Cluttered background (closet, person, etc.) |
+
+**Decision:** Overhead + angled side view. The angled position captures the gripper during grasping while maintaining a mostly clean background. Both cameras must be fixed in place with tape markers.
+
+---
+
+## Lessons Learned
+
+1. **Camera placement determines what the model can learn.** A single overhead camera literally cannot see the gripper during the most critical phase of grasping. No amount of training data or model capacity can fix missing information.
+
+2. **Temporal ensembling can collapse your policy to the dataset mean.** If your task has diverse trajectories that all pass through a common pose (like home position), aggressive ensembling averages everything to that pose.
+
+3. **Don't test closed-loop policies with fake inputs.** ACT is heavily state-conditioned. Running inference with zero joint state produces zero actions — it looks broken but it's just out-of-distribution.
+
+4. **Trim your idle frames.** 15–20% of demonstrations being idle gives the model a strong prior toward inaction. Trimming from 39K to 31K frames improved loss from 0.067 to 0.061.
+
+5. **Open-source frameworks need practical patches.** LeRobot works well with USB cameras. The moment you add a network camera (RTSP), you hit bugs in URL handling and resolution validation.
+
+6. **USD conversion is not "export and done."** The URDF-to-USD path loses all physics structure. Re-converting with Isaac Lab's proper URDF importer is required for simulation.
+
+7. **State key ordering must match exactly.** The training data defines an implicit joint order. If your inference code reorders the state array (e.g., alphabetically), the model sees scrambled joints.
+
+8. **Idle frames teach the model to do nothing.** If 15% of your training data is the robot sitting still at rest, the model learns "rest position → hold still" as a strong prior.
+
+9. **Minimum viable dataset is 50 episodes.** 30 episodes can produce a model that reaches in the right direction. 50+ episodes with spatial diversity is needed for reliable grasping.
+
+10. **Camera position drift breaks everything.** Even small camera movements between training and evaluation cause failure. Mark positions with tape.
+
+---
+
+## Round 5: 56 Clean Episodes
+
+Armed with every lesson above, we started over with a completely new dataset.
+
+### The Protocol
+
+Two USB cameras (both 640x480, 30fps, `fourcc: MJPG`): overhead for spatial layout, angled side for gripper contact. Both positions marked with blue tape on the desk. Verified before every recording session.
+
+We divided the workspace into 6 spatial zones and targeted ~9 episodes per zone with orientation variety:
+
+```
+         ┌───────────────────────┐
+         │   Z1   │  Z2   │  Z3  │  ← far (25cm from base)
+         ├────────┼───────┼──────┤
+         │   Z4   │  Z5   │  Z6  │  ← near (15cm from base)
+         └───────────────────────┘
+         left     center   right
+```
+
+The recording rules were strict:
+
+- Watch camera feeds ONLY — never look at the robot
+- Start moving BEFORE pressing record
+- Stop recording IMMEDIATELY after the candy is placed
+- Grasp at object center, not top edge
+- Vary candy orientation within each zone (-45° to +45°)
+
+After every 10 episodes, we ran our validation script. This caught problems early: across the full collection, we discarded and re-recorded 6 episodes — 3 with missing gripper open/close cycles, 2 where the camera got bumped mid-episode, and 1 where the arm hit the table hard enough to shift its mount.
+
+### Data Quality: Before vs After
+
+The difference between "just record some demos" and "follow a protocol" was dramatic:
+
+| Metric | Round 2 (30 episodes, no protocol) | Round 5 (56 episodes, strict protocol) |
+|--------|-----------------------------------|---------------------------------------|
+| Gripper open/close cycles | 21/30 (70%) | 56/56 (100%) |
+| Idle frames | ~16% | &lt;3% |
+| Spatial zones covered | Unknown | 6/6 |
+| Episodes discarded | 0 (should have been 9) | 6 (caught and re-recorded) |
+| Camera position verified | Never | Before every session |
+
+The Round 2 dataset had 9 episodes (30%) where the gripper never fully closed on the object. We didn't know at the time. Those episodes were actively teaching the model "reach toward the candy and stop" — exactly the behavior we saw.
+
+### Training: v4
+
+```
+v4 config:
+  chunk_size: 50        n_action_steps: 50
+  dim_model: 512        n_heads: 8
+  dim_feedforward: 3200 n_encoder_layers: 4
+  n_decoder_layers: 1   use_vae: true
+  latent_dim: 32        kl_weight: 1.0
+  lr: 1e-5              steps: 100K
+  image_transforms: on
+  dataset: 56 episodes, 2 cameras
+  params: 52M           final loss: 0.049
+```
+
+Loss comparison across all training runs:
+
+| Run | Episodes | Cameras | Steps | Final Loss | Real Robot Behavior |
+|-----|----------|---------|-------|------------|-------------------|
+| v1 | 30 (dirty) | 1 (overhead) | 50K | 0.067 | Reaches, can't grasp, jerky |
+| v3 | 30 (trimmed) | 1 (overhead) | 100K | 0.061 | Reaches better, still no grasp |
+| 2-cam v1 | 30 (dirty) | 2 | 100K | ~0.055 | Reaches, occasional grasp attempt |
+| **v4** | **56 (clean)** | **2** | **100K** | **0.049** | **Reaches, grasps, lifts** |
+
+The v4 model converged faster and lower than any previous run. More importantly, the qualitative behavior on the real robot was fundamentally different — the arm moved with purpose through the entire pick sequence instead of stalling at any phase.
+
+### Deployment on Jetson
+
+We loaded the v4 checkpoint into our control agent running on the Jetson at 30fps. The arm reaches toward the candy, descends to the right height, closes the gripper at the right moment, and lifts. It's not perfect — it misses when the candy is at the far edges of the workspace, and it occasionally closes the gripper slightly too early. But the difference from v1 (which couldn't start the motion from rest) to v4 (which executes the full pick sequence) is the difference between a broken prototype and a starting point for production.
+
+We didn't run a formal N-trial evaluation with structured success rates. That's a gap — and one of the lessons below. But the visual difference between "arm reaches and hovers" and "arm picks up the candy" is unambiguous.
+
+---
+
+## Final Lessons
+
+Everything above condenses into a few principles that apply to any imitation learning deployment, not just SO-101:
+
+**11. Data quality beats data quantity, but you need both.** 30 dirty episodes produced a model that couldn't grasp. 56 clean episodes produced one that could. The clean protocol — no idle frames, complete gripper cycles, spatial diversity, fixed cameras — mattered more than any hyperparameter change we tried.
+
+**12. Validate your data before training, not after.** We built a validation script that checks gripper cycles, idle frame percentage, spatial coverage, and state key ordering after every 10-episode batch. The 6 episodes we caught and re-recorded would have silently degraded the model. Data validation is as important as model validation.
+
+**13. Change one variable at a time.** Our v1→v3 jump changed 5 things simultaneously (chunk size, KL weight, learning rate, augmentation, trimming). When v3 improved but still couldn't grasp, we couldn't attribute the improvement to any specific change. v3→v4 changed one thing: data quality. The improvement was unambiguous.
+
+**14. The 30% problem is invisible.** Round 2 had 9/30 episodes (30%) where the gripper never fully closed. We didn't catch it because we weren't looking. Those episodes trained the model to reach without grasping — exactly the behavior we spent weeks debugging. Incomplete demonstrations don't just add noise; they actively teach the wrong thing.
+
+**15. Quantitative eval is non-negotiable.** We still haven't run a formal N-trial evaluation with structured success rates across spatial zones. We should have done this after every training run. "It looks like it's working" is not evaluation. Define N trials, M positions, binary success/fail. Run it on every checkpoint. We will on the next round.
+
+---
+
+## The Pipeline Problem
+
+This blog covers one task, one robot, one model architecture. It took weeks of debugging to get from "arm moves randomly" to "arm picks up candy." Most of the time wasn't spent on anything novel — it was spent on plumbing: data format issues, camera driver bugs, state key ordering, USD conversion, idle frame trimming, validation scripting.
+
+Every team training robot policies hits these same problems. The data collection pitfalls are the same. The deployment gotchas are the same. The evaluation gaps are the same. And every team solves them independently, from scratch, with their own duct tape.
+
+That's what we're building [DeviceNexus](https://devicenexus.ai) to fix. Not the model — the pipeline around it. Record demonstrations, validate data quality, train, validate in simulation, deploy to the robot over-the-air, and when the robot fails in production, capture the failure, correct it, and retrain. The loop that turns a 70% success rate into a 95% success rate without sending an engineer to the site.
+
+The tools exist. LeRobot, Isaac Sim, commodity hardware, cloud GPUs. The challenge was never the individual pieces — it's connecting them into a pipeline that actually works. We know, because we just spent weeks doing it by hand.
+
+If you're hitting the same walls — data quality issues, deployment headaches, the gap between "works on the bench" and "works in production" — I'd genuinely like to hear about it: **amar@devicenexus.ai**
+
+---
+
+*— Amar Balutkar, [DeviceNexus.ai](https://devicenexus.ai)*
+
+---
+
+## Key Concepts in This Guide
+
+<CardGrid>
+  <LinkCard title="Imitation Learning" description="The paradigm behind training robots from demonstrations" href="/robotics-glossary/concepts/learning/imitation-learning/" />
+  <LinkCard title="Teleoperation" description="How leader/follower arms work for data collection" href="/robotics-glossary/concepts/learning/teleoperation/" />
+  <LinkCard title="Robot Training Dataset" description="What episodes are and why quality matters" href="/robotics-glossary/concepts/learning/robot-training-dataset/" />
+  <LinkCard title="VLA Models" description="The model architecture (ACT) used in this guide" href="/robotics-glossary/concepts/ai/vla-models/" />
+</CardGrid>
+
+<Aside title="Built with DeviceNexus">
+  The teach-train-deploy loop described here is what DeviceNexus automates. [Learn more at devicenexus.ai](https://devicenexus.ai)
+</Aside>

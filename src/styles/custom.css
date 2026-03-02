@@ -1,5 +1,21 @@
 /* Robotics Glossary Custom Styles */
 
+/* KaTeX math rendering */
+@import 'katex/dist/katex.min.css';
+
+.katex-display {
+  overflow-x: auto;
+  padding: 0.5rem 0;
+}
+
+.katex-display > .katex {
+  font-size: 1.1em;
+}
+
+.katex {
+  font-size: 1em;
+}
+
 /* Color Palette */
 :root {
   /* NVIDIA-inspired green for primary accent */

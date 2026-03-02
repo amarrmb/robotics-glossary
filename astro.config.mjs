@@ -1,5 +1,7 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
 
 const POSTHOG_KEY = process.env.PUBLIC_POSTHOG_KEY || '';
 const POSTHOG_HOST = process.env.PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com';
@@ -131,7 +133,7 @@ export default defineConfig({
           collapsed: false,
           badge: { text: 'DeviceNexus', variant: 'caution' },
           items: [
-            { label: 'Overview', slug: 'guides/index' },
+            { label: 'Overview', slug: 'guides' },
             { label: 'Teaching a Robot to Pick Up a Candy Bar', slug: 'guides/act-training-lessons' },
             { label: '3 Numbers That Tell You How to Optimize', slug: 'guides/latency-floor-model' },
           ],
@@ -152,4 +154,8 @@ export default defineConfig({
       lastUpdated: true,
     }),
   ],
+  markdown: {
+    remarkPlugins: [remarkMath],
+    rehypePlugins: [rehypeKatex],
+  },
 });
