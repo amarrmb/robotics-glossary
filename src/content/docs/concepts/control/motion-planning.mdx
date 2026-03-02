@@ -8,6 +8,8 @@ sidebar:
 last_validated: 2026-01-21
 ---
 
+import { Aside } from '@astrojs/starlight/components';
+
 <span class="level-badge deepdive">Deep Dive</span>
 
 **Motion Planning** is the problem of finding a sequence of valid configurations that moves a robot from a start state to a goal state while avoiding obstacles. It's one of the core challenges in robotics, bridging perception (knowing where obstacles are) and control (executing movements).
@@ -166,6 +168,10 @@ When obstacles move:
 - [SLAM](/robotics-glossary/concepts/perception/slam/) — Building maps for planning
 - [PID Control](/robotics-glossary/concepts/control/pid/) — Executing planned trajectories
 - [ROS 2](/robotics-glossary/software/frameworks/ros2/) — MoveIt 2 integration
+
+<Aside title="In Practice">
+  For AI-trained robot policies (ACT, VLA), motion planning is often replaced by end-to-end learned action prediction — the model directly outputs joint positions from camera observations. Classical motion planning is still used for structured tasks and safety constraints.
+</Aside>
 
 ## Sources
 
