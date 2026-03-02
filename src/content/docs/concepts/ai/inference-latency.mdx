@@ -1,0 +1,211 @@
+---
+title: Inference Latency
+description: How long a model takes to produce output — and the three floors that bound how fast you can go
+sidebar:
+  badge:
+    text: Deep Dive
+    variant: tip
+last_validated: 2026-03-02
+---
+
+import { Aside, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+<span class="level-badge deepdive">Deep Dive</span>
+
+**Inference latency** is the wall-clock time from "input enters the model" to "output is ready to use." For robot AI — real-time speech, VLA policies, vision models — latency directly determines whether the system is usable.
+
+A 500 ms latency means 2 Hz. A robot operating at 30 fps needs a new action every 33 ms. A voice assistant that takes 800 ms to respond feels broken. Latency is not a tuning parameter — it is a hard product constraint that must be computed before any optimization work begins.
+
+<Aside type="tip">
+Before you try any optimization — quantization, pruning, TensorRT compilation — compute R1, R2, and R3. These three numbers tell you which bottleneck you are actually hitting. Optimizing the wrong bottleneck wastes days.
+</Aside>
+
+## The Three Latency Floors
+
+Every inference system has three theoretical floors. You cannot go below the lowest applicable floor without changing the hardware or the model. Understanding which floor you are on tells you exactly what to do.
+
+### R1 — Memory Bandwidth Floor (Weight-Read Floor)
+
+```
+R1 = P × b / B_w
+
+P   = number of parameters
+b   = bytes per parameter (4 for fp32, 2 for fp16/bf16, 1 for int8, 0.5 for fp4)
+B_w = memory bandwidth (GB/s)
+```
+
+At batch size 1, the GPU spends most of its time **reading weights from memory**, not computing. The arithmetic intensity is low — there is only one input vector to multiply each weight against. This makes the operation memory-bandwidth-bound.
+
+**What helps R1:**
+- Quantization (fp16 → int8 halves R1; fp8 reduces it further)
+- Higher bandwidth hardware (H100 SXM has 3.35 TB/s vs Jetson Thor's 273 GB/s)
+
+**What does not help R1:**
+- Faster compute (the GPU is already waiting on memory)
+- More GPU cores
+
+---
+
+### R2 — KV-Cache Floor (Autoregressive Models Only)
+
+```
+R2 = L × H × b / B_w    (per output token)
+
+L  = number of transformer layers
+H  = hidden dimension size
+```
+
+For transformer models generating sequences (LLMs, autoregressive VLAs), each new token requires reading the entire **KV-cache** — the stored key-value pairs from all previous tokens. As sequence length grows, R2 grows. Batch size does not help here because the KV-cache per sequence is fixed.
+
+**What helps R2:**
+- Shorter context / output sequences
+- Multi-Query Attention (MQA) or Grouped-Query Attention (GQA) — reduce the number of KV heads
+- KV-cache quantization
+
+**What does not help R2:**
+- Quantizing the weights alone (KV-cache bandwidth is the bottleneck)
+- More GPU cores
+
+---
+
+### R3 — Compute Floor
+
+```
+R3 = FLOPs / (hardware_FLOPS × efficiency)
+```
+
+The raw compute ceiling. At large batch sizes, the GPU is doing enough parallel work to stay fully utilized — every weight is multiplied against many input vectors simultaneously. This is the regime most training runs are in. At batch size 1 real-time inference, R3 is almost never the bottleneck.
+
+**What helps R3:**
+- Increasing batch size (more parallelism)
+- Kernel fusion (reduce overhead per FLOP)
+- TensorRT / CUDA graph compilation
+- Quantization (int8 compute is 2× or more faster than fp16 on modern GPUs)
+
+**What does not help R3:**
+- More memory bandwidth (the compute units are already saturated)
+
+---
+
+## Which Floor Are You On?
+
+| Floor | Bottleneck | What helps | What does not help |
+|-------|-----------|------------|--------------------|
+| R1 | Memory bandwidth (weight reads) | Quantization, higher BW GPU | Faster compute, more cores |
+| R2 | KV-cache bandwidth | Shorter context, MQA/GQA | Weight quantization alone |
+| R3 | Compute | Batching, kernel fusion, TensorRT | More memory bandwidth |
+
+<Aside type="tip">
+Compute R1, R2, R3 before trying any optimization. Most models at batch size 1 are R1-bottlenecked. Quantization is almost always the right first move for real-time robot inference.
+</Aside>
+
+For real-time robot inference (batch size 1, short or no sequence generation), the ordering is almost always:
+
+```
+R1 dominates for:   non-autoregressive models (ACT, Diffusion Policy, CNNs)
+R1 + R2 for:        autoregressive models generating short sequences
+R3 for:             large batch training or high-throughput serving
+```
+
+---
+
+## Real Example: Personaplex on Jetson Thor
+
+This is a concrete case where computing the floors first predicted the correct optimization path.
+
+**Setup:**
+- Model: Qwen2.5-7B (7 billion parameters, bf16)
+- Hardware: Jetson Thor (273 GB/s memory bandwidth)
+- Task: Real-time voice AI — target latency under 80 ms per token
+
+**Computing the floors:**
+
+```
+R1 = 7,000,000,000 parameters × 2 bytes (bf16) / 273,000,000,000 bytes/s
+   ≈ 51 ms per token
+```
+
+R2 applies (autoregressive model), but for short conversational responses the KV-cache contribution is secondary. R3 is not relevant at batch size 1.
+
+**Diagnosis:** R1-bottlenecked. The correct optimization is reducing bytes per parameter.
+
+**Result:**
+| Configuration | Per-token latency | Vs. floor |
+|--------------|-------------------|-----------|
+| bf16 baseline | ~102 ms | 2.0× above R1 |
+| FP8 quantization | ~74 ms | 1.45× above R1 (floor drops to ~26 ms) |
+
+FP8 quantization halved R1 from 51 ms to ~26 ms. The measured improvement (102 ms → 74 ms) was slightly smaller than the theoretical gain because compute and memory-access overhead does not disappear entirely — but the direction was correct and the gain was significant.
+
+**Lesson:** Because we correctly identified R1 as the bottleneck before starting, we did not waste time on kernel fusion, TensorRT compilation, or output length reduction — which would have had minimal impact. Eight other optimization attempts that ignored the floor analysis all failed.
+
+---
+
+## For Robot Policies (ACT, Diffusion Policy, VLAs)
+
+Non-autoregressive models — ACT, Diffusion Policy, flow-matching VLAs — do not have an R2 term. They are R1-bottlenecked at batch size 1.
+
+```
+ACT (80M params, fp16):
+  R1 = 80,000,000 × 2 / (273,000,000,000)
+     ≈ 0.6 ms    ← extremely fast, latency dominated by overhead
+
+GR00T N1 (2B params, bf16):
+  R1 = 2,000,000,000 × 2 / (273,000,000,000)
+     ≈ 14.7 ms per forward pass
+```
+
+For small models like ACT, R1 is so low that framework overhead dominates. For larger VLAs, R1 becomes meaningful.
+
+**Action chunking amortizes latency.** A 33 ms inference call that produces a chunk of 50 actions at 30 fps covers 1.67 seconds of execution without re-querying the policy. This is why ACT's chunk_size parameter directly trades off latency budget against policy responsiveness.
+
+```
+Without chunking (chunk_size = 1):
+  Each action requires one inference call → must complete in < 33 ms
+
+With chunking (chunk_size = 50):
+  One inference call covers 50 frames → 50 × 33 ms = 1.67 s budget
+  Latency can be up to 1.67 s before the robot stalls waiting for the next chunk
+```
+
+<Aside type="caution">
+Larger chunk sizes reduce the frequency at which the policy responds to new observations. A chunk_size of 100 at 30 fps means the policy is effectively running at 0.3 Hz from a replanning perspective, even if actions execute at 30 Hz.
+</Aside>
+
+---
+
+## Related Terms
+
+<CardGrid>
+  <LinkCard
+    title="VLA Models"
+    description="Vision-Language-Action models and their inference requirements"
+    href="/robotics-glossary/concepts/ai/vla-models/"
+  />
+  <LinkCard
+    title="Action Chunking"
+    description="Predicting sequences of future actions to amortize latency"
+    href="/robotics-glossary/concepts/learning/action-chunking/"
+  />
+  <LinkCard
+    title="Jetson Thor"
+    description="NVIDIA's 273 GB/s edge platform for robot inference"
+    href="/robotics-glossary/hardware/compute/jetson-thor/"
+  />
+  <LinkCard
+    title="TensorRT"
+    description="NVIDIA's inference optimizer — helps R3, limited impact on R1"
+    href="/robotics-glossary/software/nvidia/tensorrt/"
+  />
+</CardGrid>
+
+<Aside title="In Practice">
+We spent 30 hours optimizing a real-time speech AI on Jetson Thor. Eight optimization attempts failed. Every failure was predictable from R1, R2, R3 computed upfront — the failed attempts targeted the wrong bottleneck. [The full analysis →](/robotics-glossary/guides/latency-floor-model/)
+</Aside>
+
+## Sources
+
+- [Latency Floor Model Guide](/robotics-glossary/guides/latency-floor-model/) — full derivation with worked examples
+- [TensorRT Documentation](https://developer.nvidia.com/tensorrt) — NVIDIA's inference optimization toolkit
+- [FlashAttention-2](https://arxiv.org/abs/2307.08691) — Efficient attention reducing KV-cache bandwidth (R2)
+- [Flash Attention original paper](https://arxiv.org/abs/2205.14135) — Recompute vs. memory trade-off for attention
