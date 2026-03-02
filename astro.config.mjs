@@ -131,7 +131,7 @@ export default defineConfig({
           collapsed: false,
           badge: { text: 'DeviceNexus', variant: 'caution' },
           items: [
-            { label: 'Overview', slug: 'guides' },
+            { label: 'Overview', slug: 'guides/index' },
             { label: 'Teaching a Robot to Pick Up a Candy Bar', slug: 'guides/act-training-lessons' },
             { label: '3 Numbers That Tell You How to Optimize', slug: 'guides/latency-floor-model' },
           ],
