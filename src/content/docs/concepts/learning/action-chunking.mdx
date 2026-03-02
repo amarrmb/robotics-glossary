@@ -1,0 +1,147 @@
+---
+title: Action Chunking
+description: Predicting sequences of future actions instead of one action at a time
+sidebar:
+  badge:
+    text: Conceptual
+    variant: note
+last_validated: 2026-03-02
+---
+
+import { Aside, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+<span class="level-badge conceptual">Conceptual</span>
+
+**Action chunking** is a control strategy in which a robot policy predicts a *sequence* of N future actions at once — a "chunk" — executes them open-loop without re-observing, and only then takes a new observation and predicts the next chunk. Rather than asking "what is the single best action right now?", the policy asks "what are the best 50 actions starting from right now?" and commits to that trajectory for the chunk duration.
+
+Action chunking is the core innovation of the **ACT (Action Chunking with Transformers)** model and has since become a standard technique in imitation learning for dexterous manipulation.
+
+<Aside type="tip">
+"Chunking" mirrors how humans execute practiced motor sequences — once a skilled movement begins (e.g. catching a ball), the brain commits to a planned trajectory rather than re-computing each muscle command from scratch.
+</Aside>
+
+## The Problem It Solves
+
+### The Naive One-Action Loop
+
+A straightforward imitation learning controller runs a tight observe-predict-execute cycle:
+
+```
+observe → predict a₁ → execute a₁ → observe → predict a₂ → execute a₂ → ...
+```
+
+Each prediction is made independently from a fresh observation. This causes two compounding problems:
+
+1. **Jitter from micro-corrections.** Every observation carries sensor noise. Predicting one action at a time means the policy is constantly micro-correcting against noise rather than following a smooth intended trajectory.
+2. **Temporal inconsistency.** Consecutive predictions for adjacent timesteps are not guaranteed to be jointly consistent. The policy at t+1 has "forgotten" the context of t. The result is jerky, discontinuous motion that looks nothing like the smooth human demonstrations the model was trained on.
+
+### The Chunked Version
+
+Action chunking breaks the loop into larger, committed segments:
+
+```
+observe → predict [a₁, a₂, ..., a₅₀] → execute all 50 → observe → predict [a₅₁, ..., a₁₀₀] → ...
+```
+
+The policy commits to a smooth trajectory for the entire chunk duration. Within a chunk, no re-observation or re-planning occurs. At the chunk boundary, the robot takes a fresh observation and the cycle repeats. The result:
+
+- Smooth intra-chunk motion (no micro-jitter)
+- Coherent action sequences that match the temporal structure of human demonstrations
+- Reduced sensitivity to observation noise within a chunk
+
+<Aside type="caution">
+"Open-loop" within a chunk means the robot cannot react to unexpected events (a slipping object, a collision) until the chunk ends. Chunk size is therefore a deliberate trade-off between smoothness and reactivity — see the next section.
+</Aside>
+
+## Chunk Size Trade-offs
+
+The chunk size N is a key hyperparameter. Choosing it requires balancing smoothness against the need to re-observe and correct.
+
+| Chunk Size | Duration at 30 fps | Behavior | When to Use |
+|------------|--------------------|----------|-------------|
+| 1–5 | 0.03–0.17 s | Jittery, effectively same as one-action-at-a-time | Avoid for dexterous tasks |
+| 25–100 | 0.83–3.33 s | Smooth motion, re-observes often enough to correct mid-task | Default range for tabletop manipulation |
+| 200+ | 6.7+ s | Very smooth but cannot correct for obstacles or disturbances | Only suitable for fixed, fully predictable environments |
+
+For a 30 fps robot, **chunk size 50 = 1.67 seconds** of committed action before re-observing. This is roughly the duration of a single dexterous sub-movement (reach, grasp, or place), which aligns well with the temporal structure of human demonstrations.
+
+<Aside>
+In the original ACT paper, chunk size is set equal to `n_action_steps` (the number of actions the policy outputs per forward pass). In practice, chunk sizes of 50–100 work well for tabletop pick-and-place tasks at 30 fps.
+</Aside>
+
+## Temporal Ensemble
+
+Temporal ensemble is a refinement on basic action chunking that eliminates the hard discontinuity at chunk boundaries. Instead of switching abruptly from one chunk to the next, multiple overlapping chunk predictions are made and blended together.
+
+### How It Works
+
+At each timestep, the policy predicts a full chunk of N actions starting from the current observation. Rather than discarding the predictions from previous timesteps, all overlapping predictions for the current timestep are **averaged with exponentially decaying weights** — older predictions contribute less than the freshest one.
+
+```
+Timestep:   t    t+1  t+2  t+3  t+4  t+5  t+6
+            ┌────────────────────────────────┐
+Chunk @t:   │ a₀  a₁  a₂  a₃  a₄  a₅      │
+            └────────────────────────────────┘
+                 ┌────────────────────────────┐
+Chunk @t+1:      │ a₀  a₁  a₂  a₃  a₄  a₅  │
+                 └────────────────────────────┘
+                      ┌────────────────────────┐
+Chunk @t+2:           │ a₀  a₁  a₂  a₃  a₄  │
+                      └────────────────────────┘
+
+Executed at t+2: blend(Chunk@t[2], Chunk@t+1[1], Chunk@t+2[0])
+                 weights:  low          medium        high
+```
+
+At timestep t+2 in the example above, three overlapping predictions cover the current moment. The action executed is a weighted average, with the most recent prediction (Chunk@t+2) given the highest weight because it was computed from the freshest observation.
+
+### Effect
+
+Temporal ensemble smooths the transitions at chunk boundaries, eliminating the brief jitter that can occur when the robot switches from one planned trajectory to the next. The trade-off is increased inference cost — the policy must run at every timestep rather than once per chunk — which may be a constraint on resource-limited edge devices.
+
+## In ACT
+
+ACT (Action Chunking with Transformers) is the model that introduced action chunking for robot manipulation. Its architecture is built around producing all N actions simultaneously rather than autoregressively.
+
+**Model class:** Conditional VAE (CVAE) with a Transformer decoder.
+
+**Inputs at inference:**
+- Camera image(s) — encoded by a ResNet-18 or ViT backbone
+- Current joint state — a vector of joint positions
+- Latent variable z — sampled from the learned prior (zero at test time)
+
+**Output:**
+- A sequence of N joint position deltas: `[Δjoint₁, Δjoint₂, ..., Δjoint_N]`
+
+All N outputs are produced in a single forward pass through the Transformer decoder. There is no autoregressive decoding step. The Transformer's self-attention across the N output tokens is what gives the actions their temporal coherence — the model learns correlations between the actions at different positions in the chunk.
+
+**Training configuration note:** In ACT, `chunk_size` and `n_action_steps` must be equal. Setting them to different values produces a mismatch between training and inference and results in degraded performance.
+
+```
+chunk_size = n_action_steps = 50   ← standard for 30fps tabletop tasks
+```
+
+## Related Terms
+
+<CardGrid>
+  <LinkCard
+    title="Imitation Learning"
+    description="Learning robot behavior by imitating human demonstrations"
+    href="/robotics-glossary/concepts/learning/imitation-learning/"
+  />
+  <LinkCard
+    title="VLA Models"
+    description="Vision-Language-Action models that map perception and language to actions"
+    href="/robotics-glossary/concepts/ai/vla-models/"
+  />
+  <LinkCard
+    title="Robot Training Dataset"
+    description="Structured collections of demonstrations used to train robot policies"
+    href="/robotics-glossary/concepts/learning/robot-training-dataset/"
+  />
+</CardGrid>
+
+## Sources
+
+- [ACT paper — Learning Fine-Grained Bimanual Manipulation with Low-Cost Hardware (arXiv 2304.13705)](https://arxiv.org/abs/2304.13705) — Original ACT paper introducing action chunking and temporal ensemble
+- [LeRobot ACT implementation](https://github.com/huggingface/lerobot/tree/main/lerobot/common/policies/act) — Reference implementation used in production training pipelines
