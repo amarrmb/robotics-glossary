@@ -1,0 +1,102 @@
+---
+title: Model Checkpoint
+description: A saved snapshot of a neural network's weights at a point during training
+sidebar:
+  badge:
+    text: Practical
+    variant: success
+last_validated: 2026-03-02
+---
+
+import { Aside, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+<span class="level-badge practical">Practical</span>
+
+A **model checkpoint** is a saved snapshot of a neural network's weights at a specific point during training. For robot policies, it is the artifact you actually deploy — it encodes everything the model learned from the training dataset up to that moment. When a robot runs a trained policy, it is running a checkpoint.
+
+## What's in a Checkpoint
+
+A checkpoint is a directory, not a single file. For a LeRobot ACT policy trained to 100K steps, it looks like this:
+
+```
+checkpoints/
+  100000/
+    pretrained_model/
+      config.json          ← model architecture + hyperparameters
+      model.safetensors    ← weight values (~200MB for ACT)
+      stats.json           ← dataset normalization statistics (mean/std per channel)
+```
+
+<Aside type="caution">
+`stats.json` is critical: the model was trained on normalized inputs. At inference, raw joint positions and camera pixels must be normalized by the *same* statistics from the training dataset. A checkpoint deployed without its matching `stats.json` will behave incorrectly.
+</Aside>
+
+`model.safetensors` stores the weight tensors in a safe, fast-loading binary format (an alternative to PyTorch's `.pt` files that avoids arbitrary code execution on load). `config.json` records the architecture decisions — input dimensions, number of transformer layers, chunk size — so the model can be reconstructed exactly. Neither file is useful without the other.
+
+## Training Curve and Checkpoint Selection
+
+Loss decreases over the course of training, but not linearly. A typical ACT run on a 56-episode manipulation dataset:
+
+```
+Step   10K  →  loss 0.180   (model is barely tracking structure)
+Step   50K  →  loss 0.072   (grasping emerges)
+Step   80K  →  loss 0.058   (reliable on common positions)
+Step  100K  →  loss 0.049   (diminishing returns begin)
+Step  120K  →  loss 0.051   (slight overfit — worse than 100K)
+```
+
+The checkpoint at lowest validation loss is the best candidate, but evaluation on the real robot is the ground truth. A checkpoint at step 80K may generalize better than 100K if the dataset is small — the lower loss can reflect memorization of the training positions rather than genuine task understanding.
+
+<Aside>
+For datasets under ~100 episodes, save checkpoints every 10K–20K steps and evaluate physically at the end. Do not assume the final checkpoint is the best one.
+</Aside>
+
+## Checkpoint Lifecycle
+
+Once training completes, a checkpoint follows a predictable path before reaching the robot:
+
+```
+Training completes
+       ↓
+Checkpoint saved to disk
+       ↓
+Sim validation (optional — reject if below success threshold)
+       ↓
+Deploy to robot via OTA update
+       ↓
+Physical evaluation (N trials across M positions)
+       ↓
+If regression: rollback to previous checkpoint
+```
+
+The rollback step is important in production. Because checkpoints are versioned snapshots, reverting to a known-good deployment is straightforward — the robot just loads the previous checkpoint file. This is qualitatively different from a software service rollback: the failure mode is behavioral (the robot picks up objects less reliably) rather than a crash, and it may not be obvious until enough trials have accumulated.
+
+## Related Terms
+
+<CardGrid>
+  <LinkCard
+    title="Robot Training Dataset"
+    description="The demonstration data a checkpoint is trained on"
+    href="/robotics-glossary/concepts/learning/robot-training-dataset/"
+  />
+  <LinkCard
+    title="Sim-to-Real"
+    description="Validating checkpoints in simulation before physical deployment"
+    href="/robotics-glossary/concepts/learning/sim-to-real/"
+  />
+  <LinkCard
+    title="OTA Model Update"
+    description="Delivering new checkpoints to deployed robots over the air"
+    href="/robotics-glossary/concepts/learning/ota-model-update/"
+  />
+  <LinkCard
+    title="Imitation Learning"
+    description="The training paradigm that produces robot policy checkpoints"
+    href="/robotics-glossary/concepts/learning/imitation-learning/"
+  />
+</CardGrid>
+
+## Sources
+
+- [LeRobot checkpoint format](https://github.com/huggingface/lerobot) — HuggingFace's open-source library for robot imitation learning; defines the `pretrained_model/` directory structure used above
+- [HuggingFace safetensors](https://github.com/huggingface/safetensors) — the safe, fast tensor serialization format used for `model.safetensors`; avoids the arbitrary code execution risk of Python pickle-based `.pt` files
