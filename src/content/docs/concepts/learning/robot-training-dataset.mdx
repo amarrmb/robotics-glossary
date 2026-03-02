@@ -1,0 +1,131 @@
+---
+title: Robot Training Dataset
+description: The collection of recorded demonstrations used to train a robot policy
+sidebar:
+  badge:
+    text: Practical
+    variant: success
+last_validated: 2026-03-02
+---
+
+import { Aside, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+<span class="level-badge practical">Practical</span>
+
+A **robot training dataset** is the collection of recorded teleoperation demonstrations used to train an imitation learning policy. It's the bridge between human expertise and robot capability — every successful policy starts with a human showing the robot what to do, and the dataset is the permanent record of those demonstrations.
+
+Quality beats quantity. A small set of clean, diverse demonstrations consistently outperforms a large set of mixed-quality recordings.
+
+## Structure: Episodes
+
+A dataset is organized as a collection of **episodes** — one recording per demonstration attempt.
+
+```
+dataset/
+  data/chunk-000/
+    episode_000000.parquet   ← 300 rows (10s at 30fps)
+    episode_000001.parquet
+    ...
+  videos/chunk-000/
+    observation.images.overhead_episode_000000.mp4
+    observation.images.side_episode_000000.mp4
+    ...
+  meta/
+    info.json      ← dataset schema, camera configs
+    stats.json     ← per-column mean/std (for normalization)
+```
+
+Each row in a Parquet file represents one timestep at 30fps (33ms). Key columns:
+
+| Column | Description |
+|--------|-------------|
+| `observation.state` | Robot joint positions at this timestep |
+| `action` | Joint positions commanded at this timestep |
+| `episode_index` | Which episode this row belongs to |
+| `frame_index` | Frame number within the episode |
+| `timestamp` | Time in seconds from episode start |
+
+## Episode Quality Criteria
+
+Every episode is either clean training signal or noise. There is no middle ground.
+
+| Criterion | Why It Matters |
+|-----------|----------------|
+| Complete task | An incomplete demonstration teaches the model a partial behavior. For pick-and-place, the robot must complete the full grasp-and-place sequence, not just reach. |
+| No idle frames at start | Frames where the robot is stationary before moving teach the model to hesitate. Start recording only after the robot is already in motion. |
+| No idle frames at end | Frames after task completion teach the model to hold still once done — which is wrong in a looping policy. Stop recording the instant the task completes. |
+| Consistent technique | Varying your grasp angle or approach direction across episodes creates contradictory training signal. Pick one technique and repeat it. |
+| Full gripper cycle (pick tasks) | For any pick-and-place task: the gripper must open → close → open within the episode. A recording where the gripper never closes means the robot never grasped — that demonstration is training the model to fail. |
+
+## Spatial Diversity
+
+A policy trained on a single object position will only work at that position. Divide your workspace into zones and collect roughly equal coverage across all of them.
+
+```
+         ┌───────────────────────┐
+         │   Z1   │  Z2   │  Z3  │  ← far (25cm from base)
+         ├────────┼───────┼──────┤
+         │   Z4   │  Z5   │  Z6  │  ← near (15cm from base)
+         └───────────────────────┘
+         left     center   right
+```
+
+Aim for ~8 episodes per zone for a 50-episode dataset. Also vary object orientation (±45°) within each zone — a policy that only saw objects aligned with the camera axis will fail when the object is rotated.
+
+## How Many Episodes?
+
+| Task Type | Minimum | Reliable |
+|-----------|---------|---------|
+| Simple pick-place, fixed position | 20 | 50 |
+| Pick-place with spatial diversity | 50 | 150+ |
+| Complex manipulation | 100 | 300+ |
+| Bimanual coordination | 200 | 500+ |
+
+These are rough guidelines. More important than raw count: all episodes must pass quality criteria. 50 clean episodes beat 200 mixed-quality ones.
+
+## Dataset Formats
+
+| Format | Storage | Notes |
+|--------|---------|-------|
+| **LeRobot v3** | Parquet + MP4 | HuggingFace-native format, used by most modern imitation learning research |
+| **RLDS** | TensorFlow Datasets | Common in academic robotics, used by RT-2 and Open X-Embodiment |
+| **MCAP** | Binary (ROS 2) | Raw recording format before conversion. Captures everything including topics not needed for training. |
+| **HDF5** | Binary | Legacy format from the original ACT paper; still used by some labs |
+
+<Aside type="caution">
+30% of our first dataset was incomplete episodes (robot reached but didn't grasp). Those episodes weren't just unhelpful — they actively harmed training by teaching the model to not close the gripper. Incomplete episodes must be discarded, not kept.
+</Aside>
+
+## Related Terms
+
+<CardGrid>
+  <LinkCard
+    title="Imitation Learning"
+    href="/robotics-glossary/concepts/learning/imitation-learning/"
+    description="The training paradigm that consumes these datasets to produce policies"
+  />
+  <LinkCard
+    title="Teleoperation"
+    href="/robotics-glossary/concepts/hardware/teleoperation/"
+    description="How demonstrations are collected — human-in-the-loop robot control"
+  />
+  <LinkCard
+    title="Model Checkpoint"
+    href="/robotics-glossary/concepts/learning/model-checkpoint/"
+    description="The trained policy weights that result from training on this dataset"
+  />
+  <LinkCard
+    title="Sim-to-Real"
+    href="/robotics-glossary/concepts/learning/sim-to-real/"
+    description="An alternative to real-world data collection using simulation"
+  />
+</CardGrid>
+
+<Aside title="In Practice">
+We collected 56 episodes over 4 batches, validating quality after each batch of 10. Found 9/30 incomplete episodes in our first attempt — all discarded and re-recorded. The second pass produced clean data and a policy that trained to loss 0.049 at 100K steps. [Full story →](/robotics-glossary/guides/act-training-lessons/)
+</Aside>
+
+## Sources
+
+- [LeRobot Dataset Format](https://huggingface.co/docs/lerobot/main/en/dataset_format) — Official documentation for the LeRobot v3 Parquet + video format
+- [ACT: Action Chunking with Transformers](https://arxiv.org/abs/2304.13705) — Original paper introducing the HDF5 dataset format for bimanual manipulation
