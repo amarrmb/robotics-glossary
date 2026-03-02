@@ -1,0 +1,87 @@
+---
+title: Learning Path
+description: A guided journey through robotics — from zero to building and deploying robot AI
+---
+
+import { LinkCard, CardGrid, Aside } from '@astrojs/starlight/components';
+
+This glossary covers a lot of ground. If you're starting from scratch, follow the stages below in order — each one builds on the last.
+
+If you already know some robotics, jump to the stage where things get unfamiliar.
+
+---
+
+## Stage 1 — What Is a Robot?
+
+**Question this stage answers:** What are the physical components of a robot arm, and how do we describe its position in space?
+
+<CardGrid>
+  <LinkCard title="Joints and Links" description="The physical building blocks — revolute joints, prismatic joints, and the chains they form" href="/robotics-glossary/concepts/fundamentals/joints-and-links/" />
+  <LinkCard title="Degrees of Freedom" description="How many independent ways a robot can move" href="/robotics-glossary/concepts/fundamentals/degrees-of-freedom/" />
+  <LinkCard title="Kinematics" description="How joint angles determine where the end effector ends up in space" href="/robotics-glossary/concepts/fundamentals/kinematics/" />
+  <LinkCard title="End Effector" description="The gripper or tool at the tip of the arm that does the actual work" href="/robotics-glossary/concepts/fundamentals/end-effector/" />
+  <LinkCard title="Coordinate Frames" description="How we describe position and orientation — world frame, base frame, tool frame" href="/robotics-glossary/concepts/fundamentals/coordinate-frames/" />
+</CardGrid>
+
+---
+
+## Stage 2 — How Does a Robot Perceive?
+
+**Question this stage answers:** How does a robot sense its environment — cameras, depth sensors, and building maps?
+
+<CardGrid>
+  <LinkCard title="Computer Vision" description="Feature detection, depth estimation, and how cameras become sensors" href="/robotics-glossary/concepts/perception/computer-vision/" />
+  <LinkCard title="Point Cloud" description="3D data from depth cameras and LiDAR — the primary format for spatial perception" href="/robotics-glossary/concepts/perception/point-cloud/" />
+  <LinkCard title="Sensor Fusion" description="Combining camera, IMU, and LiDAR data for robust perception" href="/robotics-glossary/concepts/perception/sensor-fusion/" />
+  <LinkCard title="SLAM" description="Simultaneous Localization and Mapping — building a map while tracking position" href="/robotics-glossary/concepts/perception/slam/" />
+</CardGrid>
+
+---
+
+## Stage 3 — How Does a Robot Move?
+
+**Question this stage answers:** Given a goal position, how does the robot plan a path and execute it?
+
+<CardGrid>
+  <LinkCard title="Motion Planning" description="Finding collision-free paths from start to goal — RRT, PRM, cuMotion" href="/robotics-glossary/concepts/control/motion-planning/" />
+  <LinkCard title="PID Control" description="The feedback loop that executes planned trajectories precisely" href="/robotics-glossary/concepts/control/pid/" />
+</CardGrid>
+
+---
+
+## Stage 4 — How Does a Robot Learn?
+
+**Question this stage answers:** Instead of programming every motion, how do we teach a robot by showing it?
+
+This is the paradigm shift in modern robotics. Skip here if you're interested in imitation learning and AI-trained policies.
+
+<CardGrid>
+  <LinkCard title="Imitation Learning" description="The core paradigm — training from human demonstrations instead of writing rules" href="/robotics-glossary/concepts/learning/imitation-learning/" />
+  <LinkCard title="Teleoperation" description="How you physically collect demonstrations using leader/follower arms" href="/robotics-glossary/concepts/learning/teleoperation/" />
+  <LinkCard title="Robot Training Dataset" description="What episodes are, why quality matters, and how many you need" href="/robotics-glossary/concepts/learning/robot-training-dataset/" />
+  <LinkCard title="Action Chunking" description="Predicting sequences of actions — the key insight behind ACT" href="/robotics-glossary/concepts/learning/action-chunking/" />
+  <LinkCard title="VLA Models" description="Large vision-language-action models — the frontier of robot learning" href="/robotics-glossary/concepts/ai/vla-models/" />
+</CardGrid>
+
+---
+
+## Stage 5 — How Does a Robot Improve?
+
+**Question this stage answers:** Once deployed, how does a robot fleet get better over time?
+
+<CardGrid>
+  <LinkCard title="Sim-to-Real Transfer" description="Validate in simulation before risking hardware — the safety gate before deploy" href="/robotics-glossary/concepts/learning/sim-to-real/" />
+  <LinkCard title="Model Checkpoint" description="What you deploy, how to pick the right one, and how rollback works" href="/robotics-glossary/concepts/learning/model-checkpoint/" />
+  <LinkCard title="OTA Model Update" description="Pushing new weights to a fleet of robots without touching the hardware" href="/robotics-glossary/concepts/learning/ota-model-update/" />
+</CardGrid>
+
+---
+
+## Beyond the Glossary
+
+Once you understand the concepts, the Guides section shows how these stages play out in practice — with real failures, real data, and real lessons.
+
+<CardGrid>
+  <LinkCard title="Teaching a Robot to Pick Up a Candy Bar" description="Stages 1–5 in one project: 56 demos, 3 training runs, deployed to a real arm" href="/robotics-glossary/guides/act-training-lessons/" />
+  <LinkCard title="3 Numbers That Tell You How to Optimize" description="Before you try quantization — the latency floor model for AI inference" href="/robotics-glossary/guides/latency-floor-model/" />
+</CardGrid>

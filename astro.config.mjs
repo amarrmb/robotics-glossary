@@ -62,6 +62,7 @@ export default defineConfig({
           items: [
             { label: 'Introduction', slug: 'index' },
             { label: 'How to Use', slug: 'how-to-use' },
+            { label: 'Learning Path', slug: 'learning-path' },
           ],
         },
         {
