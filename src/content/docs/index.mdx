@@ -1,100 +1,61 @@
 ---
-title: Welcome to the Robotics Glossary
-description: The community-maintained reference for robotics concepts and the NVIDIA ecosystem
+title: The Robotics Reference
+description: Knowledge graph for the physical AI stack — from fundamentals to production deployment
+editUrl: false
 template: splash
 hero:
-  tagline: From fundamentals to production — understand the complete robotics stack
-  image:
-    file: ../../assets/hero-robot.svg
+  tagline: A hyperlinked knowledge graph for the physical AI stack — from robot fundamentals to production deployment. Every term cross-linked, every concept placed in context.
   actions:
-    - text: Start Exploring
-      link: /robotics-glossary/how-to-use/
+    - text: Learning Path
+      link: /robotics-glossary/learning-path/
       icon: right-arrow
       variant: primary
-    - text: View on GitHub
-      link: https://github.com/amarrmb/robotics-glossary
-      icon: external
+    - text: Browse Concepts
+      link: /robotics-glossary/concepts/fundamentals/joints-and-links/
+      icon: open-book
       variant: minimal
 ---
 
-import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
 
-## Why This Glossary?
-
-The robotics documentation landscape is fragmented. NVIDIA PDFs, ROS wikis, academic papers, Discord threads — knowledge is scattered across dozens of sources.
-
-This glossary brings it together in one **hyperlinked knowledge graph** organized by domain, with content tagged by type:
-
-<div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 0.5rem 0 1.5rem 0;">
-  <span class="level-badge conceptual">Conceptual</span> Theory & foundations
-  <span class="level-badge practical">Practical</span> Hands-on guides
-  <span class="level-badge deepdive">Deep Dive</span> Comprehensive coverage
-</div>
-
-<CardGrid stagger>
-  <Card title="Concepts" icon="open-book">
-    Fundamentals, perception, control — the theory behind robotics.
-  </Card>
-  <Card title="Hardware" icon="laptop">
-    Compute platforms like Jetson Thor, Orin, and DGX Spark.
-  </Card>
-  <Card title="Software" icon="setting">
-    ROS 2, Isaac ROS, simulation tools, and the NVIDIA stack.
-  </Card>
-</CardGrid>
-
-## Featured
+## Browse by domain
 
 <CardGrid>
   <LinkCard
-    title="Learning Path"
-    description="New to robotics? Start here — a guided Stage 1→5 journey"
-    href="/robotics-glossary/learning-path/"
+    title="Concepts"
+    href="/robotics-glossary/concepts/fundamentals/joints-and-links/"
+    description="Fundamentals, perception, control, learning, and AI — the full theory stack for modern robotics. 25 terms."
   />
   <LinkCard
-    title="Imitation Learning"
-    description="The paradigm shift: teaching robots from demonstrations, not rules"
-    href="/robotics-glossary/concepts/learning/imitation-learning/"
-  />
-  <LinkCard
-    title="SLAM"
-    description="Simultaneous Localization and Mapping"
-    href="/robotics-glossary/concepts/perception/slam/"
-  />
-  <LinkCard
-    title="Jetson Thor"
-    description="NVIDIA's 800+ TOPS platform for humanoid robots"
+    title="Hardware"
     href="/robotics-glossary/hardware/compute/jetson-thor/"
+    description="Compute platforms — Jetson Thor, Orin, DGX Spark — and the sensors that feed them. 7 terms."
   />
   <LinkCard
-    title="Teaching a Robot to Pick Up a Candy Bar"
-    description="Guide: 56 demos, 3 training runs — the full imitation learning loop"
-    href="/robotics-glossary/guides/act-training-lessons/"
-  />
-  <LinkCard
-    title="3 Numbers That Tell You How to Optimize"
-    description="Guide: R1, R2, R3 — compute these before trying quantization"
-    href="/robotics-glossary/guides/latency-floor-model/"
-  />
-  <LinkCard
-    title="VLA Models"
-    description="Vision-Language-Action models — the frontier of robot learning"
-    href="/robotics-glossary/concepts/ai/vla-models/"
-  />
-  <LinkCard
-    title="Isaac ROS"
-    description="GPU-accelerated ROS 2 packages from NVIDIA"
-    href="/robotics-glossary/software/isaac/isaac-ros/"
+    title="Software"
+    href="/robotics-glossary/software/frameworks/ros2/"
+    description="ROS 2, Isaac ROS, simulation tools, and the NVIDIA software stack for robot development. 13 terms."
   />
 </CardGrid>
 
-## Navigate
+## Featured terms
 
-- **[Learning Path](/robotics-glossary/learning-path/)**: New to robotics? Follow the guided Stage 1→5 journey
-- **Sidebar**: Browse by domain (Concepts → Hardware → Software → Guides)
-- **Search**: Press `/` to find any term
-- **Links**: Follow connections between concepts
+[Imitation Learning](/robotics-glossary/concepts/learning/imitation-learning/) ·
+[Teleoperation](/robotics-glossary/concepts/learning/teleoperation/) ·
+[Action Chunking](/robotics-glossary/concepts/learning/action-chunking/) ·
+[VLA Models](/robotics-glossary/concepts/ai/vla-models/) ·
+[SLAM](/robotics-glossary/concepts/perception/slam/) ·
+[Computer Vision](/robotics-glossary/concepts/perception/computer-vision/) ·
+[PID Control](/robotics-glossary/concepts/control/pid/) ·
+[Sim-to-Real](/robotics-glossary/concepts/learning/sim-to-real/) ·
+[Jetson Thor](/robotics-glossary/hardware/compute/jetson-thor/) ·
+[Kinematics](/robotics-glossary/concepts/fundamentals/kinematics/) ·
+[OTA Model Update](/robotics-glossary/concepts/learning/ota-model-update/) ·
+[Training Dataset](/robotics-glossary/concepts/learning/robot-training-dataset/) ·
+[Degrees of Freedom](/robotics-glossary/concepts/fundamentals/degrees-of-freedom/) ·
+[Sensor Fusion](/robotics-glossary/concepts/perception/sensor-fusion/) ·
+[Model Checkpoint](/robotics-glossary/concepts/learning/model-checkpoint/)
 
-## Contributing
+---
 
-This is open-source under CC-BY-4.0. [Add a term](https://github.com/amarrmb/robotics-glossary/issues/new?template=new-term.yml) or [report an issue](https://github.com/amarrmb/robotics-glossary/issues/new?template=correction.yml).
+Open-source under CC-BY-4.0. [Add a term](https://github.com/amarrmb/robotics-glossary/issues/new) or [report an issue](https://github.com/amarrmb/robotics-glossary/issues/new).
