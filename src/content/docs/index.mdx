@@ -3,73 +3,59 @@ title: The Robotics Reference
 description: Knowledge graph for the physical AI stack — from fundamentals to production deployment
 editUrl: false
 template: splash
+hero:
+  tagline: A hyperlinked knowledge graph for the physical AI stack — from robot fundamentals to production deployment. Every term cross-linked, every concept placed in context.
+  actions:
+    - text: Learning Path
+      link: /robotics-glossary/learning-path/
+      icon: right-arrow
+      variant: primary
+    - text: Browse Concepts
+      link: /robotics-glossary/concepts/fundamentals/joints-and-links/
+      icon: open-book
+      variant: minimal
 ---
 
-<div class="dn-glossary">
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
 
-<div class="dn-glossary__hero">
-  <p class="dn-paper__eyebrow">Glossary · DeviceNexus</p>
-  <h1 class="dn-glossary__title">The Robotics Reference</h1>
-  <p class="dn-glossary__subtitle">A hyperlinked knowledge graph for the physical AI stack — from robot fundamentals to production deployment. Every term cross-linked, every concept placed in context.</p>
-  <div class="dn-glossary__legend">
-    <span class="level-badge conceptual">Conceptual</span>
-    <span class="dn-glossary__legend-sep">Theory &amp; foundations</span>
-    <span class="level-badge practical">Practical</span>
-    <span class="dn-glossary__legend-sep">Hands-on guides</span>
-    <span class="level-badge deepdive">Deep Dive</span>
-    <span class="dn-glossary__legend-sep">Comprehensive</span>
-  </div>
+## Browse by domain
 
-  <button class="dn-hero-search" onclick="document.querySelector('[data-open-modal]')?.click()" aria-label="Search glossary terms">
-    <svg class="dn-hero-search__icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-      <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-    </svg>
-    <span class="dn-hero-search__text">Search any term — "SLAM", "VLA Models", "Jetson Thor"...</span>
-    <span class="dn-hero-search__shortcut"><kbd>Ctrl</kbd><kbd>K</kbd></span>
-  </button>
-</div>
+<CardGrid>
+  <LinkCard
+    title="Concepts"
+    href="/robotics-glossary/concepts/fundamentals/joints-and-links/"
+    description="Fundamentals, perception, control, learning, and AI — the full theory stack for modern robotics. 25 terms."
+  />
+  <LinkCard
+    title="Hardware"
+    href="/robotics-glossary/hardware/compute/jetson-thor/"
+    description="Compute platforms — Jetson Thor, Orin, DGX Spark — and the sensors that feed them. 7 terms."
+  />
+  <LinkCard
+    title="Software"
+    href="/robotics-glossary/software/frameworks/ros2/"
+    description="ROS 2, Isaac ROS, simulation tools, and the NVIDIA software stack for robot development. 13 terms."
+  />
+</CardGrid>
 
-<div class="dn-glossary__section-label">Browse by domain</div>
+## Featured terms
 
-<div class="dn-glossary__domains">
-  <a class="dn-domain-card" href="/robotics-glossary/concepts/fundamentals/joints-and-links/">
-    <div class="dn-domain-card__title">Concepts</div>
-    <p class="dn-domain-card__desc">Fundamentals, perception, control, learning, and AI — the full theory stack for modern robotics.</p>
-    <div class="dn-domain-card__count">25 terms</div>
-  </a>
-  <a class="dn-domain-card" href="/robotics-glossary/hardware/compute/jetson-thor/">
-    <div class="dn-domain-card__title">Hardware</div>
-    <p class="dn-domain-card__desc">Compute platforms — Jetson Thor, Orin, DGX Spark — and the sensors that feed them.</p>
-    <div class="dn-domain-card__count">7 terms</div>
-  </a>
-  <a class="dn-domain-card" href="/robotics-glossary/software/frameworks/ros2/">
-    <div class="dn-domain-card__title">Software</div>
-    <p class="dn-domain-card__desc">ROS 2, Isaac ROS, simulation tools, and the NVIDIA software stack for robot development.</p>
-    <div class="dn-domain-card__count">13 terms</div>
-  </a>
-</div>
+[Imitation Learning](/robotics-glossary/concepts/learning/imitation-learning/) ·
+[Teleoperation](/robotics-glossary/concepts/learning/teleoperation/) ·
+[Action Chunking](/robotics-glossary/concepts/learning/action-chunking/) ·
+[VLA Models](/robotics-glossary/concepts/ai/vla-models/) ·
+[SLAM](/robotics-glossary/concepts/perception/slam/) ·
+[Computer Vision](/robotics-glossary/concepts/perception/computer-vision/) ·
+[PID Control](/robotics-glossary/concepts/control/pid/) ·
+[Sim-to-Real](/robotics-glossary/concepts/learning/sim-to-real/) ·
+[Jetson Thor](/robotics-glossary/hardware/compute/jetson-thor/) ·
+[Kinematics](/robotics-glossary/concepts/fundamentals/kinematics/) ·
+[OTA Model Update](/robotics-glossary/concepts/learning/ota-model-update/) ·
+[Training Dataset](/robotics-glossary/concepts/learning/robot-training-dataset/) ·
+[Degrees of Freedom](/robotics-glossary/concepts/fundamentals/degrees-of-freedom/) ·
+[Sensor Fusion](/robotics-glossary/concepts/perception/sensor-fusion/) ·
+[Model Checkpoint](/robotics-glossary/concepts/learning/model-checkpoint/)
 
-<div class="dn-glossary__section-label">Featured terms</div>
+---
 
-<div class="dn-term-chips">
-  <a class="dn-term-chip dn-term-chip--featured" href="/robotics-glossary/learning-path/">Learning Path &#8594;</a>
-  <a class="dn-term-chip" href="/robotics-glossary/concepts/learning/imitation-learning/">Imitation Learning</a>
-  <a class="dn-term-chip" href="/robotics-glossary/concepts/learning/teleoperation/">Teleoperation</a>
-  <a class="dn-term-chip" href="/robotics-glossary/concepts/learning/action-chunking/">Action Chunking</a>
-  <a class="dn-term-chip" href="/robotics-glossary/concepts/ai/vla-models/">VLA Models</a>
-  <a class="dn-term-chip" href="/robotics-glossary/concepts/perception/slam/">SLAM</a>
-  <a class="dn-term-chip" href="/robotics-glossary/concepts/perception/computer-vision/">Computer Vision</a>
-  <a class="dn-term-chip" href="/robotics-glossary/concepts/control/pid/">PID Control</a>
-  <a class="dn-term-chip" href="/robotics-glossary/concepts/learning/sim-to-real/">Sim-to-Real</a>
-  <a class="dn-term-chip" href="/robotics-glossary/hardware/compute/jetson-thor/">Jetson Thor</a>
-  <a class="dn-term-chip" href="/robotics-glossary/concepts/fundamentals/kinematics/">Kinematics</a>
-  <a class="dn-term-chip" href="/robotics-glossary/concepts/learning/ota-model-update/">OTA Model Update</a>
-  <a class="dn-term-chip" href="/robotics-glossary/concepts/learning/robot-training-dataset/">Training Dataset</a>
-  <a class="dn-term-chip" href="/robotics-glossary/concepts/fundamentals/degrees-of-freedom/">Degrees of Freedom</a>
-  <a class="dn-term-chip" href="/robotics-glossary/concepts/perception/sensor-fusion/">Sensor Fusion</a>
-  <a class="dn-term-chip" href="/robotics-glossary/concepts/learning/model-checkpoint/">Model Checkpoint</a>
-</div>
-
-<p class="dn-glossary__contribute">Open-source under CC-BY-4.0. <a href="https://github.com/amarrmb/robotics-glossary/issues/new">Add a term</a> or <a href="https://github.com/amarrmb/robotics-glossary/issues/new">report an issue</a>.</p>
-
-</div>
+Open-source under CC-BY-4.0. [Add a term](https://github.com/amarrmb/robotics-glossary/issues/new) or [report an issue](https://github.com/amarrmb/robotics-glossary/issues/new).
