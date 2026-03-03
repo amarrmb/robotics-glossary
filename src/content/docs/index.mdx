@@ -20,30 +20,13 @@ template: splash
     <span class="dn-glossary__legend-sep">Comprehensive</span>
   </div>
 
-  <button class="dn-hero-search" onclick="document.querySelector('site-search [data-open-modal]')?.click()" aria-label="Search glossary terms">
+  <button class="dn-hero-search" onclick="document.querySelector('[data-open-modal]')?.click()" aria-label="Search glossary terms">
     <svg class="dn-hero-search__icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
       <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
     </svg>
     <span class="dn-hero-search__text">Search any term — "SLAM", "VLA Models", "Jetson Thor"...</span>
     <span class="dn-hero-search__shortcut"><kbd>Ctrl</kbd><kbd>K</kbd></span>
   </button>
-
-  <svg class="dn-graph-hint" width="120" height="52" viewBox="0 0 120 52" fill="none" aria-hidden="true">
-    <line x1="12" y1="26" x2="40" y2="10" stroke="#f97316" stroke-width="1.2"/>
-    <line x1="12" y1="26" x2="40" y2="42" stroke="#f97316" stroke-width="1.2"/>
-    <line x1="40" y1="10" x2="80" y2="10" stroke="#f97316" stroke-width="1.2"/>
-    <line x1="40" y1="42" x2="80" y2="42" stroke="#f97316" stroke-width="1.2"/>
-    <line x1="80" y1="10" x2="108" y2="26" stroke="#f97316" stroke-width="1.2"/>
-    <line x1="80" y1="42" x2="108" y2="26" stroke="#f97316" stroke-width="1.2"/>
-    <line x1="40" y1="10" x2="40" y2="42" stroke="#f97316" stroke-width="1.2" stroke-dasharray="3 2"/>
-    <line x1="80" y1="10" x2="80" y2="42" stroke="#f97316" stroke-width="1.2" stroke-dasharray="3 2"/>
-    <circle cx="12" cy="26" r="4" fill="#f97316"/>
-    <circle cx="40" cy="10" r="3.5" fill="#f97316"/>
-    <circle cx="40" cy="42" r="3.5" fill="#f97316"/>
-    <circle cx="80" cy="10" r="3.5" fill="#f97316"/>
-    <circle cx="80" cy="42" r="3.5" fill="#f97316"/>
-    <circle cx="108" cy="26" r="4" fill="#f97316"/>
-  </svg>
 </div>
 
 <div class="dn-glossary__section-label">Browse by domain</div>
