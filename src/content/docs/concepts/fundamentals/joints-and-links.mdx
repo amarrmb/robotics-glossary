@@ -267,7 +267,20 @@ SCARA Robot          6-DOF Arm             Cartesian/Gantry
 
 ## URDF Representation
 
-In ROS, robots are described using URDF (Unified Robot Description Format). Each link specifies its visual appearance, collision geometry, and physical properties (mass + inertia tensor):
+**URDF** stands for Unified Robot Description Format. It's a plain text file (written in XML) that acts as a blueprint for your robot. Before any software can simulate, visualize, or plan motion for a robot, it needs to know: what are all the parts? how are they connected? how much do they weigh? how far can each joint move?
+
+URDF answers all of those questions in one place.
+
+Think of it like a building's architectural plans. The real building exists in the physical world, but you need the plans so that contractors, inspectors, and software tools can all work from the same shared description. URDF is the architectural plans for your robot.
+
+A URDF file contains two main things:
+
+- **Link definitions** — each rigid part of the robot: its shape (for visualization and collision detection), its mass, and its inertia (how it resists rotation)
+- **Joint definitions** — each connection between two links: the joint type, which two links it connects, the rotation/translation axis, and any position or speed limits
+
+These link and joint entries form the same kinematic chain described earlier in this page — URDF is just the standard file format for writing it down.
+
+In ROS, robots are described using URDF. Each link specifies its visual appearance, collision geometry, and physical properties (mass + inertia tensor):
 
 ```xml
 <!-- Link definition -->
