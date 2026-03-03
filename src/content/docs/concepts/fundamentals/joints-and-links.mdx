@@ -280,50 +280,36 @@ A URDF file contains two main things:
 
 These link and joint entries form the same kinematic chain described earlier in this page — URDF is just the standard file format for writing it down.
 
-In ROS, robots are described using URDF. Each link specifies its visual appearance, collision geometry, and physical properties (mass + inertia tensor):
+Here's what a single link and joint look like in URDF:
 
 ```xml
-<!-- Link definition -->
+<!-- A link: defines one rigid part -->
 <link name="upper_arm">
   <visual>
-    <geometry>
-      <cylinder radius="0.05" length="0.4"/>
-    </geometry>
+    <geometry><cylinder radius="0.05" length="0.4"/></geometry>
   </visual>
-  <collision>
-    <geometry>
-      <cylinder radius="0.05" length="0.4"/>
-    </geometry>
-  </collision>
   <inertial>
     <mass value="2.0"/>
-    <!-- Inertia tensor: ixx/iyy/izz = rotational resistance about each axis -->
-    <inertia ixx="0.03" ixy="0" ixz="0"
-             iyy="0.03" iyz="0" izz="0.001"/>
+    <inertia ixx="0.03" ixy="0" ixz="0" iyy="0.03" iyz="0" izz="0.001"/>
   </inertial>
 </link>
 
-<!-- Joint definition -->
+<!-- A joint: connects two links and defines motion -->
 <joint name="elbow" type="revolute">
   <parent link="upper_arm"/>
   <child link="forearm"/>
-  <origin xyz="0 0 0.4" rpy="0 0 0"/>
   <axis xyz="0 1 0"/>
-  <limit lower="-2.35" upper="2.35"
-         velocity="3.14" effort="100"/>
+  <limit lower="-2.35" upper="2.35" velocity="3.14" effort="100"/>
 </joint>
 ```
 
-### Joint Types in URDF
+For a full walkthrough of URDF syntax, xacro macros, ros2_control integration, and common mistakes, see the dedicated page:
 
-| URDF Type | Description |
-|-----------|-------------|
-| `revolute` | Rotation with limits |
-| `continuous` | Rotation without limits (wheels) |
-| `prismatic` | Linear sliding with limits |
-| `fixed` | No motion (rigid connection) |
-| `floating` | 6-DOF (used for mobile bases) |
-| `planar` | 2D motion in a plane |
+<LinkCard
+  title="URDF & Xacro"
+  description="Robot description format: links, joints, xacro macros, ros2_control integration, and common mistakes."
+  href="/glossary/software/ros2/urdf-xacro/"
+/>
 
 ## Practical Tips
 
