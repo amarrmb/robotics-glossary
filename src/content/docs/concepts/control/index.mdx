@@ -1,0 +1,75 @@
+---
+title: Control, Planning & Estimation
+description: Why estimation and control are their own discipline — the "act on the world" half of robotics — and how the entries in this section fit together.
+last_validated: 2026-06-01
+sidebar:
+  label: Overview
+  order: 0
+---
+
+import { Aside, Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+If [perception](/robotics-glossary/concepts/perception/slam/) is how a robot **senses the world**, the concepts in this section are how it **acts on the world**. They answer two questions that every robot has to solve, every control cycle, forever:
+
+1. **Where am I really?** — sensors are noisy, biased, and incomplete, so the true state has to be *estimated*, not read off directly. This is **state estimation**.
+2. **What do I do about it?** — given that estimate and a goal, what commands go to the motors? This is **control** (and the **planning** that decides the goal in the first place).
+
+<Aside type="tip">
+The one-sentence version: **you cannot control what you cannot estimate, and you cannot estimate without a model.** That sentence is the whole section. Estimation needs a model of how the system moves; control acts on the estimate; both lean on the same physics ([dynamics](/robotics-glossary/concepts/fundamentals/dynamics/)) and the same math ([state-space](/robotics-glossary/concepts/control/state-space/)).
+</Aside>
+
+## The loop that ties it together
+
+Every autonomous robot runs some version of this loop, hundreds of times a second:
+
+```
+        ┌──────────────────────────────────────────────────────────┐
+        │                                                            │
+        ▼                                                            │
+   ┌─────────┐    noisy      ┌────────────┐   clean    ┌─────────┐   │
+   │ SENSORS │ ─ readings ─► │  ESTIMATE  │ ─ state ─► │ DECIDE  │   │
+   │ (camera,│               │ filters +  │           │ plan +  │   │
+   │ IMU,    │               │ state est. │           │ control │   │
+   │ encoders)│              └────────────┘           └────┬────┘   │
+   └─────────┘                                             │        │
+        ▲                                            commands       │
+        │                                                 ▼         │
+        │              ┌──────────┐   torques/      ┌──────────┐    │
+        └── the world ─┤ ACTUATORS │◄─ positions ───┤  (model) │────┘
+            changes    └──────────┘                 └──────────┘
+```
+
+- **Estimate** turns raw, noisy sensor data into a trustworthy state. The tools here are the [filters](/robotics-glossary/concepts/control/kalman-filter/).
+- **Decide** picks a goal ([planning](/robotics-glossary/concepts/control/motion-planning/)) and computes the commands to reach it ([control](/robotics-glossary/concepts/control/pid/)).
+- The **model** — the system's [dynamics](/robotics-glossary/concepts/fundamentals/dynamics/) in [state-space](/robotics-glossary/concepts/control/state-space/) form — is what *both* halves depend on. That is why a glossary section can hold estimation, planning, and control together: they share a model.
+
+## The three threads in this section
+
+<CardGrid>
+  <LinkCard title="Estimation — “where am I really?”" description="State Estimation, Kalman Filter, Complementary Filter — recover a clean state from messy sensors." href="/robotics-glossary/concepts/control/state-estimation/" />
+  <LinkCard title="Control — “what do I command?”" description="PID, LQR, MPC, Force / Impedance Control — turn the gap between desired and actual into actuator commands." href="/robotics-glossary/concepts/control/pid/" />
+  <LinkCard title="Planning — “where should I go?”" description="Motion Planning — find a collision-free path for control to execute." href="/robotics-glossary/concepts/control/motion-planning/" />
+  <LinkCard title="The model underneath" description="Robot Dynamics, Jacobian, State-Space, System Identification — the physics and math both halves stand on." href="/robotics-glossary/concepts/control/state-space/" />
+</CardGrid>
+
+## Where to start
+
+The entries build on each other. If you're new to the area, read them in this order — each one assumes the ones before it:
+
+1. **Foundations** — [Robot Dynamics](/robotics-glossary/concepts/fundamentals/dynamics/) and the [Jacobian](/robotics-glossary/concepts/fundamentals/jacobian/) (the physics: what forces move a robot, and how joint motion maps to the world).
+2. **The shared language** — [State-Space Representation](/robotics-glossary/concepts/control/state-space/) (how estimation and control both describe a system).
+3. **Estimation** — [State Estimation](/robotics-glossary/concepts/control/state-estimation/) → [Kalman Filter](/robotics-glossary/concepts/control/kalman-filter/) → [Complementary Filter](/robotics-glossary/concepts/control/complementary-filter/), plus [System Identification](/robotics-glossary/concepts/control/system-identification/) (building the model from data).
+4. **Control** — start with [PID](/robotics-glossary/concepts/control/pid/) (the workhorse), then step up to [LQR](/robotics-glossary/concepts/control/lqr/) and [MPC](/robotics-glossary/concepts/control/mpc/) (optimal and constraint-aware), and [Force / Impedance Control](/robotics-glossary/concepts/control/force-control/) for contact.
+
+<Aside type="note">
+**Why this matters in practice.** Modern robot-learning policies (the [VLA models](/robotics-glossary/concepts/ai/vla-models/) and [imitation learning](/robotics-glossary/concepts/learning/imitation-learning/) elsewhere in this glossary) still output *actions* that run on top of this stack — a learned policy decides *what* to do, but estimation and low-level control are what make the robot do it safely and accurately. The neural net is the top of the pyramid; this section is the base.
+</Aside>
+
+## How it connects to the rest of the glossary
+
+<CardGrid>
+  <LinkCard title="Perception" description="Feeds the estimator — Sensor Fusion applies these filters across many sensors." href="/robotics-glossary/concepts/perception/sensor-fusion/" />
+  <LinkCard title="Fundamentals" description="Kinematics, dynamics, and the Jacobian — the physics this section controls." href="/robotics-glossary/concepts/fundamentals/kinematics/" />
+  <LinkCard title="Learning from Demonstration" description="Learned policies sit on top of this control stack." href="/robotics-glossary/concepts/learning/imitation-learning/" />
+  <LinkCard title="Learning Path" description="See where control and estimation fit in the zero-to-deployed journey." href="/robotics-glossary/learning-path/" />
+</CardGrid>

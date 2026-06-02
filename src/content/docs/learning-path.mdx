@@ -40,12 +40,20 @@ If you already know some robotics, jump to the stage where things get unfamiliar
 
 ## Stage 3 — How Does a Robot Move?
 
-**Question this stage answers:** Given a goal position, how does the robot plan a path and execute it?
+**Question this stage answers:** Given a goal, how does the robot figure out where it actually is, plan a path, and execute it precisely?
+
+Two halves: the robot first has to *estimate* its true state from noisy sensors, then *control* its motors to act on that estimate. You can't control what you can't measure.
 
 <CardGrid>
+  <LinkCard title="Robot Dynamics" description="The forces and torques behind motion — the physics control acts on" href="/robotics-glossary/concepts/fundamentals/dynamics/" />
+  <LinkCard title="State Estimation" description="Recovering a clean state from noisy, partial sensors — the predict/correct loop" href="/robotics-glossary/concepts/control/state-estimation/" />
   <LinkCard title="Motion Planning" description="Finding collision-free paths from start to goal — RRT, PRM, cuMotion" href="/robotics-glossary/concepts/control/motion-planning/" />
   <LinkCard title="PID Control" description="The feedback loop that executes planned trajectories precisely" href="/robotics-glossary/concepts/control/pid/" />
 </CardGrid>
+
+<Aside type="tip">
+Going deeper on motion? The [Control, Planning & Estimation overview](/robotics-glossary/concepts/control/) maps the full ladder — Kalman filters, LQR, MPC, and force control — and the order to read them in.
+</Aside>
 
 ---
 
