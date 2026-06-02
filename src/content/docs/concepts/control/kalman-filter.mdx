@@ -1,0 +1,137 @@
+---
+title: Kalman Filter
+description: The optimal recursive state estimator for linear systems with Gaussian noise — blending model predictions with measurements by their uncertainty, plus the EKF and UKF nonlinear variants.
+last_validated: 2026-06-01
+sidebar:
+  badge:
+    text: Deep Dive
+    variant: tip
+---
+
+import { Aside, Card, CardGrid, LinkCard, Tabs, TabItem } from '@astrojs/starlight/components';
+
+<span class="level-badge deepdive">Deep Dive</span>
+
+**Kalman Filter** is the optimal state estimator for *linear* systems with Gaussian noise: it tracks both a best-guess state and how uncertain that guess is, and at each step it blends a model-based prediction with a fresh measurement, trusting each in proportion to its certainty. It matters because almost every robot that localizes, tracks, or fuses sensors leans on it (or a nonlinear cousin) to turn noisy data into a usable estimate.
+
+<Aside type="tip">
+Carry not just a number but a *confidence* about that number. A confident prediction plus a noisy measurement should barely move; an uncertain prediction plus a precise measurement should snap to the measurement. The Kalman gain is exactly that "how much do I move?" dial, computed automatically from the two uncertainties.
+</Aside>
+
+## Prerequisites
+
+<CardGrid>
+  <LinkCard
+    title="State Estimation"
+    description="Inferring hidden state from noisy, incomplete observations"
+    href="/robotics-glossary/concepts/control/state-estimation/"
+  />
+  <LinkCard
+    title="State-Space Representation"
+    description="Modeling a system as state, input, and output matrices"
+    href="/robotics-glossary/concepts/control/state-space/"
+  />
+</CardGrid>
+
+## The Predict / Update Cycle
+
+The filter loops two phases forever. **Predict** pushes the state forward through the model and *grows* uncertainty (the model is imperfect). **Update** pulls in a measurement and *shrinks* uncertainty.
+
+```
+        ┌─────────────────────────────────────────────┐
+        │                                             │
+        ▼                                             │
+  ┌───────────┐   prediction (x⁻, P⁻)   ┌───────────┐ │
+  │  PREDICT  │ ──────────────────────► │  UPDATE   │ │
+  │           │                         │           │ │
+  │ x⁻ = Ax+Bu│      measurement z ───► │ K = gain  │ │
+  │ P⁻ = APAᵀ+Q│                        │ x = x⁻+K(z-Hx⁻)
+  └───────────┘                         │ P shrinks │ │
+        ▲                               └─────┬─────┘ │
+        └─────────── corrected (x, P) ────────┴───────┘
+```
+
+**Symbols in words:** `x̂` = state estimate, `P` = its covariance (uncertainty), `A` = how state evolves, `B`/`u` = control input and its effect, `Q` = process noise (how much we distrust the model), `H` = how state maps to a measurement, `R` = measurement noise, `K` = Kalman gain. **Predict:** `x̂⁻ = A x̂ + B u`, `P⁻ = A P Aᵀ + Q`. **Update:** `K = P⁻ Hᵀ (H P⁻ Hᵀ + R)⁻¹`, then correct the state and shrink `P`.
+
+The whole trick lives in `K`. When the measurement is noisy (large `R`), `K → 0`, so we trust the model. When the prediction is uncertain (large `P⁻`), `K` grows, so we trust the measurement.
+
+## Runnable Example: 1D Position Tracking
+
+A scalar Kalman filter tracking a constant position from noisy measurements. Runs with only `numpy`.
+
+```python
+import numpy as np
+
+# 1D constant-position Kalman filter over noisy measurements.
+np.random.seed(0)
+A, H = 1.0, 1.0          # state transition, measurement model (scalar)
+Q, R = 1e-4, 0.1**2      # process noise, measurement noise
+
+x, P = 0.0, 1.0          # initial state estimate and its covariance
+true_pos = 5.0           # true (unknown) position
+measurements = true_pos + np.random.normal(0, 0.1, 10)
+
+for z in measurements:
+    # PREDICT: push state forward, grow uncertainty
+    x_pred = A * x
+    P_pred = A * P * A + Q
+    # UPDATE: blend in the measurement, shrink uncertainty
+    K = P_pred * H / (H * P_pred * H + R)    # Kalman gain
+    x = x_pred + K * (z - H * x_pred)         # corrected estimate
+    P = (1 - K * H) * P_pred                  # shrunk covariance
+    print(f"meas={z:.3f}  est={x:.3f}  K={K:.3f}  P={P:.4f}")
+
+print(f"\nFinal estimate: {x:.3f} (true: {true_pos})")
+```
+
+Watch `K` fall from ~0.99 toward ~0.13: early on the filter trusts measurements, then increasingly trusts its accumulated estimate as `P` shrinks.
+
+## Linear, Extended, and Unscented Variants
+
+<Tabs>
+  <TabItem label="Kalman Filter (linear)">
+    The classic filter. Assumes the dynamics (`A`) and measurement (`H`) are **linear** and all noise is **Gaussian**. Under those assumptions it is provably the optimal (minimum-variance) estimator. Cheap and exact — but most real robots are nonlinear, so pure KF is rare in the wild.
+  </TabItem>
+  <TabItem label="Extended KF (EKF)">
+    Handles nonlinear models by **linearizing** them at the current estimate each step, using the **Jacobians** (partial-derivative matrices) of the motion and measurement functions in place of `A` and `H`. The robotics workhorse — `robot_localization` and most GPS/IMU fusion use an EKF. Fails when nonlinearity is strong, since the linearization can diverge.
+  </TabItem>
+  <TabItem label="Unscented KF (UKF)">
+    Skips Jacobians entirely. It propagates a small, deterministic set of **sigma points** through the true nonlinear function, then reconstructs the mean and covariance from where they land. More accurate than EKF for strongly nonlinear systems (no derivatives needed), at modestly higher compute cost.
+  </TabItem>
+</Tabs>
+
+<Aside type="note">
+The Kalman filter is the *engine*; [Sensor Fusion](/robotics-glossary/concepts/perception/sensor-fusion/) is the *application*. Fusion stacks an EKF or UKF to combine many sensors at once — IMU, wheel odometry, GPS, visual odometry — letting each correct the others. This entry explains the filter itself; sensor fusion explains what to feed it.
+</Aside>
+
+## Related Terms
+
+<CardGrid>
+  <LinkCard
+    title="Sensor Fusion"
+    description="Combining many sensors with an EKF/UKF for robust state estimation"
+    href="/robotics-glossary/concepts/perception/sensor-fusion/"
+  />
+  <LinkCard
+    title="Complementary Filter"
+    description="A lightweight alternative for blending fast and slow sensors"
+    href="/robotics-glossary/concepts/control/complementary-filter/"
+  />
+  <LinkCard
+    title="Visual Odometry"
+    description="Camera-based motion estimates often fused via a Kalman filter"
+    href="/robotics-glossary/concepts/perception/visual-odometry/"
+  />
+  <LinkCard
+    title="IMU"
+    description="A primary, drift-prone input the filter corrects against"
+    href="/robotics-glossary/hardware/sensors/imu/"
+  />
+</CardGrid>
+
+## Sources
+
+- Kalman, R. E. (1960). *A New Approach to Linear Filtering and Prediction Problems.* Journal of Basic Engineering, 82(1), 35–45.
+- Thrun, S., Burgard, W., & Fox, D. (2005). *Probabilistic Robotics*, Ch. 3 (Gaussian Filters). MIT Press.
+- Julier, S. J., & Uhlmann, J. K. (2004). *Unscented Filtering and Nonlinear Estimation.* Proceedings of the IEEE, 92(3), 401–422.
+- Moore, T., & Stouch, D. (2014). *A Generalized Extended Kalman Filter Implementation for the Robot Operating System* (`robot_localization`). IAS-13.

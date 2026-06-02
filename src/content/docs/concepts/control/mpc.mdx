@@ -1,0 +1,118 @@
+---
+title: Model Predictive Control (MPC)
+description: Control by repeatedly solving a short-horizon optimization that respects hard constraints — predict, optimize, apply the first action, re-plan.
+last_validated: 2026-06-01
+sidebar:
+  badge:
+    text: Deep Dive
+    variant: tip
+---
+
+import { Aside, Card, CardGrid, LinkCard, Tabs, TabItem } from '@astrojs/starlight/components';
+
+<span class="level-badge deepdive">Deep Dive</span>
+
+**Model Predictive Control** (MPC) is a control strategy that, at every step, uses a *model* of the system to predict the next several steps into the future, finds the sequence of actions that minimizes a cost while obeying *constraints*, applies only the **first** action, then measures the new state and re-plans from scratch. This matters because it is the most natural way to control a system that has hard limits — motor torque ceilings, joint angle stops, or "stay outside this obstacle" — which simpler controllers cannot enforce directly.
+
+<Aside type="tip">
+Think of driving a car. You don't plan the entire trip turn-by-turn in advance. You look a few seconds ahead, decide the best immediate move (brake, ease left), make only that move, then look again from where you now are and re-plan. That constant "plan ahead, act on the first move, re-plan" loop is the **receding horizon** at the heart of MPC.
+</Aside>
+
+## Prerequisites
+
+<CardGrid>
+  <LinkCard title="State-Space Representation" description="MPC predicts the future using a state-space model of the system." href="/robotics-glossary/concepts/control/state-space/" />
+  <LinkCard title="LQR" description="MPC's cost (state error + control effort) is the LQR cost — but minimized over a finite horizon with constraints." href="/robotics-glossary/concepts/control/lqr/" />
+</CardGrid>
+
+## The Receding Horizon
+
+At each control step MPC predicts `N` steps ahead, optimizes the whole action sequence, but commits only to the first action. One step later it slides the window forward and repeats from the freshly measured state.
+
+```
+ step k:   measure x_k
+           ├─ predict ──►  □ □ □ □ □   (N steps ahead)
+           ├─ optimize ─►  u_k u_{k+1} ... u_{k+N-1}  (whole sequence)
+           └─ APPLY only u_k  ────────────────►  (discard the rest)
+
+ step k+1: measure x_{k+1}   (window slid forward by one)
+              ├─ predict ──►   □ □ □ □ □
+              ├─ optimize ─►   u_{k+1} ...
+              └─ APPLY only u_{k+1}
+                 ... repeat every cycle ...
+```
+
+**Why re-plan every step?** The first prediction is never perfect — the real world drifts from the model. Re-planning from the actual measured state closes the feedback loop and corrects that drift.
+
+## The Killer Feature: Hard Constraints
+
+LQR and [PID](/robotics-glossary/concepts/control/pid/) compute a control law and then clip whatever comes out — they cannot *reason about* limits ahead of time. Because MPC solves a constrained optimization each step, it can natively enforce:
+
+- **Actuator limits** — `|u| ≤ u_max` (torque, thrust, steering angle)
+- **State limits** — joint stops, speed caps, stay-above-ground
+- **Safety bounds** — keep distance from an obstacle or another robot
+
+This is why MPC dominates legged locomotion, autonomous driving, and drone flight, where violating a limit means a fall, a crash, or a flip.
+
+## Example: MPC for a Double Integrator
+
+A double integrator (`position`, `velocity`, controlled by `acceleration`) is the "hello world" of MPC. Here we drive it to the origin while respecting an acceleration limit, using a convex QP solved over a horizon.
+
+```python
+# Minimal MPC. Requires: pip install cvxpy numpy
+import numpy as np
+import cvxpy as cp
+
+# Discrete double integrator: state = [position, velocity], input = acceleration
+dt = 0.1
+A = np.array([[1.0, dt],
+              [0.0, 1.0]])
+B = np.array([[0.5 * dt**2],
+              [dt]])
+
+N = 20                  # prediction horizon (steps)
+Q = np.diag([10.0, 1.0])  # penalize position error, then velocity
+R = np.array([[0.1]])     # penalize control effort
+u_max = 1.0               # HARD actuator limit
+
+def mpc_step(x0):
+    """Solve the horizon QP from current state x0, return only the first action."""
+    x = cp.Variable((2, N + 1))   # predicted states
+    u = cp.Variable((1, N))       # planned actions
+    cost, constraints = 0, [x[:, 0] == x0]
+    for k in range(N):
+        cost += cp.quad_form(x[:, k], Q) + cp.quad_form(u[:, k], R)
+        constraints += [x[:, k + 1] == A @ x[:, k] + B @ u[:, k]]  # model
+        constraints += [cp.abs(u[:, k]) <= u_max]                  # constraint
+    cost += cp.quad_form(x[:, N], Q)  # terminal cost
+    cp.Problem(cp.Minimize(cost), constraints).solve()
+    return float(u.value[0, 0])       # APPLY ONLY THE FIRST ACTION
+
+# Closed loop: measure -> solve -> apply first -> step -> re-plan
+x = np.array([5.0, 0.0])   # start 5 m away, at rest
+for t in range(60):
+    a = mpc_step(x)        # re-plan from the measured state
+    x = A @ x + B.flatten() * a
+print("final state (pos, vel):", np.round(x, 3))  # -> near [0, 0]
+```
+
+Each call to `mpc_step` re-solves the full horizon but the loop applies only `u[0]` — that is the receding horizon in code.
+
+<Aside type="caution">
+MPC is only as good as its model and its horizon. An inaccurate model (see [System Identification](/robotics-glossary/concepts/control/system-identification/)) makes the predictions wrong. Too **short** a horizon makes the controller myopic — it can't see a constraint coming until it's too late. Too **long** a horizon is expensive: you must solve the whole optimization within one control cycle, historically the catch that kept MPC off fast robots and now feasible at kilohertz rates only with careful problem structure.
+</Aside>
+
+## Related Terms
+
+<CardGrid>
+  <LinkCard title="LQR" description="The unconstrained, infinite-horizon limit MPC reduces to when no constraints bind." href="/robotics-glossary/concepts/control/lqr/" />
+  <LinkCard title="State-Space Representation" description="The model MPC rolls forward to predict future states." href="/robotics-glossary/concepts/control/state-space/" />
+  <LinkCard title="System Identification" description="How you obtain the accurate model MPC depends on." href="/robotics-glossary/concepts/control/system-identification/" />
+  <LinkCard title="Robot Dynamics" description="The physical equations of motion that nonlinear MPC predicts over." href="/robotics-glossary/concepts/fundamentals/dynamics/" />
+</CardGrid>
+
+## Sources
+
+- Rawlings, Mayne & Diehl, *Model Predictive Control: Theory, Computation, and Design*, 2nd ed., Nob Hill Publishing, 2017.
+- Borrelli, Bemporad & Morari, *Predictive Control for Linear and Hybrid Systems*, Cambridge University Press, 2017.
+- Di Carlo et al., "Dynamic Locomotion in the MIT Cheetah 3 Through Convex Model-Predictive Control," *IEEE/RSJ IROS*, 2018.

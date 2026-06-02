@@ -1,0 +1,106 @@
+---
+title: Complementary Filter
+description: A lightweight one-knob algorithm that fuses a drifting gyroscope with a noisy accelerometer to estimate tilt angle, by trusting each sensor where it is strong.
+last_validated: 2026-06-01
+sidebar:
+  badge:
+    text: Practical
+    variant: success
+---
+
+import { Aside, Card, CardGrid, LinkCard, Tabs, TabItem } from '@astrojs/starlight/components';
+
+<span class="level-badge practical">Practical</span>
+
+A **Complementary Filter** is the lightweight, no-math-degree way to fuse two sensors that fail in opposite ways. It matters because the classic robotics problem — estimating a robot's tilt angle from an IMU — has no single trustworthy sensor: the gyroscope is accurate moment-to-moment but slowly *drifts*, while the accelerometer is stable over the long run but *jittery* in the short term. The filter blends them so each covers the other's weakness, and it does so with a single line of arithmetic.
+
+<Aside type="tip">
+The two sensors have *complementary* frequency responses. Trust the gyro at high frequencies (fast motion), trust the accelerometer at low frequencies (steady gravity direction). The two pass-bands add up to 1, so together they cover the whole spectrum with no gaps.
+</Aside>
+
+## Prerequisites
+
+<CardGrid>
+  <LinkCard title="State Estimation" description="The broader problem of inferring true state from imperfect sensors." href="/robotics-glossary/concepts/control/state-estimation/" />
+  <LinkCard title="IMU" description="The inertial measurement unit supplying the gyro and accelerometer signals." href="/robotics-glossary/hardware/sensors/imu/" />
+</CardGrid>
+
+## How it works
+
+```
+  gyro rate ──▶ integrate (∫ω·dt) ──▶ HIGH-PASS ──┐
+  (drifts slowly)                                  ├──▶ fused tilt angle
+  accel ──▶ atan2(gravity) ──▶ LOW-PASS ───────────┘
+  (noisy/jittery)
+```
+
+The entire filter is one update per timestep:
+
+```
+angle = α·(angle + gyro·dt) + (1−α)·accel_angle
+```
+
+- **angle** — the current best tilt estimate, carried over between steps.
+- **gyro·dt** — the gyroscope's angular *rate* multiplied by the timestep `dt`, integrating rate into an angle increment.
+- **accel_angle** — the tilt computed directly from the gravity direction via `atan2`.
+- **α** (alpha) — the blend constant, typically **0.95–0.99**.
+
+With α near 1, the filter mostly trusts the integrated gyro (smooth, responsive) and lets the accelerometer term slowly pull the estimate back toward truth — cancelling gyro drift over time. Smaller α leans on the accelerometer and reacts faster but admits more jitter.
+
+## Runnable example
+
+```python
+import numpy as np
+
+# --- Simulation setup ---
+dt = 0.01                      # 100 Hz loop
+t = np.arange(0, 10, dt)
+true_angle = 0.5 * np.sin(0.5 * t)        # true tilt (radians)
+true_rate = np.gradient(true_angle, dt)   # true angular rate
+
+rng = np.random.default_rng(0)
+gyro_drift = 0.02              # rad/s constant bias -> integrates into drift
+gyro = true_rate + gyro_drift + rng.normal(0, 0.01, t.size)
+# accelerometer "sees" gravity tilt, but noisy
+accel_x = np.sin(true_angle) + rng.normal(0, 0.08, t.size)
+accel_y = np.cos(true_angle) + rng.normal(0, 0.08, t.size)
+accel_angle = np.arctan2(accel_x, accel_y)   # tilt from gravity direction
+
+# --- Complementary filter ---
+alpha = 0.98
+angle = accel_angle[0]         # seed with first accel reading
+estimate = np.empty(t.size)
+gyro_only = np.empty(t.size)
+g = accel_angle[0]
+for i in range(t.size):
+    angle = alpha * (angle + gyro[i] * dt) + (1 - alpha) * accel_angle[i]
+    g += gyro[i] * dt          # naive integration, for comparison
+    estimate[i] = angle
+    gyro_only[i] = g
+
+rmse = lambda a: np.sqrt(np.mean((a - true_angle) ** 2))
+print(f"gyro-only RMSE:     {rmse(gyro_only):.4f} rad  (drifts)")
+print(f"accel-only RMSE:    {rmse(accel_angle):.4f} rad  (noisy)")
+print(f"complementary RMSE: {rmse(estimate):.4f} rad  (best)")
+```
+
+Run it: the fused estimate beats both the drifting gyro-only integration and the noisy accel-only angle.
+
+## Related Terms
+
+<CardGrid>
+  <LinkCard title="Kalman Filter" description="The optimal, covariance-tracking alternative — use it when you need uncertainty estimates or many sensors." href="/robotics-glossary/concepts/control/kalman-filter/" />
+  <LinkCard title="Sensor Fusion" description="The general practice of combining multiple sensors into one estimate." href="/robotics-glossary/concepts/perception/sensor-fusion/" />
+  <LinkCard title="State Estimation" description="Inferring hidden state from noisy measurements." href="/robotics-glossary/concepts/control/state-estimation/" />
+  <LinkCard title="IMU" description="The sensor package this filter most often runs on." href="/robotics-glossary/hardware/sensors/imu/" />
+</CardGrid>
+
+<Aside type="note">
+**Complementary vs Kalman:** the complementary filter is cheap, tunable with one knob (α), runs on tiny microcontrollers, and needs no covariance bookkeeping — ideal for attitude/tilt estimation. Reach for a [Kalman filter](/robotics-glossary/concepts/control/kalman-filter/) when you need statistical optimality, explicit uncertainty estimates, or fusion of many heterogeneous sensors.
+</Aside>
+
+## Sources
+
+- Higgins, W. T. "A Comparison of Complementary and Kalman Filtering." *IEEE Transactions on Aerospace and Electronic Systems*, 1975. (The classic equivalence result.)
+- Colton, S. "The Balance Filter: A Simple Solution for Integrating Accelerometer and Gyroscope Measurements for a Balancing Platform." MIT, 2007.
+- Madgwick, S. O. H. "An efficient orientation filter for inertial and inertial/magnetic sensor arrays." University of Bristol Technical Report, 2010.

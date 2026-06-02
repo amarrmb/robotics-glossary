@@ -1,0 +1,127 @@
+---
+title: LQR
+description: Linear-Quadratic Regulator — optimal full-state feedback control derived from cost weights instead of hand-tuning
+last_validated: 2026-06-01
+sidebar:
+  badge:
+    text: Deep Dive
+    variant: tip
+---
+
+import { Aside, Card, CardGrid, LinkCard, Tabs, TabItem } from '@astrojs/starlight/components';
+
+<span class="level-badge deepdive">Deep Dive</span>
+
+**LQR** (Linear-Quadratic Regulator) is the principled answer to the question PID never solves: *how do I pick my controller gains?* Instead of hand-tuning knobs by trial and error, you write down a **cost function** that trades off how far the system is from its goal against how much control effort you spend — and LQR computes the optimal feedback gains that minimize that cost. It matters because it turns gain tuning into a design decision (what do I care about?) rather than guesswork.
+
+<Aside type="tip">
+PID asks "what gains feel right?" LQR asks "what do you care about?" You declare a penalty on state error (Q) and a penalty on control effort (R), and the math hands back the unique gains that balance them optimally for your model. The Q/R ratio *is* the tuning knob.
+</Aside>
+
+## Prerequisites
+
+<CardGrid>
+  <LinkCard title="State-Space Representation" description="LQR needs a model written as ẋ = Ax + Bu" href="/robotics-glossary/concepts/control/state-space/" />
+  <LinkCard title="PID Control" description="The hand-tuned controller LQR generalizes and optimizes" href="/robotics-glossary/concepts/control/pid/" />
+</CardGrid>
+
+## The setup
+
+LQR starts from a **linear system in state-space form**:
+
+```
+ẋ = A·x + B·u
+```
+
+Here `x` is the **state vector** (everything you need to describe the system — e.g. position and velocity), `u` is the **control input** (what your actuators do), `A` describes how the state evolves on its own, and `B` describes how inputs push it. The controller is a **full-state feedback law**:
+
+```
+        ┌─────────────┐
+  r=0   │             │   u = -K·x        ┌──────────────┐
+ ──────►│   -K (gain) │ ─────────────────►│  plant       │
+        │             │                   │  ẋ = Ax + Bu │
+        └─────▲───────┘                   └──────┬───────┘
+              │                                  │
+              │            x (full state)        │
+              └──────────────────────────────────┘
+```
+
+In words: **push every input proportional to how far the whole state is from zero.** `K` is the gain *matrix* — for multi-input/multi-output (MIMO) systems it couples every input to every state.
+
+## The cost function
+
+LQR finds `K` by minimizing a **quadratic cost** accumulated over time:
+
+```
+J = ∫ ( xᵀ·Q·x  +  uᵀ·R·u ) dt
+```
+
+- **Q** — the *state-error penalty*: how much you care about being off-target. Big Q → tight, aggressive control that drives error to zero fast.
+- **R** — the *control-effort penalty*: how much you care about aggressive, energy-hungry, or hardware-stressing actuation. Big R → gentle, lazy control that conserves effort.
+
+The **Q/R ratio is the design knob**. You don't tune gains; you tune what you value, and the gains follow.
+
+## How K is found
+
+LQR reduces to solving the **Algebraic Riccati Equation (ARE)** for a matrix `P`. You don't derive it by hand — it's a standard solver call. Once `P` is known:
+
+```
+K = R⁻¹·Bᵀ·P
+```
+
+## Runnable example
+
+A classic **double integrator** — a frictionless cart where the input is acceleration, state = `[position, velocity]`.
+
+```python
+import numpy as np
+from scipy.linalg import solve_continuous_are
+
+# Double integrator: state = [position, velocity], input = acceleration
+A = np.array([[0.0, 1.0],
+              [0.0, 0.0]])
+B = np.array([[0.0],
+              [1.0]])
+
+# Q penalizes state error; R penalizes control effort.
+# Increase Q (or shrink R) for tighter, more aggressive control.
+Q = np.diag([1.0, 1.0])
+R = np.array([[1.0]])
+
+# Solve the Algebraic Riccati Equation for P, then form the LQR gain.
+P = solve_continuous_are(A, B, Q, R)
+K = np.linalg.inv(R) @ B.T @ P
+
+print("LQR gain K =", K)                       # [[1.0, 1.732]]
+print("closed-loop eigenvalues =",
+      np.linalg.eigvals(A - B @ K))            # both have negative real part → stable
+```
+
+Running this prints `K = [[1.0, 1.732]]`, and the closed-loop poles `eig(A - BK)` land at `-0.866 ± 0.5j` — negative real parts, so the cart is driven smoothly back to the origin.
+
+## LQR vs PID
+
+PID is **hand-tuned and single-input/single-output (SISO)**: you twist three knobs per loop and accept the coupling between loops as a nuisance. LQR is **optimal and natively MIMO** — it handles coupled multi-axis systems in one shot. The trade-offs:
+
+- LQR **requires a model** (`A`, `B`). If you don't have one, identify it first — see System Identification and State-Space Representation.
+- LQR **assumes full state knowledge.** When you can't measure the whole state, pair it with a Kalman filter to estimate `x`; the combination is called **LQG** (Linear-Quadratic-Gaussian).
+
+<Aside type="caution">
+"Optimal" only means optimal *for the model and cost you gave it.* A wrong `A`/`B` or a poorly chosen `Q`/`R` produces confidently wrong gains — garbage model in, garbage gains out. Validate against the real plant.
+</Aside>
+
+## Related Terms
+
+<CardGrid>
+  <LinkCard title="State-Space Representation" description="The ẋ = Ax + Bu model LQR is built on" href="/robotics-glossary/concepts/control/state-space/" />
+  <LinkCard title="Model Predictive Control" description="LQR with constraints and a finite receding horizon" href="/robotics-glossary/concepts/control/mpc/" />
+  <LinkCard title="System Identification" description="How to obtain the A and B matrices LQR needs" href="/robotics-glossary/concepts/control/system-identification/" />
+  <LinkCard title="Robot Dynamics" description="The physical equations that linearize into A and B" href="/robotics-glossary/concepts/fundamentals/dynamics/" />
+</CardGrid>
+
+## Sources
+
+- Kalman, R. E. "Contributions to the Theory of Optimal Control." *Boletín de la Sociedad Matemática Mexicana*, 1960. (Original formulation of the optimal regulator.)
+- Anderson, B. D. O., and Moore, J. B. *Optimal Control: Linear Quadratic Methods.* Dover, 2007.
+- SciPy documentation, `scipy.linalg.solve_continuous_are`. Accessed 2026-06-01. https://docs.scipy.org/doc/scipy/reference/generated/scipy.linalg.solve_continuous_are.html
+- Underactuated Robotics (R. Tedrake), Ch. "Linear Quadratic Regulators." Accessed 2026-06-01. https://underactuated.mit.edu/lqr.html

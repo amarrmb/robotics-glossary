@@ -83,6 +83,10 @@ Late Fusion:      Raw Data ──► Processing ──► Estimates ──► Co
 
 ## Fusion Algorithms
 
+<Aside type="note">
+The tabs below describe how each filter is *applied to multiple sensors*. For how the filter itself works — the predict/update cycle and the Kalman gain — see [Kalman Filter](/robotics-glossary/concepts/control/kalman-filter/).
+</Aside>
+
 <Tabs>
   <TabItem label="Extended Kalman Filter">
     The **EKF** extends the Kalman filter to nonlinear systems by linearizing around the current estimate. It's the standard for robotics sensor fusion.

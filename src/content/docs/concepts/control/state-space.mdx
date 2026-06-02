@@ -1,0 +1,114 @@
+---
+title: State-Space Representation
+description: A plain-English guide to state-space representation in robotics control — the state vector, the ẋ = Ax + Bu and y = Cx + Du equations, controllability, observability, and a worked spring-mass-damper example.
+last_validated: 2026-06-01
+sidebar:
+  badge:
+    text: Conceptual
+    variant: note
+---
+
+import { Aside, Card, CardGrid, LinkCard, Tabs, TabItem } from '@astrojs/starlight/components';
+
+<span class="level-badge conceptual">Conceptual</span>
+
+**State-Space Representation** describes a dynamic system not by a single input-to-output formula, but by a **state vector** — the minimal set of numbers (like positions and velocities) that fully captures the system's condition right now — plus rules for how that state changes over time. It matters because it is the shared mathematical language that Kalman filters, LQR, and MPC all speak: master it once and the rest of the modern control stack opens up.
+
+<Aside type="tip">
+If you know the current state and the inputs you apply, you can predict the entire future of the system — no history required. The state is a complete "snapshot." That self-contained property is what makes state-space so powerful.
+</Aside>
+
+## Prerequisites
+
+<CardGrid>
+  <LinkCard title="Robot Dynamics" description="Where the A and B matrices come from — the physics of motion." href="/robotics-glossary/concepts/fundamentals/dynamics/" />
+  <LinkCard title="Degrees of Freedom" description="Determines how many states a system needs." href="/robotics-glossary/concepts/fundamentals/degrees-of-freedom/" />
+</CardGrid>
+
+## The two equations
+
+In words first:
+
+- **State equation:** how the state changes = the system's own dynamics acting on the current state, plus how the inputs push it. As symbols: **ẋ = A·x + B·u**.
+- **Output equation:** what we actually measure = the parts of the state our sensors can see, plus any direct passthrough of the input. As symbols: **y = C·x + D·u**.
+
+| Symbol | Name | Meaning |
+|--------|------|---------|
+| **x** | state | the minimal snapshot (e.g. position, velocity) |
+| **u** | input / control | what we command (e.g. motor force) |
+| **y** | output / measurement | what the sensors report |
+| **A** | state (system) matrix | the internal dynamics |
+| **B** | input matrix | how controls enter the state |
+| **C** | output matrix | which states the sensors observe |
+| **D** | feedthrough matrix | direct input-to-output term (often zero) |
+
+```
+        D
+        ┌──────────────────────────┐
+        │                          ▼
+ u ──┬─▶[ B ]──▶(+)──▶[ ∫ ]──┬─▶[ C ]──▶(+)──▶ y
+     │           ▲      x=∫ẋ │
+     │           │           │
+     │         [ A ]◀────────┘
+     └───────────┘
+   ẋ = A·x + B·u        y = C·x + D·u
+```
+
+Unlike a single-input single-output (SISO) PID loop tuned by hand, state-space handles **multi-input multi-output (MIMO)** systems naturally: A, B, C, and D are just bigger matrices, and the same math still applies.
+
+## Controllability and observability
+
+Two questions decide whether a state-space model is usable:
+
+- **Controllability** — *can the inputs actually drive the state anywhere we want?* If a robot's wheels can't influence its tilt, no clever controller will fix the tilt. Controllability is the precondition for **control** (LQR, MPC).
+- **Observability** — *can we reconstruct the full state from the measurements we have?* If we only sense position but need velocity too, the state must still be inferable. Observability is the precondition for **state estimation** (Kalman filters).
+
+Both are checkable by building a matrix and testing its rank: the controllability matrix `[B  AB  A²B …]` and the observability matrix `[C; CA; CA² …]`. Full rank means yes.
+
+## Worked example: spring-mass-damper
+
+A mass `m` on a spring `k` with damping `c`. Let the state be `x = [position, velocity]`. Newton's law gives:
+
+```
+A = [[0,    1   ],   B = [[0  ],   C = [[1, 0]],   D = [[0]]
+     [-k/m, -c/m]]        [1/m]]
+```
+
+With `m=1`, `k=10`, `c=2`:
+
+```python
+import numpy as np
+
+m, k, c = 1, 10, 2
+A = np.array([[0, 1], [-k/m, -c/m]])   # [[0, 1], [-10, -2]]
+B = np.array([[0], [1/m]])             # [[0], [1]]
+C = np.array([[1, 0]])                 # measure position only
+D = np.array([[0]])
+
+# Controllability: rank of [B  AB] must be 2
+Co = np.hstack([B, A @ B])
+print(np.linalg.matrix_rank(Co))       # 2  -> controllable
+
+# Observability: rank of [C; CA] must be 2
+Ob = np.vstack([C, C @ A])
+print(np.linalg.matrix_rank(Ob))       # 2  -> observable
+
+print(np.linalg.eigvals(A))            # -1+3j, -1-3j  -> stable
+```
+
+Both ranks come out 2 (full), so the system is controllable *and* observable. The eigenvalues `-1 ± 3j` have negative real parts, confirming a stable, gently oscillating decay — exactly what you'd expect from a damped spring.
+
+## Related Terms
+
+<CardGrid>
+  <LinkCard title="State Estimation" description="Reconstructing the full state from limited measurements." href="/robotics-glossary/concepts/control/state-estimation/" />
+  <LinkCard title="Kalman Filter" description="Optimal state estimation for noisy, observable systems." href="/robotics-glossary/concepts/control/kalman-filter/" />
+  <LinkCard title="LQR" description="Optimal feedback control on a state-space model." href="/robotics-glossary/concepts/control/lqr/" />
+  <LinkCard title="Model Predictive Control" description="Optimizing over a state-space model's predicted future." href="/robotics-glossary/concepts/control/mpc/" />
+</CardGrid>
+
+## Sources
+
+- Hespanha, J. P. *Linear Systems Theory*, 2nd ed. Princeton University Press, 2018 — Chapters on state-space models, controllability, and observability.
+- Åström, K. J. & Murray, R. M. *Feedback Systems: An Introduction for Scientists and Engineers*, 2nd ed. Princeton University Press, 2021 — Chapter 7, "State Feedback." Freely available at fbsbook.org.
+- Brunton, S. L. & Kutz, J. N. *Data-Driven Science and Engineering*, 2nd ed. Cambridge University Press, 2022 — Control chapter on state-space, controllability, and observability rank tests.

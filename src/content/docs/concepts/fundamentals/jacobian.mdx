@@ -1,0 +1,106 @@
+---
+title: Jacobian
+description: The matrix that maps joint velocities to end-effector velocity and task-space forces back to joint torques — including singularities.
+last_validated: 2026-06-01
+sidebar:
+  badge:
+    text: Deep Dive
+    variant: tip
+---
+
+import { Aside, Card, CardGrid, LinkCard, Tabs, TabItem } from '@astrojs/starlight/components';
+
+<span class="level-badge deepdive">Deep Dive</span>
+
+The **Jacobian** is the matrix that translates how fast a robot's joints are moving into how fast the end-effector (the gripper or tool tip) is moving through space — and, transposed, maps a force applied at the tool back into the torques each joint must produce. It matters because robots live in two spaces at once: *joint space* (the angles of each motor) and *task space* (where the tool actually is). The Jacobian is the gearbox between them.
+
+<Aside type="tip">
+Think of it as an instantaneous conversion ratio. Just as a gear ratio tells you "turn this shaft one revolution and the wheel turns three," the Jacobian tells you "spin the joints at these speeds and the tool tip moves at *this* velocity, in *this* direction." The ratio changes with every pose, which is why the Jacobian is a function of the current joint angles.
+</Aside>
+
+## Prerequisites
+
+<CardGrid>
+  <LinkCard title="Kinematics" description="How joint angles map to tool position — the Jacobian is its derivative." href="/robotics-glossary/concepts/fundamentals/kinematics/" />
+  <LinkCard title="Degrees of Freedom" description="The number of joints sets the Jacobian's column count." href="/robotics-glossary/concepts/fundamentals/degrees-of-freedom/" />
+</CardGrid>
+
+## Joint space → task space
+
+```
+   JOINT SPACE                  TASK SPACE
+  (motor angles)              (tool position)
+
+   q̇1 ─┐                         ┌─ ẋ  (move in x)
+   q̇2 ─┼──►  [  J(q)  ]  ──►──┼─ ẏ  (move in y)
+   q̇3 ─┘     Jacobian          └─ ω  (rotate)
+        joint velocities      end-effector velocity
+```
+
+**Velocity mapping.** Let *q̇* be the vector of joint velocities (how fast each motor turns) and *ẋ* be the end-effector velocity (how fast the tool moves and rotates). The Jacobian *J*, evaluated at the current joint configuration *q*, relates them:
+
+> ẋ = J(q) · q̇
+
+**Force/torque duality.** Statics gives a mirror image. If you push on the tool with a task-space force *F*, the joint torques *τ* needed to resist or produce it are:
+
+> τ = Jᵀ · F
+
+This transpose relationship is why the Jacobian appears in [force and impedance control](/robotics-glossary/concepts/control/force-control/): controlling a contact force at the tool reduces to commanding the right joint torques through *Jᵀ*.
+
+**Inverse use.** To make the tool follow a desired velocity, invert it: *q̇ = J⁻¹ · ẋ*. This is the heart of resolved-rate motion control and numerical inverse kinematics — but only works when *J* is invertible.
+
+<Aside type="caution">
+**Singularities.** When the arm is fully stretched out (or folded flat), *J* loses rank — its determinant goes to zero. Physically, the tool can no longer move in some direction (a straight arm can't reach any further outward). Mathematically *J⁻¹* blows up: the commanded joint speeds shoot toward infinity for a tiny task-space motion. Detect singularities by watching the determinant or condition number approach zero; avoid them by staying clear of joint limits and replacing the plain inverse with **damped least squares**, *q̇ = Jᵀ(JJᵀ + λ²I)⁻¹ẋ*, which trades a little accuracy for bounded joint speeds.
+</Aside>
+
+## Worked example: 2-link planar arm
+
+For a two-link arm with link lengths L1 = L2 = 1, joint angles θ1 and θ2, the 2×2 Jacobian is:
+
+```
+J = [ -L1·sinθ1 - L2·sin(θ1+θ2),   -L2·sin(θ1+θ2) ]
+    [  L1·cosθ1 + L2·cos(θ1+θ2),    L2·cos(θ1+θ2) ]
+```
+
+```python
+import numpy as np
+
+L1 = L2 = 1.0
+
+def jacobian(t1, t2):
+    return np.array([
+        [-L1*np.sin(t1) - L2*np.sin(t1+t2), -L2*np.sin(t1+t2)],
+        [ L1*np.cos(t1) + L2*np.cos(t1+t2),  L2*np.cos(t1+t2)],
+    ])
+
+# Well-conditioned pose: theta1 = 30 deg, theta2 = 60 deg
+J = jacobian(np.radians(30), np.radians(60))
+print(np.round(J, 4))        # [[-1.5  -1.   ]
+                             #  [ 0.866 0.   ]]
+print(round(np.linalg.det(J), 4))   # 0.866  -> invertible
+
+# Drive joint 1 at 1 rad/s, joint 2 still:
+xdot = J @ np.array([1.0, 0.0])
+print(np.round(xdot, 4))     # [-1.5  0.866]  tool velocity in (x, y)
+
+# SINGULAR pose: theta2 = 0 -> arm straight
+Js = jacobian(np.radians(30), 0.0)
+print(round(np.linalg.det(Js), 6))  # 0.0  -> J^-1 undefined
+```
+
+At (30°, 60°) the determinant is 0.866, so the arm can move the tool in any direction and we can safely invert *J*. Straighten the elbow (θ2 = 0) and the determinant collapses to exactly 0 — the arm is at a singularity and can no longer move radially outward.
+
+## Related Terms
+
+<CardGrid>
+  <LinkCard title="Kinematics" description="Forward map whose derivative is the Jacobian." href="/robotics-glossary/concepts/fundamentals/kinematics/" />
+  <LinkCard title="Robot Dynamics" description="Adds mass and acceleration; the Jacobian links joint and task forces." href="/robotics-glossary/concepts/fundamentals/dynamics/" />
+  <LinkCard title="Force / Impedance Control" description="Uses Jᵀ to turn desired contact forces into joint torques." href="/robotics-glossary/concepts/control/force-control/" />
+  <LinkCard title="Motion Planning" description="Resolved-rate and IK solvers rely on J⁻¹ and avoid singularities." href="/robotics-glossary/concepts/control/motion-planning/" />
+</CardGrid>
+
+## Sources
+
+- Bruno Siciliano et al., *Robotics: Modelling, Planning and Control*, Springer, 2009 — Ch. 3 (differential kinematics, the manipulator Jacobian, and singularities).
+- Kevin M. Lynch and Frank C. Park, *Modern Robotics: Mechanics, Planning, and Control*, Cambridge University Press, 2017 — Ch. 5 (velocity kinematics and the space/body Jacobian).
+- Samuel R. Buss, "Introduction to Inverse Kinematics with Jacobian Transpose, Pseudoinverse and Damped Least Squares Methods," UCSD technical note, 2009-04-17 — derivation of damped least squares for singularity-robust IK.

@@ -1,0 +1,124 @@
+---
+title: Force / Impedance Control
+description: How robots regulate contact forces instead of rigid positions — impedance control as a programmable spring-damper, admittance control, hybrid force/position, and why it matters for safe, contact-rich manipulation.
+last_validated: 2026-06-01
+sidebar:
+  badge:
+    text: Deep Dive
+    variant: tip
+---
+
+import { Aside, Card, CardGrid, LinkCard, Tabs, TabItem } from '@astrojs/starlight/components';
+
+<span class="level-badge deepdive">Deep Dive</span>
+
+**Force / Impedance Control** is a family of control strategies that regulate the *interaction* between a robot and its environment rather than just its position. This matters because pure position control becomes dangerous the moment a robot touches something: it will fight any obstacle to reach its target, generating large forces from tiny errors.
+
+<Aside type="tip">
+Position control asks "where should the arm be?" Impedance control asks "how should the arm *feel* when pushed?" — it turns the robot into a programmable spring-damper whose stiffness and softness you choose.
+</Aside>
+
+## The problem with stiff position control
+
+A position controller tries to hit a target pose no matter what. During contact, a 1 mm position error against a rigid surface can demand enormous force, because the controller assumes free space. That is fine for moving through air, but unsafe for assembly (peg-in-hole jams), polishing (the tool gouges), or working near people (a stiff arm does not yield).
+
+## Impedance control law
+
+Instead of commanding a rigid position, impedance control commands a *force* that depends on how far and how fast the robot deviates from a desired motion:
+
+```
+F = K·(x_d − x) + D·(ẋ_d − ẋ)
+```
+
+Naming every symbol in words first:
+
+- **`x_d`** — desired position (where you *want* the end effector).
+- **`x`** — actual position (where it *is*).
+- **`ẋ_d`, `ẋ`** — desired and actual velocity.
+- **`K`** — virtual **stiffness**: how hard the robot springs back toward `x_d`. Low `K` = soft/compliant; high `K` = stiff.
+- **`D`** — virtual **damping**: how much the robot resists velocity, suppressing bounce.
+
+The robot behaves like a tunable mass-spring-damper attached to its target.
+
+### Impedance vs admittance
+
+- **Impedance**: *measure motion, command force.* Best for backdrivable, torque-controlled robots (e.g. Franka, many cobots).
+- **Admittance**: *measure force, command motion.* Best for stiff, position-controlled robots — a force sensor decides how far to move.
+
+## Mapping task forces to joints — the Jacobian
+
+A desired task-space force `F` becomes joint torques through the transpose of the [Jacobian](/robotics-glossary/concepts/fundamentals/jacobian/):
+
+```
+τ = Jᵀ·F
+```
+
+## Hybrid force/position control
+
+Often you want force in some directions and position in others. Pressing a sponge along a table: control **downward force** to a setpoint while controlling **position** as you sweep along the surface.
+
+```
+   POSITION CONTROL (stiff)        IMPEDANCE CONTROL (springy)
+
+   target ●                        target ●
+          │  rigid link                   /\/\/\  virtual spring+damper
+          │                                │
+   ext →  ●  ← arm refuses to move  ext →  ●  ← arm yields, then pushes back
+   force  ▲     (huge contact force) force ╲      (gentle, bounded force)
+          │  fights the push              softly settles to equilibrium
+```
+
+## Prerequisites
+
+<CardGrid>
+  <LinkCard title="PID Control" description="The feedback loop that tracks errors — impedance gains play a role analogous to P (stiffness) and D (damping)." href="/robotics-glossary/concepts/control/pid/" />
+  <LinkCard title="Jacobian" description="Maps task-space forces to joint torques via τ = Jᵀ·F." href="/robotics-glossary/concepts/fundamentals/jacobian/" />
+</CardGrid>
+
+## Worked example: 1-D impedance
+
+A gripper is pushed 2 cm past its target. We compute the restoring force.
+
+- Desired position `x_d = 0.10 m`
+- Actual position `x = 0.12 m` (pushed 2 cm beyond target)
+- Stiffness `K = 500 N/m`
+- Damping `D = 20 N·s/m`
+- Actual velocity `ẋ = 0.05 m/s`, desired `ẋ_d = 0`
+
+```
+F = K·(x_d − x) + D·(ẋ_d − ẋ)
+  = 500·(0.10 − 0.12) + 20·(0 − 0.05)
+  = 500·(−0.02)       + 20·(−0.05)
+  = −10               + (−1)
+  = −11 N
+```
+
+The negative sign means the force points back toward the target (−x direction): the robot springs back gently with 11 N, not the unbounded force a stiff position controller would apply.
+
+```python
+def impedance_force(x_d, x, xdot_d, xdot, K, D):
+    return K * (x_d - x) + D * (xdot_d - xdot)
+
+F = impedance_force(0.10, 0.12, 0.0, 0.05, K=500, D=20)
+print(F)  # -11.0  (N, pushing back toward x_d)
+```
+
+<Aside type="caution">
+Many robot-learning policies output target *positions*. A compliant low-level controller underneath is what keeps execution safe when the policy is wrong — without it, a confident bad prediction becomes a hard collision.
+</Aside>
+
+## Related Terms
+
+<CardGrid>
+  <LinkCard title="Robot Dynamics" description="Mass, inertia, and torques — the physics impedance control shapes." href="/robotics-glossary/concepts/fundamentals/dynamics/" />
+  <LinkCard title="End Effector" description="The contact point where interaction forces are felt and regulated." href="/robotics-glossary/concepts/fundamentals/end-effector/" />
+  <LinkCard title="Jacobian" description="The bridge between task-space forces and joint torques." href="/robotics-glossary/concepts/fundamentals/jacobian/" />
+  <LinkCard title="Model Predictive Control" description="An alternative that optimizes contact-rich motion over a horizon." href="/robotics-glossary/concepts/control/mpc/" />
+</CardGrid>
+
+## Sources
+
+- Hogan, N. "Impedance Control: An Approach to Manipulation, Parts I–III." *ASME Journal of Dynamic Systems, Measurement, and Control*, 1985. (Foundational impedance control paper.)
+- Siciliano, B., Sciavicco, L., Villani, L., Oriolo, G. *Robotics: Modelling, Planning and Control*, Springer, 2009 — Ch. 9, Force Control.
+- Raibert, M. & Craig, J. "Hybrid Position/Force Control of Manipulators." *ASME Journal of Dynamic Systems, Measurement, and Control*, 1981.
+- Franka Emika / `libfranka` Cartesian impedance control example, documentation accessed 2026-06-01.

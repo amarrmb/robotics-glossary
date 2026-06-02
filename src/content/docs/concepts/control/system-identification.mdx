@@ -1,0 +1,122 @@
+---
+title: System Identification
+description: Build a math model of a real system from measured input/output data instead of deriving it from physics — the recipe, grey-box vs black-box, and a runnable least-squares example.
+last_validated: 2026-06-01
+sidebar:
+  badge:
+    text: Practical
+    variant: success
+---
+
+import { Aside, Card, CardGrid, LinkCard, Tabs, TabItem } from '@astrojs/starlight/components';
+
+<span class="level-badge practical">Practical</span>
+
+**System Identification** is how you build a math model of a system from measured data instead of deriving it from first principles. You poke the system with known inputs, record the outputs, and fit a model that reproduces that behavior. It matters because model-based controllers like MPC and LQR need a model — and sysid is how you get one when the physics are too messy to hand-derive.
+
+<Aside type="tip">
+The core intuition: don't argue with the robot about what its equations *should* be. Drive it with a rich signal, watch what it actually does, and fit numbers until your model's predictions match reality.
+</Aside>
+
+## The Recipe
+
+1. **Excite** the system with a rich input — a step, a chirp (sweeping frequency), or a PRBS (pseudo-random binary signal) that stirs up many dynamics at once.
+2. **Log** the input and output data, time-aligned.
+3. **Pick a model structure** — how many states, linear or nonlinear.
+4. **Fit parameters** to minimize prediction error (least squares is the workhorse).
+5. **Validate on held-out data** the model never saw during fitting.
+
+## Grey-box vs Black-box
+
+- **Grey-box**: you know the *structure* from physics (e.g. a first-order motor model) and only fit the unknown constants — a time constant, a friction coefficient. Fewer parameters, more trustworthy extrapolation.
+- **Black-box**: you let a generic model (ARX, a state-space form, or a neural net) learn the input→output mapping with no physical assumptions. More flexible, but easier to overfit and harder to interpret.
+
+In robotics, sysid identifies motor and actuator models, measures friction and payload, calibrates a sim to match the real robot (the heart of [Sim-to-Real Transfer](/robotics-glossary/concepts/learning/sim-to-real/)), and supplies the dynamics model that MPC depends on.
+
+## Prerequisites
+
+<CardGrid>
+  <LinkCard title="State-Space Representation" description="The model structure sysid most often fits parameters into." href="/robotics-glossary/concepts/control/state-space/" />
+  <LinkCard title="Robot Dynamics" description="The first-principles physics that grey-box sysid builds on." href="/robotics-glossary/concepts/fundamentals/dynamics/" />
+</CardGrid>
+
+## How It Works
+
+```
+  known input            REAL SYSTEM             measured output
+  u (step/chirp/PRBS)    (unknown physics)        y (with noise)
+  ───────────────────►  ┌──────────────────┐  ───────────────────►
+                        │  ??? motor + load │
+                        └──────────────────┘
+                                 │  fit parameters to
+                                 │  minimize  ||y - ŷ||²
+                                 ▼
+                        ┌──────────────────┐
+  same input  ────────► │  FITTED MODEL    │ ─────►  ŷ ≈ y
+                        │  ŷ[k+1]=a·y+b·u  │       (predicted output)
+                        └──────────────────┘
+```
+
+## Runnable Example
+
+Identify a first-order system `y[k+1] = a·y[k] + b·u[k]` from step-response data. We generate synthetic data from known `a` and `b`, add small noise, then recover them with `numpy` least squares.
+
+```python
+import numpy as np
+
+rng = np.random.default_rng(0)
+
+# --- Ground truth (the "real system" we pretend not to know) ---
+a_true, b_true = 0.8, 0.5
+
+# --- 1. Excite with a step input, simulate, add measurement noise ---
+N = 200
+u = np.zeros(N)
+u[10:] = 1.0                      # step turns on at k=10
+y = np.zeros(N)
+for k in range(N - 1):
+    y[k + 1] = a_true * y[k] + b_true * u[k]
+y_meas = y + rng.normal(0, 0.01, size=N)   # noisy measurements
+
+# --- 2. Build the regression: y[k+1] = [y[k], u[k]] @ [a, b] ---
+Y_next = y_meas[1:]
+Phi    = np.column_stack([y_meas[:-1], u[:-1]])
+
+# --- 3. Fit on the first 70%, validate on the unseen rest ---
+split = int(0.7 * (N - 1))
+theta, *_ = np.linalg.lstsq(Phi[:split], Y_next[:split], rcond=None)
+a_hat, b_hat = theta
+
+# --- 4. Report recovered params and held-out error ---
+y_pred = Phi[split:] @ theta
+rmse = np.sqrt(np.mean((y_pred - Y_next[split:]) ** 2))
+print(f"a: true={a_true},  recovered={a_hat:.4f}")
+print(f"b: true={b_true},  recovered={b_hat:.4f}")
+print(f"validation RMSE (held-out): {rmse:.4f}")
+
+# Output:
+# a: true=0.8,  recovered=0.8001
+# b: true=0.5,  recovered=0.4999
+# validation RMSE (held-out): 0.0118
+```
+
+The recovered `a` and `b` match the true values to within noise, and the small held-out RMSE confirms the model generalizes rather than memorizing.
+
+<Aside type="caution">
+A model is only valid over the operating range you actually excited. A motor model fit at low speed may be useless at high speed, and overfitting noise is a real risk — always validate on data the fit never saw. If train error is tiny but validation error is large, your model learned the noise, not the system.
+</Aside>
+
+## Related Terms
+
+<CardGrid>
+  <LinkCard title="State-Space Representation" description="The model form sysid fills with identified parameters." href="/robotics-glossary/concepts/control/state-space/" />
+  <LinkCard title="Model Predictive Control" description="Consumes the identified dynamics to plan ahead." href="/robotics-glossary/concepts/control/mpc/" />
+  <LinkCard title="LQR" description="Optimal control that requires an accurate linear model." href="/robotics-glossary/concepts/control/lqr/" />
+  <LinkCard title="Sim-to-Real Transfer" description="Sysid calibrates the sim to match the real robot." href="/robotics-glossary/concepts/learning/sim-to-real/" />
+</CardGrid>
+
+## Sources
+
+- [System Identification Toolbox — MathWorks (R2026a, 2026)](https://www.mathworks.com/help/ident/) — Grey-box/black-box workflows, input design, and validation.
+- [Ljung, *System Identification: Theory for the User*, 2nd ed. (Prentice Hall, 1999)](https://www.pearson.com/en-us/subject-catalog/p/system-identification-theory-for-the-user/P200000003487) — The standard reference on model structures and prediction-error methods.
+- [scipy.signal & numpy.linalg.lstsq — SciPy/NumPy docs (v1.13, 2025)](https://numpy.org/doc/stable/reference/generated/numpy.linalg.lstsq.html) — Least-squares solver used in the example.

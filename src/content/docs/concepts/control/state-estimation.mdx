@@ -1,0 +1,97 @@
+---
+title: State Estimation
+description: How robots recover the best guess of their true internal state (position, velocity, orientation) from noisy, partial, and biased sensor measurements using the predict-correct loop.
+last_validated: 2026-06-01
+sidebar:
+  badge:
+    text: Conceptual
+    variant: note
+---
+
+import { Aside, Card, CardGrid, LinkCard, Tabs, TabItem } from '@astrojs/starlight/components';
+
+<span class="level-badge conceptual">Conceptual</span>
+
+**State Estimation** is the family of techniques that recover a robot's best guess of its true internal state — quantities like position, velocity, and orientation — from sensor data that is always noisy, incomplete, and biased. It matters because a robot can never measure its true state directly: every controller acts on an *estimate*, not the truth, so bad estimation means bad control.
+
+The fundamental problem is that sensors lie in three ways at once. They are **noisy** (random jitter on every reading), **partial** (a wheel encoder tells you distance but not orientation), and **biased** (a gyro drifts, a GPS sits a meter off). You need one clean, coherent state to act on — so you must combine many imperfect signals over time.
+
+<Aside type="tip">
+The core trick is to never trust a single number. Keep a *running belief* about the state, advance it with a model of how the robot moves, and gently nudge it whenever a measurement arrives — trusting the model and the sensor in proportion to how reliable each one is.
+</Aside>
+
+## Prerequisites
+
+<CardGrid>
+  <LinkCard title="State-Space Representation" description="How a system's state, dynamics, and outputs are written as vectors and matrices." href="/robotics-glossary/concepts/control/state-space/" />
+  <LinkCard title="Coordinate Frames" description="The reference frames that state quantities like position and orientation are expressed in." href="/robotics-glossary/concepts/fundamentals/coordinate-frames/" />
+</CardGrid>
+
+## The Predict–Correct Loop
+
+Nearly every estimator runs the same two-step engine. **Predict** uses a motion model to project the state forward ("I commanded the wheels forward, so I should now be ~10 cm ahead"). **Correct** waits for a measurement, then pulls the prediction toward it — weighted by how much you trust the model versus the sensor.
+
+```
+        ┌──────────────────────────────────────────┐
+        │                                          │
+        ▼                                          │
+  ┌───────────┐   motion model    ┌───────────┐    │
+  │  PREDICT  │ ────────────────► │  belief   │    │
+  │ (advance) │   + control input │ (estimate)│    │
+  └───────────┘                   └─────┬─────┘    │
+                                        │          │
+   measurement z ──────────────────►┌───▼─────┐    │
+                                    │ CORRECT │ ───┘
+                                    │ (nudge) │
+                                    └─────────┘
+```
+
+This is the idea of an **observer**: a model of the system that runs alongside the real robot, driven by the *error* between what it predicted the output would be and what was actually measured. The **Luenberger observer** is the deterministic version (a fixed gain on that error); the **Kalman filter** is the probabilistic version (the gain is computed from how uncertain the model and sensor are).
+
+## Worked Example: 1D Inverse-Variance Fusion
+
+This is the heart of the Kalman correction step without the full machinery. Suppose your motion model **predicts** position = 10.0 m with variance 4 (fairly uncertain), and a range sensor **measures** 11.0 m with variance 1 (more trustworthy). Lower variance means more trust, so we weight each estimate by its *inverse variance* (1/4 and 1/1):
+
+```
+fused = (10.0/4 + 11.0/1) / (1/4 + 1/1)
+      = (2.5 + 11.0) / (0.25 + 1.0)
+      = 13.5 / 1.25
+      = 10.8 m
+
+fused variance = 1 / (1/4 + 1/1)
+               = 1 / 1.25
+               = 0.8
+```
+
+```python
+def fuse(pred, pred_var, meas, meas_var):
+    inv = 1/pred_var + 1/meas_var
+    return (pred/pred_var + meas/meas_var) / inv, 1/inv
+
+print(fuse(10.0, 4.0, 11.0, 1.0))  # (10.8, 0.8)
+```
+
+Two things to notice. The fused estimate (10.8) sits closer to the measurement, because the sensor was more trusted. And the fused variance (0.8) is *smaller than either input* — combining two imperfect sources leaves you more certain than you were with either alone.
+
+## Route to the Specific Tools
+
+State estimation is the umbrella; pick the tool to fit the problem:
+
+- **Kalman filter** — the Gaussian workhorse; full predict-correct with matrices for linear systems (EKF/UKF for nonlinear).
+- **Complementary filter** — a lightweight, gain-based blend, common for fusing gyro and accelerometer on small embedded targets.
+- **Particle filters / SLAM** — for localization and mapping where the belief is non-Gaussian or multi-modal.
+
+## Related Terms
+
+<CardGrid>
+  <LinkCard title="Kalman Filter" description="The probabilistic predict-correct estimator for Gaussian systems." href="/robotics-glossary/concepts/control/kalman-filter/" />
+  <LinkCard title="Complementary Filter" description="Lightweight gain-based fusion of fast and slow sensors." href="/robotics-glossary/concepts/control/complementary-filter/" />
+  <LinkCard title="Sensor Fusion" description="Combining multiple sensors into one coherent estimate." href="/robotics-glossary/concepts/perception/sensor-fusion/" />
+  <LinkCard title="SLAM" description="Simultaneous localization and mapping via state estimation." href="/robotics-glossary/concepts/perception/slam/" />
+</CardGrid>
+
+## Sources
+
+- [State Observer — Wikipedia](https://en.wikipedia.org/wiki/State_observer) — Luenberger observer and the deterministic vs. probabilistic distinction (accessed 2026-06-01).
+- [Thrun, Burgard, Fox, *Probabilistic Robotics* (MIT Press, 2005)](https://mitpress.mit.edu/9780262201629/probabilistic-robotics/) — Bayesian recursive estimation and the predict-update cycle.
+- [Kalman Filter — Wikipedia](https://en.wikipedia.org/wiki/Kalman_filter) — Inverse-variance weighting as the 1D special case of the Kalman update (accessed 2026-06-01).
