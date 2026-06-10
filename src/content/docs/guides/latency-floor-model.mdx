@@ -263,20 +263,9 @@ effective number when computing $R_1$** — it's the difference between a predic
 - **Re-check the ratio after every optimization.** The regime can shift — what was bandwidth-bound at bf16 may be overhead-bound at FP8.
 - **GPU partitioning (MIG) moves $R_3$, not $R_1$.** A MIG slice keeps full memory bandwidth (on unified-memory Jetsons) but a fraction of the SMs — $R_3$ scales inversely with slice size while $R_1$ stays put. Measured on Thor (JetPack 7.2): the full 20-SM GPU sits almost exactly at $R_1 \approx R_3$ (the crossover), so any slice is compute-bound ($\tau/R_3 \approx 1.1$ on the 12-SM and 8-SM slices — near-linear SM scaling, only ~6% cross-slice interference). Corollary: on a slice, quantization helps via *compute* (fewer bytes to dequant-multiply), and the "batch-1 is always bandwidth-bound" rule above no longer applies.
 
-## Try It Yourself
-
-We built an interactive calculator that computes $R_1$, $R_2$, $R_3$, classifies your regime, and shows the optimization decision tree for any model-hardware combination. It includes presets for common configurations (GPT-2, LLaMA-7B, PersonaPlex, multi-stage pipelines) with our measured validation data.
-
-**[Open the Latency Floor Calculator →](https://calculator.devicenexus.ai)**
-
 ---
 
 <CardGrid>
-  <LinkCard
-    title="Read the Full Paper"
-    description="The complete technical paper with proofs, cross-platform validation, and profiling breakdowns."
-    href="https://arxiv.org/abs/XXXX.XXXXX"
-  />
   <LinkCard
     title="DeviceNexus.ai"
     description="Infrastructure for physical AI — from training to fleet deployment."
