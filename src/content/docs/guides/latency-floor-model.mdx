@@ -5,7 +5,7 @@ sidebar:
   badge:
     text: Guide
     variant: caution
-last_validated: 2026-02-01
+last_validated: 2026-06-10
 ---
 
 import { Aside, Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
@@ -46,7 +46,7 @@ $$R_1 = \frac{P \cdot b}{B_w}$$
 
 where $P$ is the parameter count, $b$ is bytes per weight, and $B_w$ is memory bandwidth.
 
-**Example:** A 7B parameter model in bf16 (2 bytes per weight) on a Jetson Thor (200 GB/s bandwidth):
+**Example:** A 7B parameter model in bf16 (2 bytes per weight) on a Jetson Thor (~200 GB/s *effective* bandwidth — nominal is 273, but ~190–200 is what decode actually achieves; see the hardware table below):
 
 $$R_1 = \frac{7 \times 10^9 \times 2}{200 \times 10^9} = 70 \text{ ms}$$
 
@@ -97,7 +97,7 @@ Let's walk through a real optimization. PersonaPlex is an 8.37B parameter speech
 ### Step 1: Compute the floors
 
 ```
-Hardware: Jetson Thor, 200 GB/s bandwidth, ~2000 TOPS (FP8)
+Hardware: Jetson Thor, ~200 GB/s effective bandwidth (273 nominal), ~2000 TOPS (FP8)
 
 R1 (bf16) = 8.37B × 2 / 200 GB/s = 83.7 ms    ← weight reads
 R2 (3000 context) = 7.5 ms                       ← KV cache reads
@@ -155,7 +155,7 @@ Further quantization shrinks $R_1$ (the bandwidth floor), but $\tau$ doesn't fol
 
 **We confirmed this the hard way.** NVFP4 quantization on this model was **5.8–10.6× slower**, not faster. The FP4 dequantization overhead vastly exceeded the bandwidth savings.
 
-We also confirmed it cross-platform. On DGX Spark (273 GB/s — 36% more bandwidth than Jetson Thor), the `lm_step` at FP8 was... 70.0 ms. Virtually identical to Thor's 70.2 ms. If the model were still bandwidth-bound, more bandwidth should have helped. It didn't. The bottleneck is overhead.
+A cross-platform footnote: on DGX Spark, the `lm_step` at FP8 was 70.0 ms — virtually identical to Thor's 70.2 ms. We originally read this as more evidence of overhead-bound behavior ("more bandwidth didn't help"), but it isn't a valid test: Thor and Spark have the **same** memory subsystem (256-bit LPDDR5X at 273 GB/s nominal), so a bandwidth-bound model would also show identical times. We've since measured both machines delivering ~190 GB/s effective with llama.cpp batch-1 decode — identical walls. The NVFP4 result above stands on its own as the evidence for the overhead regime; the cross-platform comparison merely confirms the two machines share one memory wall.
 
 ### The full scorecard
 
@@ -238,15 +238,21 @@ The TTS runs on CPU and takes only 59 ms for a typical 44-character response (~0
 
 ### Common hardware specs
 
-| Platform | Memory Bandwidth | Compute (FP8) |
-|----------|-----------------|---------------|
-| Jetson Orin NX 16GB | 102 GB/s | ~100 TOPS |
-| Jetson Orin AGX 64GB | 205 GB/s | ~275 TOPS |
-| Jetson Thor 128GB | ~200 GB/s | ~2000 TOPS |
-| DGX Spark 128GB | ~273 GB/s | — |
-| RTX 4090 | 1008 GB/s | 660 TOPS |
-| A100 80GB | 2039 GB/s | 624 TOPS |
-| H100 SXM | 3350 GB/s | 1979 TOPS |
+| Platform | Memory Bandwidth (nominal) | Measured effective* | Compute (FP8) |
+|----------|-----------------|-----|---------------|
+| Jetson Orin NX 16GB | 102 GB/s | — | ~100 TOPS |
+| Jetson Orin AGX 64GB | 205 GB/s | — | ~275 TOPS |
+| Jetson Thor 128GB | 273 GB/s | ~190 GB/s | ~2000 TOPS |
+| DGX Spark 128GB | 273 GB/s | ~190 GB/s | — |
+| RTX 4090 | 1008 GB/s | — | 660 TOPS |
+| A100 80GB | 2039 GB/s | — | 624 TOPS |
+| H100 SXM | 3350 GB/s | — | 1979 TOPS |
+
+*Effective = what batch-1 LLM decode actually achieves (llama.cpp Q4_K_M, measured 2026-06: two model
+sizes on both machines all converge on ~190 GB/s ≈ 70% of nominal). Where we haven't measured, assume
+~70% of nominal for LPDDR platforms; HBM platforms typically achieve a higher fraction. **Use the
+effective number when computing $R_1$** — it's the difference between a prediction that lands within
+5% and one that's 30% optimistic.
 
 ### Rules of thumb
 
@@ -255,6 +261,7 @@ The TTS runs on CPU and takes only 59 ms for a typical 44-character response (~0
 - **Small models (< 1B params) are often overhead-bound regardless of precision.** $R_1$ is so low that dispatch overhead dominates. Skip quantization, go straight to TensorRT/CUDA graphs.
 - **$R_2$ only matters at long contexts.** At 1K tokens, $R_2$ is typically < 10% of $R_1$. At 100K tokens, $R_2$ can dominate.
 - **Re-check the ratio after every optimization.** The regime can shift — what was bandwidth-bound at bf16 may be overhead-bound at FP8.
+- **GPU partitioning (MIG) moves $R_3$, not $R_1$.** A MIG slice keeps full memory bandwidth (on unified-memory Jetsons) but a fraction of the SMs — $R_3$ scales inversely with slice size while $R_1$ stays put. Measured on Thor (JetPack 7.2): the full 20-SM GPU sits almost exactly at $R_1 \approx R_3$ (the crossover), so any slice is compute-bound ($\tau/R_3 \approx 1.1$ on the 12-SM and 8-SM slices — near-linear SM scaling, only ~6% cross-slice interference). Corollary: on a slice, quantization helps via *compute* (fewer bytes to dequant-multiply), and the "batch-1 is always bandwidth-bound" rule above no longer applies.
 
 ## Try It Yourself
 
